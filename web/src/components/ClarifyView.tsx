@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { titleCase } from '../format'
 import type { CampaignResult } from '../types'
 import OutcomeBanner from './OutcomeBanner'
 
@@ -15,7 +16,7 @@ function BestGuess({ result }: { result: CampaignResult }) {
   const chips = result.brief
     ? [
         result.brief.product && `Product: ${result.brief.product}`,
-        result.brief.categories[0] && `Category: ${result.brief.categories[0]}`,
+        result.brief.categories[0] && `Category: ${titleCase(result.brief.categories[0])}`,
         result.brief.audience_type !== 'unclear' && `Audience: ${result.brief.audience_type}`,
       ].filter((c): c is string => !!c)
     : []

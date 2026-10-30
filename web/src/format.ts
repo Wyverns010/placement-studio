@@ -57,3 +57,8 @@ export function jsonHighlight(obj: unknown): string {
   }
   return out + esc(text.slice(last))
 }
+
+/** Rewrites snake_case tokens inside free text as plain words: "pet_food" -> "pet food". */
+export function humanise(s: string): string {
+  return s.replace(/\b[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+\b/g, (m) => m.replace(/_/g, ' '))
+}

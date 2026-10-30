@@ -1,5 +1,5 @@
 import { personaById } from '../catalog'
-import { pct, titleCase, usd } from '../format'
+import { humanise, pct, titleCase, usd } from '../format'
 import type { CampaignConfig, Creative, PersonaScore, PublisherScore } from '../types'
 
 const SHADES = ['#7c3aed', '#a78bfa', '#c4b5fd', '#ddd2fb', '#ece6fb']
@@ -15,7 +15,8 @@ function Row({
   config: CampaignConfig
   children: React.ReactNode
 }) {
-  const tip = config.rationales?.[rkey]
+  const raw = config.rationales?.[rkey]
+  const tip = raw ? humanise(raw) : undefined
   return (
     <div
       className="grid grid-cols-1 gap-1 border-b border-[#f0ebf8] py-3 text-[13px] last:border-0 sm:grid-cols-[150px_1fr] sm:gap-3"
@@ -26,7 +27,10 @@ function Row({
         {label}
         {tip && <span className="text-[#b9aed3]"> ⓘ</span>}
       </span>
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0">
+        {children}
+        {tip && <p className="mt-1 mb-0 text-[11.5px] leading-snug text-muted">{tip}</p>}
+      </div>
     </div>
   )
 }

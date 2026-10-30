@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { jsonHighlight, pct, usd } from './format'
+import { humanise, jsonHighlight, pct, usd } from './format'
 
 describe('usd / pct', () => {
   it('formats dollars with separators', () => {
@@ -40,5 +40,12 @@ describe('jsonHighlight', () => {
       .replace(/&amp;/g, '&')
     expect(JSON.parse(text)).toEqual(obj)
     expect(text).toBe(JSON.stringify(obj, null, 2))
+  })
+})
+
+describe('humanise', () => {
+  it('turns snake_case tokens into words and leaves the rest alone', () => {
+    expect(humanise('interests pet_food, wellness_dtc, US')).toBe('interests pet food, wellness dtc, US')
+    expect(humanise('$42 target CPA')).toBe('$42 target CPA')
   })
 })

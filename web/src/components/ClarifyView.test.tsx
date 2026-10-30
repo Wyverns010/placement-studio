@@ -33,6 +33,18 @@ function setup(over: Partial<CampaignResult> = {}, props: { rebuilding?: boolean
 }
 
 describe('ClarifyView', () => {
+  it('humanises the best-guess category chip', () => {
+    const brief = {
+      describes_business: true, product: 'Kit', audience_type: 'consumer', categories: ['pet_food'],
+      adjacent_categories: [], conflicts: [], price_usd: null, price_tier: 'unknown',
+      business_model: 'unknown', age_min: null, age_max: null, gender_skew: 'unknown', facts: [],
+      unknowns: [], self_confidence: 0.4,
+    } as unknown as CampaignResult['brief']
+    setup({ brief })
+    expect(screen.getByText('Category: Pet food')).toBeInTheDocument()
+    expect(screen.queryByText(/pet_food/)).toBeNull()
+  })
+
   it('Rebuild is disabled until a question is answered', async () => {
     const { user, onRebuild } = setup()
     const btn = screen.getByRole('button', { name: /rebuild campaign/i })

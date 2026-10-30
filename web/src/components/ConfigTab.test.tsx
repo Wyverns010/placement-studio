@@ -64,6 +64,17 @@ describe('ConfigTab', () => {
     expect(screen.getByTitle('65% of $64 order value')).toHaveTextContent('Bid strategy')
   })
 
+  it('shows each rationale as a visible line under its row, snake_case humanised', () => {
+    const withTargeting = {
+      ...config,
+      rationales: { ...config.rationales, targeting: '3 personas, interests pet_food, pet_health, ages 50-80' },
+    }
+    render(<ConfigTab config={withTargeting} />)
+    expect(screen.getByText('65% of $64 order value')).toBeInTheDocument()
+    expect(screen.getByText('3 personas, interests pet food, pet health, ages 50-80')).toBeInTheDocument()
+    expect(screen.queryByText(/pet_food/)).toBeNull()
+  })
+
   it('escapes markup from values in the JSON view', async () => {
     const user = userEvent.setup()
     const evil = { ...config, campaign_id: '<script>alert(1)</script>' }
