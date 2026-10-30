@@ -59,6 +59,10 @@ scored 34/36. Before the fix, train was 84/84. The one case it lost, `clear-beve
 can, sold in 12-packs"), had only passed because the prompt quoted its own wording. It was left as
 a known miss rather than re-tuned.
 
+**Caveat:** the prompt was revised after viewing held-out case texts, in order to remove the
+copied wording. That makes 35/36 a post-hoc held-out figure, not a pristine one. The next batch of
+fresh cases, written after this prompt, will be the clean check. Both numbers are kept above.
+
 `aov_below_log2_scale: 5` was fit on the train split only. Values 4, 5 and 6 gave identical train
 results in the offline simulation.
 
