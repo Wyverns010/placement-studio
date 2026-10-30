@@ -57,3 +57,14 @@ def test_age_range_from_brief_or_personas():
     cfg2, _, personas = _build()
     ranges = [(x.age_min, x.age_max) for x in CAT.personas if x.id in {p.persona_id for p in personas}]
     assert cfg2.targeting["age_range"] == [min(r[0] for r in ranges), max(r[1] for r in ranges)]
+
+
+def test_one_sided_age_fills_bounds_in_config():
+    b = B.model_copy(update={"age_min": 50, "age_max": None})
+    cfg, _, _ = _build(b=b)
+    assert cfg.targeting["age_range"] == [50, T.audience.age_ceiling]
+    assert "None" not in cfg.rationales["targeting"]
+    assert f"ages 50-{T.audience.age_ceiling}" in cfg.rationales["targeting"]
+    b = B.model_copy(update={"age_min": None, "age_max": 35})
+    cfg, _, _ = _build(b=b)
+    assert cfg.targeting["age_range"] == [T.audience.age_floor, 35]

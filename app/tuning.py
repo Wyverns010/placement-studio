@@ -115,6 +115,15 @@ class InputTuning(BaseModel):
     max_chars: int
 
 
+class AudienceTuning(BaseModel):
+    age_floor: int
+    age_ceiling: int
+
+
+class RateLimitTuning(BaseModel):
+    global_runs_per_hour: int
+
+
 class Tuning(BaseModel):
     publisher: PublisherTuning
     persona: PersonaTuning
@@ -123,6 +132,8 @@ class Tuning(BaseModel):
     gate: GateTuning
     creative: CreativeTuning
     input: InputTuning
+    audience: AudienceTuning
+    ratelimit: RateLimitTuning
 
 
 def load_tuning(path: Path = Path("config/tuning.yaml")) -> Tuning:

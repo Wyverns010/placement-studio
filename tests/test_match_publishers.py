@@ -70,15 +70,18 @@ def _pub(pid):
     return CAT.publisher(pid)
 
 
-def test_age_overlap_partial_and_single_bound_unknown():
+def test_age_overlap_partial_and_single_bound_filled():
     p = _pub("pub_007")  # 30-55
     lo, hi = 40, 70  # overlap 40-55 = 15 of 30 -> 0.5
     s = score_publishers(brief(age_min=lo, age_max=hi), CAT, T)
     aw = T.publisher.audience_weights
     u = T.publisher.unknown_factor
     assert abs(_f(s, "pub_007", "audience").score - (aw.age * 0.5 + aw.gender * u)) < 1e-9
-    s = score_publishers(brief(age_min=40), CAT, T)  # single bound -> unknown
-    assert abs(_f(s, "pub_007", "audience").score - u) < 1e-9
+    s = score_publishers(brief(age_min=40), CAT, T)  # one bound -> 40-80 (age_ceiling)
+    assert T.audience.age_ceiling == 80
+    assert abs(_f(s, "pub_007", "audience").score - (aw.age * 15 / 40 + aw.gender * u)) < 1e-9
+    s = score_publishers(brief(age_max=40), CAT, T)  # 18-40 (age_floor): overlap 30-40 = 10 of 22
+    assert abs(_f(s, "pub_007", "audience").score - (aw.age * 10 / 22 + aw.gender * u)) < 1e-9
     assert p.age_min == 30 and p.age_max == 55
 
 

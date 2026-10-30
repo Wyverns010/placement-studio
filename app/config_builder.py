@@ -5,6 +5,7 @@ import re
 
 from app.budget import allocate, order_value_used, target_cpa
 from app.catalog import Catalog
+from app.match import age_bounds
 from app.models import (Brief, CampaignConfig, Creative, GateResult, LineItem,
                         PersonaScore, PublisherScore)
 from app.tuning import Tuning
@@ -58,12 +59,15 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     bid, cap = t.bid, t.bid.frequency_cap
     order_value = order_value_used(brief, publishers, catalog)
 
-    if personas and brief.age_min is None and brief.age_max is None:
+    bounds = age_bounds(brief, t)
+    if bounds is not None:
+        age_range = list(bounds)
+    elif personas:
         ages = [(p.age_min, p.age_max) for p in catalog.personas
                 if p.id in {s.persona_id for s in personas}]
         age_range = [min(a for a, _ in ages), max(b for _, b in ages)] if ages else [None, None]
     else:
-        age_range = [brief.age_min, brief.age_max]
+        age_range = [None, None]
     gender = brief.gender_skew if brief.gender_skew in ("female", "male") else "all"
     interests = _dedup(brief.categories + brief.adjacent_categories)
     cpa_limit = round(cpa * bid.guardrail_cpa_multiple, 2)

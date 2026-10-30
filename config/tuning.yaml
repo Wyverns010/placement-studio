@@ -52,3 +52,8 @@ creative:
   claim_words: [clinically, proven, cure, guaranteed, "#1", doctor, vet-recommended, award]
 input:
   max_chars: 1500
+audience:
+  age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
+  age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)
+ratelimit:
+  global_runs_per_hour: 120     # process-wide cap on uncached live (paid) runs

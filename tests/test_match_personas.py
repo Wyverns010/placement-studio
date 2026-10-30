@@ -118,3 +118,13 @@ def test_conflict_penalty_visible_in_public_fit():
     a = _by_id(score_personas(brief(**kw), CAT, T), "persona_002").fit
     b = _by_id(score_personas(brief(conflicts=["luxury positioning"], **kw), CAT, T), "persona_002").fit
     assert a - b == pytest.approx(0.35)
+
+
+def test_one_sided_age_is_filled_from_tuning():
+    s = score_personas(brief(**DOG, age_min=50), CAT, T)
+    for row in s:
+        note = _factor(row, "age").note
+        assert "None" not in note and "unknown" not in note
+        assert note.endswith(f"vs 50–{T.audience.age_ceiling}")
+    s = score_personas(brief(**DOG, age_max=30), CAT, T)
+    assert _factor(s[0], "age").note.endswith(f"vs {T.audience.age_floor}–30")
