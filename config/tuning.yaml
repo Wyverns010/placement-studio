@@ -44,5 +44,6 @@ creative:
   headline_max_chars: 60
   body_max_chars: 160
   cta_max_chars: 24
+  claim_words: [clinically, proven, cure, guaranteed, "#1", doctor, vet-recommended, award]
 input:
   max_chars: 1500

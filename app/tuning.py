@@ -98,6 +98,7 @@ class CreativeTuning(BaseModel):
     headline_max_chars: int
     body_max_chars: int
     cta_max_chars: int
+    claim_words: list[str]
 
 
 class InputTuning(BaseModel):
