@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from pydantic import BaseModel
 
@@ -96,7 +97,9 @@ def _persona_block(persona: Persona, pub: PublisherScore, catalog: Catalog) -> s
     )
 
 
-def _call(text, brief, targets, catalog, llm, t, feedback: dict[str, list[str]] | None = None):
+def _call_one(text, brief, target, others, catalog, llm, t, violations: list[str] | None = None):
+    """One LLM call for one persona. Returns its CreativeItem, or None if it came back without one."""
+    persona, pub = target
     system = render(
         "creative",
         product=brief.product or "not stated",
@@ -104,23 +107,34 @@ def _call(text, brief, targets, catalog, llm, t, feedback: dict[str, list[str]] 
         headline_max=t.creative.headline_max_chars,
         body_max=t.creative.body_max_chars,
         cta_max=t.creative.cta_max_chars,
-        personas="\n\n".join(_persona_block(p, pub, catalog) for p, pub in targets),
+        personas=_persona_block(persona, pub, catalog),
+        others="\n".join(
+            f"- {o.name}: top messaging preference: {o.messaging_preferences[0] if o.messaging_preferences else 'none'}"
+            for o, _ in others
+        )
+        or "- (none; this is the only persona)",
     )
     user = wrap_advertiser_text(text)
-    if feedback:
-        lines = [
-            "Your previous ads broke the rules. Rewrite only the personas below and fix every problem:",
-        ]
-        for pid, vs in feedback.items():
-            lines.append(f"- {pid}: " + "; ".join(vs))
-        user += "\n\n" + "\n".join(lines)
+    if violations:
+        user += (
+            "\n\nYour previous ad broke the rules. Rewrite it and fix every problem: "
+            + "; ".join(violations)
+        )
     out = llm.parse(system=system, user=user, schema=CreativeBatch, model=model_creative())
-    items: dict[str, CreativeItem] = {}
-    wanted = {p.id for p, _ in targets}
-    for it in out.items:
-        if it.persona_id in wanted and it.persona_id not in items:
-            items[it.persona_id] = it
-    return items
+    return next((it for it in out.items if it.persona_id == persona.id), None)
+
+
+def _call_many(text, brief, targets, all_targets, catalog, llm, t, feedback=None) -> dict[str, CreativeItem]:
+    """Concurrent per-persona calls; the first LLMError (or other exception) propagates."""
+    feedback = feedback or {}
+
+    def run(target):
+        others = [x for x in all_targets if x[0].id != target[0].id]
+        return _call_one(text, brief, target, others, catalog, llm, t, feedback.get(target[0].id))
+
+    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+        results = list(pool.map(run, targets))  # input order; re-raises worker exceptions
+    return {p.id: it for (p, _), it in zip(targets, results) if it is not None}
 
 
 def write_creatives(
@@ -153,7 +167,7 @@ def write_creatives(
         c.fact_violations = check_facts(c, text, t)
         return c
 
-    items = _call(text, brief, targets, catalog, llm, t)
+    items = _call_many(text, brief, targets, targets, catalog, llm, t)
     result: dict[str, Creative] = {pid: build(it) for pid, it in items.items()}
 
     def problems() -> dict[str, list[str]]:
@@ -169,7 +183,7 @@ def write_creatives(
     bad = problems()
     if bad:
         retry_targets = [(p, pub) for p, pub in targets if p.id in bad]
-        for pid, it in _call(text, brief, retry_targets, catalog, llm, t, feedback=bad).items():
+        for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, feedback=bad).items():
             result[pid] = build(it)
     return [result[p.id] for p, _ in targets if p.id in result]
 

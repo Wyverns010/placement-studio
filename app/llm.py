@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import tempfile
+import threading
 from pathlib import Path
 from typing import Callable, Protocol, TypeVar
 
@@ -75,10 +76,12 @@ class FakeProvider:
     def __init__(self, responses: dict[str, "BaseModel | Callable[[str, str], BaseModel] | Exception"]):
         self.responses = responses
         self.calls: list[dict] = []
+        self._lock = threading.Lock()
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
         name = schema.__name__
-        self.calls.append({"system": system, "user": user, "schema": name, "model": model})
+        with self._lock:
+            self.calls.append({"system": system, "user": user, "schema": name, "model": model})
         if name not in self.responses:
             raise LookupError(f"FakeProvider: no response registered for schema {name!r}")
         r = self.responses[name]

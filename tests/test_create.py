@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import random
+import re
+import threading
+import time
+
+import pytest
 from pydantic import BaseModel
 
 from app.create import (
@@ -10,7 +16,7 @@ from app.create import (
     clarify_questions,
     write_creatives,
 )
-from app.llm import FakeProvider
+from app.llm import FakeProvider, LLMError
 from app.models import ClarifyQuestion, Creative, PersonaScore, PublisherScore
 from tests.conftest import CAT, T, brief
 
@@ -28,6 +34,27 @@ def item(pid="persona_004", headline="Fresh food", body="Made with care", cta="S
 
 def batch(*items) -> CreativeBatch:
     return CreativeBatch.model_validate({"items": list(items)})
+
+
+def pid_of(system: str) -> str:
+    """The persona a per-persona call is for (its '## persona_id:' header)."""
+    return re.search(r"## persona_id: (\w+)", system).group(1)
+
+
+def per_persona(fn):
+    """Fake responder: fn(pid, attempt_no_for_that_persona) -> item dict or None (omit)."""
+    seen: dict[str, int] = {}
+    lock = threading.Lock()
+
+    def respond(system, user):
+        pid = pid_of(system)
+        with lock:
+            seen[pid] = seen.get(pid, 0) + 1
+            n = seen[pid]
+        it = fn(pid, n)
+        return batch(*([it] if it else []))
+
+    return respond
 
 
 def pscore(pid) -> PersonaScore:
@@ -78,43 +105,94 @@ def test_retry_once_then_keep_violation():
 
 
 def test_retry_fixes_violation_and_only_retries_bad_personas():
-    calls = []
-
-    def respond(system, user):
-        calls.append(user)
-        if len(calls) == 1:
-            return batch(item("persona_004", body="12 vitamins"), item("persona_001"))
-        return batch(item("persona_004", body="Clean recipe"))
-
-    llm = FakeProvider({"CreativeBatch": respond})
+    llm = FakeProvider({"CreativeBatch": per_persona(
+        lambda pid, n: item(pid, body="12 vitamins" if (pid == "persona_004" and n == 1) else "Clean recipe")
+    )})
     out = write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
                           [pub("pub_007")], CAT, llm, T)
-    assert len(llm.calls) == 2
+    assert len(llm.calls) == 3  # 2 first-pass + 1 retry
     assert [c.persona_id for c in out] == ["persona_004", "persona_001"]
     assert all(c.fact_violations == [] for c in out)
     assert out[0].body == "Clean recipe"
-    assert "The Wellness Optimizer" not in llm.calls[1]["system"] + llm.calls[1]["user"]
+    retry = [c for c in llm.calls if "12" in c["user"]]
+    assert len(retry) == 1 and pid_of(retry[0]["system"]) == "persona_004"
 
 
 def test_missing_persona_item_retried_then_dropped():
-    llm = FakeProvider({"CreativeBatch": batch(item("persona_004"))})
+    llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid) if pid == "persona_004" else None)})
     out = write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
                           [pub("pub_007")], CAT, llm, T)
-    assert len(llm.calls) == 2
+    assert len(llm.calls) == 3
     assert [c.persona_id for c in out] == ["persona_004"]
 
 
 def test_missing_persona_filled_on_retry():
-    def respond(system, user):
-        if len(llm.calls) == 1:
-            return batch(item("persona_004"))
-        return batch(item("persona_001"))
-
-    llm = FakeProvider({"CreativeBatch": respond})
+    llm = FakeProvider({"CreativeBatch": per_persona(
+        lambda pid, n: None if (pid == "persona_001" and n == 1) else item(pid))})
     out = write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
                           [pub("pub_007")], CAT, llm, T)
     assert [c.persona_id for c in out] == ["persona_004", "persona_001"]
     assert out[1].creative_id == "cr_persona_001"
+
+
+def test_one_call_per_persona_concurrently():
+    ids = ["persona_001", "persona_002", "persona_003", "persona_004"]
+    seen = []
+
+    def respond(system, user):
+        seen.append(pid_of(system))
+        time.sleep(0.2)
+        return batch(item(pid_of(system)))
+
+    llm = FakeProvider({"CreativeBatch": respond})
+    t0 = time.perf_counter()
+    out = write_creatives("Dog treats", brief(), [pscore(i) for i in ids],
+                          [pub("pub_007")], CAT, llm, T)
+    elapsed = time.perf_counter() - t0
+    assert len(llm.calls) == 4
+    assert sorted(seen) == ids
+    assert elapsed < 0.6
+    assert len(out) == 4
+
+
+def test_prompt_lists_other_personas_for_distinct_angles():
+    llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid))})
+    write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
+                    [pub("pub_007")], CAT, llm, T)
+    p4 = next(p for p in CAT.personas if p.id == "persona_004")
+    p1 = next(p for p in CAT.personas if p.id == "persona_001")
+    for call in llm.calls:
+        me, other = (p4, p1) if pid_of(call["system"]) == "persona_004" else (p1, p4)
+        sysm = call["system"]
+        assert sysm.count("## persona_id:") == 1  # only its own full block
+        assert other.name in sysm and other.messaging_preferences[0] in sysm
+        assert "different angle" in sysm
+
+
+def test_output_order_matches_persona_order():
+    ids = ["persona_003", "persona_001", "persona_004", "persona_002"]
+    rng = random.Random(7)
+
+    def respond(system, user):
+        time.sleep(rng.uniform(0, 0.15))
+        return batch(item(pid_of(system)))
+
+    llm = FakeProvider({"CreativeBatch": respond})
+    out = write_creatives("Dog treats", brief(), [pscore(i) for i in ids],
+                          [pub("pub_007")], CAT, llm, T)
+    assert [c.persona_id for c in out] == ids
+
+
+def test_llm_error_propagates():
+    def respond(system, user):
+        if pid_of(system) == "persona_001":
+            raise LLMError("boom")
+        return batch(item(pid_of(system)))
+
+    llm = FakeProvider({"CreativeBatch": respond})
+    with pytest.raises(LLMError):
+        write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
+                        [pub("pub_007")], CAT, llm, T)
 
 
 def test_one_creative_per_persona_on_matching_publisher():
