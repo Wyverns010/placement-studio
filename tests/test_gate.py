@@ -60,7 +60,6 @@ def test_llm_gate_no_signal_and_clarify_and_proceed():
     assert g.assess("x", _brief(describes_business=False)).outcome == "no_signal"
     assert g.assess("x", _brief(self_confidence=0.4)).outcome == "clarify"
     assert g.assess("x", _brief()).outcome == "proceed"
-    assert g.assess("x", _brief(audience_type="unclear")).outcome == "out_of_scope"
 
 
 def test_get_gate(monkeypatch):
@@ -71,3 +70,15 @@ def test_get_gate(monkeypatch):
         get_gate()
     with pytest.raises(ValueError):
         get_gate("bogus")
+
+
+def test_llm_gate_unclear_audience_low_confidence_clarifies():
+    g = LLMSelfReportGate(load_tuning())
+    r = g.assess("x", _brief(audience_type="unclear", self_confidence=0.4))
+    assert r.outcome == "clarify"
+
+
+def test_llm_gate_unclear_audience_high_confidence_proceeds():
+    g = LLMSelfReportGate(load_tuning())
+    r = g.assess("x", _brief(audience_type="unclear", self_confidence=0.85))
+    assert r.outcome == "proceed"
