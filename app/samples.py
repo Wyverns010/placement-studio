@@ -16,8 +16,8 @@ LABELS = {
     15: "idk just try it",
 }
 _LINE = re.compile(r"^(\d+)\.\s+(.*\S)\s*$")
-EXAMPLES = Path("data/example_advertisers.txt")
 ROOT = Path(__file__).resolve().parent.parent
+EXAMPLES = ROOT / "data/example_advertisers.txt"
 CACHE = ROOT / "cache/samples.json"
 
 

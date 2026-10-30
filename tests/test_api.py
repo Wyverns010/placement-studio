@@ -187,3 +187,36 @@ def test_cache_memoised(tmp_path, monkeypatch):
     monkeypatch.setattr(CampaignResult, "model_validate", classmethod(lambda c, *a, **k: calls.append(1) or orig(*a, **k)))
     assert samples_mod.cached_result("a", 25000, path=p)
     assert calls == []
+
+
+class _Boom:
+    calls: list = []
+
+    def parse(self, **kw):
+        raise AssertionError("LLM must not be called for a cached sample")
+
+
+def test_cached_sample_skips_llm(monkeypatch):
+    """The committed cache serves sample #1 even when the LLM provider always raises."""
+    monkeypatch.setattr(api, "REPLAY_DELAY_S", 0)
+    api.app.dependency_overrides[api.get_llm] = lambda: _Boom()
+    try:
+        c = TestClient(api.app)
+        s1 = samples_mod.load_samples()[0]
+        r = c.post("/api/campaign", json={"text": s1["text"]})
+        assert r.status_code == 200 and r.json()["outcome"] == "proceed"
+        ev = sse(c.get("/api/campaign/stream", params={"text": s1["text"]}))
+        assert [e for e, _ in ev][-1] == "done"
+    finally:
+        api.app.dependency_overrides.clear()
+
+
+def test_every_sample_is_cached():
+    for s in samples_mod.load_samples():
+        assert samples_mod.cached_result(s["text"], 25000) is not None, s["id"]
+
+
+def test_examples_path_anchored_to_repo_root(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert samples_mod.EXAMPLES.is_absolute()
+    assert len(samples_mod.load_samples()) == 15

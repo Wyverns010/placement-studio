@@ -1,0 +1,12 @@
+.venv
+node_modules
+web/node_modules
+web/dist
+.git
+.env
+.cache
+.superpowers
+evals/last_run.json
+docs/screenshots
+__pycache__
+.pytest_cache
