@@ -226,6 +226,34 @@ describe('streamCampaign', () => {
     expect(es.closed).toBe(true)
   })
 
+  it('a fast native error (<3 s) falls back to POST and surfaces the server detail', async () => {
+    vi.useFakeTimers()
+    const fn = mockFetch(429, { detail: 'Too many requests, slow down' })
+    const events: { stage: string; data: Record<string, unknown> }[] = []
+    streamCampaign({ text: 't', budget_usd: 1 }, (e) => events.push(e))
+    vi.advanceTimersByTime(2000)
+    FakeES.instances[0].emit('error')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(events).toEqual([{ stage: 'error', data: { message: 'Too many requests, slow down' } }])
+  })
+
+  it('a `null` done payload is a bad-result error (no throw)', () => {
+    const events: { stage: string; data: Record<string, unknown> }[] = []
+    streamCampaign({ text: 't', budget_usd: 1 }, (e) => events.push(e))
+    FakeES.instances[0].emit('done', null)
+    expect(events).toEqual([{ stage: 'error', data: { message: 'Something went wrong building this campaign.' } }])
+  })
+
+  it('a bad done on the fallback path is a bad-result error', async () => {
+    mockFetch(200, { nope: 1 })
+    const events: { stage: string; data: Record<string, unknown> }[] = []
+    streamCampaign({ text: 't', budget_usd: 1 }, (e) => events.push(e))
+    FakeES.instances[0].emit('error')
+    await vi.waitFor(() => expect(events).toHaveLength(1))
+    expect(events[0]).toEqual({ stage: 'error', data: { message: 'Something went wrong building this campaign.' } })
+  })
+
   it('a connection error after events reports a lost connection without refetching', () => {
     const fn = mockFetch(200, {})
     const events: { stage: string; data: Record<string, unknown> }[] = []

@@ -86,6 +86,7 @@ export function streamCampaign(
   let cancelled = false
   const openedAt = Date.now()
   let fallback: AbortController | undefined
+  let fallbackTimer: ReturnType<typeof setTimeout> | undefined
   let gotEvent = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -111,7 +112,8 @@ export function streamCampaign(
 
   const parse = (ev: Event): Record<string, unknown> => {
     try {
-      return JSON.parse((ev as MessageEvent).data) as Record<string, unknown>
+      const v: unknown = JSON.parse((ev as MessageEvent).data)
+      return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
     } catch {
       return {}
     }
@@ -144,10 +146,10 @@ export function streamCampaign(
       finish()
       const ctl = (fallback = new AbortController())
       let timedOut = false
-      const t = setTimeout(() => {
+      const t = (fallbackTimer = setTimeout(() => {
         timedOut = true
         ctl.abort()
-      }, STREAM_TIMEOUT_MS)
+      }, STREAM_TIMEOUT_MS))
       const emit = (e: StageEvent) => {
         clearTimeout(t)
         if (!cancelled) onEvent(e)
@@ -170,6 +172,7 @@ export function streamCampaign(
 
   return () => {
     cancelled = true
+    clearTimeout(fallbackTimer)
     fallback?.abort()
     finish()
   }

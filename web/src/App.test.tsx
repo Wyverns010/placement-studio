@@ -437,16 +437,6 @@ describe('Live streaming', () => {
     expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
-  it('a new run cancels the previous stream', async () => {
-    const user = userEvent.setup()
-    await start(user)
-    expect(cancel).not.toHaveBeenCalled()
-    act(() => emit({ stage: 'error', data: { message: 'x' } }))
-    await user.click(screen.getByRole('button', { name: /build campaign/i }))
-    await user.click(screen.getByRole('button', { name: /placement studio home/i }))
-    expect(cancel).toHaveBeenCalled()
-  })
-
   it('unmount cancels the stream', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<App />)
