@@ -100,7 +100,7 @@ def test_model_defaults(monkeypatch):
     monkeypatch.delenv("OPENAI_MODEL_FAST", raising=False)
     monkeypatch.delenv("OPENAI_MODEL_CREATIVE", raising=False)
     assert llm.model_fast() == "gpt-5.4-mini"
-    assert llm.model_creative() == "gpt-5.5"
+    assert llm.model_creative() == "gpt-5.4-mini"
     monkeypatch.setenv("OPENAI_MODEL_FAST", "x")
     assert llm.model_fast() == "x"
 

@@ -45,6 +45,8 @@ LLM calls are cached in `.cache/llm`, so re-runs are free; `--no-cache` forces l
 truncates input to `input.max_chars` like the API, and reports the creative retry rate (personas
 re-asked after a facts or length violation) and latency p50/p90.
 
+Note: the default creative model is now gpt-5.4-mini (was gpt-5.5); eval accuracy depends on the Understand model, which is unchanged.
+
 ## Latest numbers (2026-10-31, LLM gate, gpt-5.4-mini for Understand/clarify, gpt-5.5 for creatives, effort low)
 
 | | Accuracy | Invariant failures | Must hit | Must-not avoided |
