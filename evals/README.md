@@ -45,42 +45,46 @@ LLM calls are cached in `.cache/llm`, so re-runs are free; `--no-cache` forces l
 truncates input to `input.max_chars` like the API, and reports the creative retry rate (personas
 re-asked after a facts or length violation) and latency p50/p90.
 
-## Latest numbers (2026-10-30, gpt-5.4-mini for Understand/clarify, gpt-5.5 for creatives, effort low)
+## Latest numbers (2026-10-31, LLM gate, gpt-5.4-mini for Understand/clarify, gpt-5.5 for creatives, effort low)
 
 | | Accuracy | Invariant failures | Must hit | Must-not avoided |
 |---|---|---|---|---|
-| Train baseline (before tuning) | 61/84 = 72.6% | 0 | 90% | 100% |
-| Train after tuning, examples de-contaminated | 83/84 = 98.8% | 0 | 94% | 100% |
-| **Held-out test (official, re-run)** | **35/36 = 97.2%** | **0** | 100% | 100% |
-| Held-out test, first run (contaminated, superseded) | 34/36 = 94.4% | 0 | 100% | 100% |
+| Train baseline (before tuning, 2026-10-30) | 61/84 = 72.6% | 0 | 90% | 100% |
+| **Train, latest run** | **84/84 = 100%** | 0 | 94% | 100% |
+| **Held-out test, latest run** | **34/36 = 94.4%** | **0** | 100% | 100% |
 | **The 15 given examples** | **15/15** (13 train, 2 test) | 0 | | |
 
-**The first held-out run was contaminated.** Several examples in `prompts/understand.md` copied
-eval wording: "just make a campaign" (test case `ladder-protein-empty`), "Glossier", "$2.50 a can,
-12-packs", "we're in the self-care space", "we help people feel better" (given #5, which is in the
-test split), "idk just try it", "$1,200 handbag", plumber/dentist/lawyer, and others. Every example
-was replaced with wording that appears in no case text; the rules stayed the same. Train and test
-were then re-run once each. The official held-out figure is the re-run: **35/36**. The first run
-scored 34/36. Before the fix, train was 84/84. The one case it lost, `clear-beverages-1` ("$2.50 a
-can, sold in 12-packs"), had only passed because the prompt quoted its own wording. It was left as
-a known miss rather than re-tuned.
+**Run-to-run noise: about ±1 case per split.** Understand calls that are not in the disk cache
+(for example after a prompt edit) are re-sampled, and the LLM's brief can change slightly. The
+same Understand prompt and gate thresholds have scored 83/84 and 84/84 on train, and 34/36 and 35/36 held out.
+Read any single LLM figure with that band in mind.
 
-**Caveat:** the prompt was revised after viewing held-out case texts, in order to remove the
-copied wording. That makes 35/36 a post-hoc held-out figure, not a pristine one. The next batch of
-fresh cases, written after this prompt, will be the clean check. Both numbers are kept above.
+Earlier held-out runs: the 2026-10-30 re-run scored 35/36. The first held-out run, 34/36, was
+contaminated. Several examples in `prompts/understand.md` copied eval wording ("just make a
+campaign", "Glossier", "$2.50 a can, 12-packs", "we help people feel better", plumber, dentist,
+lawyer and others), so it was superseded. Every example was then replaced with wording that
+appears in no case text, and the rules stayed the same.
+
+**Caveat:** the prompt was revised after viewing held-out case texts in order to remove the copied
+wording. That makes every held-out figure since then post-hoc rather than pristine. The next batch
+of fresh cases, written after this prompt, will be the clean check.
 
 `aov_below_log2_scale: 5` was fit on the train split only. Values 4, 5 and 6 gave identical train
 results in the offline simulation.
 
-Targets: at least 85% held out, 15/15 given, 0 invariant failures. All met. Creative retry rate: 1
-persona in about 780 across the five post-tuning runs (about 0.1%), with no residual violations.
-Latency at concurrency 8, uncached Understand: p50 5.6s, p90 7.1s per case.
+Targets: at least 85% held out, 15/15 given, 0 invariant failures. All met. Creative retry rate:
+about 1% of personas on the latest held-out run, with no residual violations. Latency at
+concurrency 8, uncached Understand: p50 8.3s, p90 10.0s per case (the 2026-10-30 runs measured p50
+5.6s, p90 7.1s).
 
 ## Gate comparison: LLM self-report vs Laya (2026-10-31)
 
 `LayaGate` asks the open-source Laya encoder (`convaiinnovations/laya`, `typed-decisions`
-checkpoint, Apache-2.0) four typed questions from `prompts/laya_questions.yaml`. Both gates see the
-same Understand briefs (same LLM cache), so only the gate differs. Each gate was calibrated on train
+checkpoint, Apache-2.0) four typed questions from `prompts/laya_questions.yaml`. Both gates saw the
+same Understand briefs. On each split the Laya run came after the LLM run and read its briefs from
+the disk cache. As a check, `weak_fit_if_proceed` (computed from the brief) matched on all 108
+cases both gates let through, and the recommended publishers matched on all 78 cases both built.
+So only the gate differs. Each gate was calibrated on train
 only: the LLM gate keeps its earlier thresholds (`calibrate --dry-run` found no better values), and
 Laya got its own `gate.laya` block (proceed 0.45, no_signal 0.40, business 0.65; before
 calibration, on the LLM gate's thresholds, Laya scored 28/84). Question wording was iterated on
@@ -89,7 +93,7 @@ train only (82% to 87% in the offline fit). Held out was then run **once per gat
 | | LLM self-report gate | Laya gate |
 |---|---|---|
 | Train, after own calibration | **84/84 = 100%** | 73/84 = 86.9% |
-| **Held-out test, single run** | **34/36 = 94.4%** | 30/36 = 83.3% |
+| **Held-out test, single run** (LLM noise band about ±1 case) | **34/36 = 94.4%** | 30/36 = 83.3% |
 | The 15 given examples | 15/15 | 15/15 |
 | Recall, test: proceed / weak_fit / clarify / out_of_scope / no_signal | 17/17, 7/7, 3/4, 3/3, 4/5 | 16/17, 4/7, 4/4, 3/3, 3/5 |
 | Recall, train (same order) | 55/55, 7/7, 7/7, 9/9, 6/6 | 52/55, 6/7, 4/7, 6/9, 5/6 |
@@ -97,9 +101,8 @@ train only (82% to 87% in the offline fit). Held out was then run **once per gat
 | Extra cost to run | none | +1.6 GB checkpoint, about 1.9 GB RSS on CPU, torch in the image |
 
 Recall here groups cases by their first expected label and counts a hit when the outcome is any
-accepted label. This LLM held-out run is 34/36, not the 35/36 above, because some Understand calls
-were not cached and were re-sampled. It missed `ladder-throws-empty` (clarify) and
-`ladder-protein-vague` (no_signal).
+accepted label. The LLM row is the "latest run" from the table above. Even at the edge of its ±1
+noise band (33/36 to 35/36), the LLM gate stays clearly ahead of Laya's 30/36 held out.
 
 **Laya loses, by about 11 points held out.** The reasons are visible in the raw probabilities:
 
@@ -125,16 +128,19 @@ the LLM call) is not supported by these numbers: Laya's no_signal recall is 3/5 
 if a fine-tuned or larger Laya checkpoint becomes available. `GATE_IMPL=laya` stays available for
 side-by-side checks.
 
-## Known misses
+## Known misses (latest runs, LLM gate)
 
-- Held out: `ladder-throws-empty` ("Our company.") came back clarify. The model marked it as
-  business content with confidence 0.14. A likely fix is to treat `self_confidence < 0.2` as
-  no_signal in the gate. It was not applied, because that would mean tuning on the test split.
-  `ladder-protein-vague`, which missed on the first contaminated run, passed on the re-run.
-- Train: `clear-beverages-1`. The model kept the $2.50 per-can price instead of the 12-pack
-  price, so Pop & Sip's AOV fit fails and the case comes back weak_fit.
+- Held out: `ladder-throws-empty` ("Our company.") came back clarify. The model marks it as
+  business content with confidence 0.12. A likely fix is to treat a very low `self_confidence` as
+  no_signal. It was not applied, because that would mean tuning on the test split.
+- Held out: `ladder-protein-vague` came back no_signal instead of clarify (the model said it
+  describes no business). It passed on the 2026-10-30 re-run and missed on the first run, so it
+  sits right on the line.
+- `clear-beverages-1` ("$2.50 a can, sold in 12-packs") passes on the latest train run. On the
+  2026-10-30 run, the model kept the per-can price, Pop & Sip's AOV fit failed and the case came
+  back weak_fit. It flips between runs.
 - `given-09` / `para-09` (refill cleaning concentrate): Swiftcart (household) is recommended, but
-  Pantrygood, the must publisher, is not always in the list.
+  Pantrygood, the must publisher, is often missing from the list (missing on the latest run).
 - With a female buyer and a mid price tier, Marlowe & Co. and Linden Park (women aged 45 to 70)
   can fill the last slots for women's supplements. Audience and income match, but the category
   does not.

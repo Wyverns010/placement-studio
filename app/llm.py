@@ -43,7 +43,9 @@ class OpenAIProvider:
         if self._client is None:
             from openai import OpenAI
 
-            self._client = OpenAI(timeout=25, max_retries=0)
+            # strip: a secret pasted with a trailing newline is an illegal Authorization header
+            key = os.environ.get("OPENAI_API_KEY", "").strip() or None
+            self._client = OpenAI(api_key=key, timeout=25, max_retries=0)
         return self._client
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:

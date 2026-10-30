@@ -140,7 +140,7 @@ def test_client_built_with_no_retries_and_25s_timeout(monkeypatch):
 
     monkeypatch.setattr(openai, "OpenAI", Stub)
     llm.OpenAIProvider()._get_client()
-    assert seen == {"timeout": 25, "max_retries": 0}
+    assert seen["timeout"] == 25 and seen["max_retries"] == 0
 
 
 def test_reasoning_effort_sent_and_omitted(monkeypatch):
@@ -154,3 +154,29 @@ def test_reasoning_effort_sent_and_omitted(monkeypatch):
     monkeypatch.setenv("OPENAI_REASONING_EFFORT", "default")
     OpenAIProvider(client=c).parse(system="s", user="u", schema=Out, model="m")
     assert "reasoning" not in c.kw
+
+
+def test_openai_client_gets_stripped_api_key(monkeypatch):
+    # an HF Space secret pasted with a trailing newline made every request an illegal header
+    import openai
+
+    seen = {}
+
+    class _Spy:
+        def __init__(self, **kw):
+            seen.update(kw)
+
+    monkeypatch.setenv("OPENAI_API_KEY", "  sk-test\n")
+    monkeypatch.setattr(openai, "OpenAI", _Spy)
+    OpenAIProvider()._get_client()
+    assert seen == {"api_key": "sk-test", "timeout": 25, "max_retries": 0}
+
+
+def test_openai_client_blank_key_falls_back_to_none(monkeypatch):
+    import openai
+
+    seen = {}
+    monkeypatch.setenv("OPENAI_API_KEY", " \n")
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: seen.update(kw))
+    OpenAIProvider()._get_client()
+    assert seen["api_key"] is None

@@ -249,3 +249,21 @@ def test_calibrate_laya_writes_laya_block(tmp_path):
     g = yaml.safe_load(tun.read_text())["gate"]
     assert 0.2 < g["laya"]["proceed_threshold"] <= 0.45
     assert g["proceed_threshold"] == 0.70  # llm thresholds untouched
+
+
+def test_calibrate_laya_creates_missing_laya_block(tmp_path):
+    src = Path("config/tuning.yaml").read_text()
+    lines = src.splitlines(keepends=True)
+    i = next(n for n, line in enumerate(lines) if line.startswith("  laya:"))
+    del lines[i:i + 4]  # the laya: line and its three thresholds
+    tun = tmp_path / "t.yaml"
+    tun.write_text("".join(lines))
+    assert "laya" not in yaml.safe_load(tun.read_text())["gate"]
+    recs = [dict(rec("p", "proceed", 0.6, 0.1, 0.45), gate_impl="laya"),
+            dict(rec("c", "clarify", 0.6, 0.1, 0.2), gate_impl="laya")]
+    runs = tmp_path / "r.json"
+    runs.write_text(json.dumps(recs))
+    assert calibrate.main(["--gate", "laya", "--runs", str(runs), "--tuning", str(tun)]) == 0
+    new = yaml.safe_load(tun.read_text())
+    assert set(new["gate"]["laya"]) == {"proceed_threshold", "no_signal_threshold", "business_threshold"}
+    assert list(new) == list(yaml.safe_load(src))  # block inserted inside gate, order kept

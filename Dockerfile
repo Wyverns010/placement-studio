@@ -25,6 +25,9 @@ RUN if [ "$WITH_LAYA" = "1" ]; then \
       .venv/bin/python -c "import laya; laya.load('convaiinnovations/laya', subfolder='typed-decisions', device='cpu')" && \
       chown -R app "$HF_HOME"; \
     fi
+# From here on (including runtime) the Hub is never contacted: laya.load reads the baked cache.
+# Harmless when WITH_LAYA=0 (nothing uses huggingface_hub then).
+ENV HF_HUB_OFFLINE=1
 COPY app ./app
 COPY config ./config
 COPY prompts ./prompts

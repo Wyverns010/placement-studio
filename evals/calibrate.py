@@ -88,6 +88,27 @@ def write_tuning(path: Path, values: dict, *, block: str = "gate") -> None:
     Path(path).write_text("".join(lines))
 
 
+def ensure_laya_block(path: Path) -> bool:
+    """Insert an empty-valued gate.laya block at the end of the gate block if it is missing.
+    Returns True when it was added."""
+    lines = Path(path).read_text().splitlines(keepends=True)
+    start = next((i for i, line in enumerate(lines) if line.startswith("gate:")), None)
+    if start is None:
+        raise ValueError(f"no gate block in {path}")
+    end = next((i for i in range(start + 1, len(lines)) if re.match(r"^\S", lines[i])), len(lines))
+    if any(re.match(r"^  laya:", line) for line in lines[start:end]):
+        return False
+    while end > start + 1 and not lines[end - 1].strip():
+        end -= 1  # keep trailing blank lines after the block
+    if lines[end - 1] and not lines[end - 1].endswith("\n"):
+        lines[end - 1] += "\n"
+    block = ["  laya:                         # GATE_IMPL=laya only; fit with evals.calibrate --gate laya\n"]
+    block += [f"    {k}: 0\n" for k in KEYS]
+    lines[end:end] = block
+    Path(path).write_text("".join(lines))
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="evals.calibrate")
     ap.add_argument("--gate", choices=["llm", "laya"], default="llm")
@@ -120,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
         print("dry run: config not written")
     else:
         block = "gate.laya" if a.gate == "laya" else "gate"
+        if a.gate == "laya" and ensure_laya_block(a.tuning):
+            print(f"added a gate.laya block to {a.tuning}")
         write_tuning(a.tuning, best, block=block)
         print(f"wrote {block} in {a.tuning}")
     return 0
