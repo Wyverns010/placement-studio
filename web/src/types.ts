@@ -130,3 +130,14 @@ export interface CampaignRequest {
   budget_usd: number
   answers?: Record<string, string>
 }
+
+/** Stage payloads received so far while a live run streams in. */
+export interface StreamPartial {
+  understood?: Brief
+  gate?: GateResult
+  publishers?: { recommended: string[]; top: { id: string; name: string; fit: number }[] }
+  personas?: { selected: { id: string; name: string; fit: number; stretch: boolean }[] }
+  creatives?: { count: number }
+  config?: { line_items: number }
+  done?: true
+}

@@ -122,9 +122,27 @@
   border-color: #7c3aed44;
   border-top-color: var(--color-violet);
 }
+@keyframes pulse-dots {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.pulse-dots {
+  animation: pulse-dots 1.2s ease-in-out infinite;
+  font-weight: 600;
+}
+.gate-fill {
+  transition: width 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
 @media (prefers-reduced-motion: reduce) {
   .spinner {
     animation-duration: 2s;
+  }
+  .pulse-dots {
+    animation: none;
+    opacity: 0.6;
+  }
+  .gate-fill {
+    transition: none;
   }
 }
 

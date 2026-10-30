@@ -1,13 +1,14 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CampaignResult, Sample } from './types'
 
 vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
-  return { ...actual, getSamples: vi.fn(), runCampaign: vi.fn() }
+  return { ...actual, getSamples: vi.fn(), runCampaign: vi.fn(), streamCampaign: vi.fn() }
 })
-import { ApiError, getSamples, runCampaign } from './api'
+import { ApiError, getSamples, runCampaign, streamCampaign } from './api'
+import type { StageEvent } from './types'
 import App from './App'
 
 const samples: Sample[] = [
@@ -51,7 +52,30 @@ const result: CampaignResult = {
 beforeEach(() => {
   vi.mocked(getSamples).mockReset().mockResolvedValue(samples)
   vi.mocked(runCampaign).mockReset().mockResolvedValue(result)
+  // Default stream: behaves like the POST fallback (one `done` or `error`), so tests that
+  // mock runCampaign keep working. Streaming-specific tests override this.
+  vi.mocked(streamCampaign)
+    .mockReset()
+    .mockImplementation((req, onEvent) => {
+      let off = false
+      runCampaign(req)
+        .then((r) => !off && onEvent({ stage: 'done', data: r as unknown as Record<string, unknown> }))
+        .catch((e) => !off && onEvent({ stage: 'error', data: { message: e.message } }))
+      return () => {
+        off = true
+      }
+    })
+  setReducedMotion(true)
 })
+
+function setReducedMotion(reduce: boolean) {
+  window.matchMedia = ((q: string) => ({
+    matches: reduce && q.includes('reduce'),
+    media: q,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia
+}
 
 describe('Landing', () => {
   it('prefills the textarea with sample #1 and shows default budget', async () => {
@@ -326,5 +350,90 @@ describe('Outcome states', () => {
     expect(await screen.findByText('Test budget: $5,000 of $25,000')).toBeInTheDocument()
     expect(screen.getByText('Few publishers match this closely.')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+  })
+})
+
+describe('Live streaming', () => {
+  let emit!: (e: StageEvent) => void
+  const cancel = vi.fn()
+  beforeEach(() => {
+    cancel.mockReset()
+    setReducedMotion(false)
+    vi.mocked(streamCampaign).mockReset().mockImplementation((_req, onEvent) => {
+      emit = onEvent
+      return cancel
+    })
+  })
+
+  async function start(user: ReturnType<typeof userEvent.setup>) {
+    render(<App />)
+    await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
+    await user.click(screen.getByRole('button', { name: /build campaign/i }))
+  }
+  const panel = () => within(screen.getByRole('complementary', { name: /how we read your brand/i }))
+
+  it('fills lanes as stages arrive, then shows results after the 600 ms hold', async () => {
+    const user = userEvent.setup()
+    await start(user)
+    expect(panel().getAllByLabelText('working')).toHaveLength(4)
+
+    act(() => emit({ stage: 'understood', data: result.brief as unknown as Record<string, unknown> }))
+    expect(panel().getByText('Pet')).toBeInTheDocument()
+    expect(panel().getAllByLabelText('working')).toHaveLength(3)
+
+    act(() => emit({ stage: 'gate', data: result.gate as unknown as Record<string, unknown> }))
+    expect(panel().getByText(/0\.91 vs\. threshold 0\.70/)).toBeInTheDocument()
+    expect(panel().getByText('enough to proceed')).toBeInTheDocument()
+
+    act(() =>
+      emit({
+        stage: 'publishers',
+        data: {
+          recommended: ['p1'],
+          top: [
+            { id: 'p1', name: 'Pawline', fit: 0.88 },
+            { id: 'p2', name: 'Skipped', fit: 0.1 },
+          ],
+        },
+      }),
+    )
+    expect(panel().getByText('Pawline')).toBeInTheDocument()
+    expect(panel().queryByText('Skipped')).not.toBeInTheDocument()
+
+    act(() => emit({ stage: 'personas', data: { selected: [{ id: 'a', name: 'Pet Parent', fit: 0.9, stretch: false }] } }))
+    expect(panel().getByText('Pet Parent')).toBeInTheDocument()
+    expect(panel().queryAllByLabelText('working')).toHaveLength(0)
+
+    act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
+    // Panel stays filled during the hold...
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(panel().getByText('Pawline')).toBeInTheDocument()
+    // ...then switches to results.
+    expect(await screen.findByRole('tab', { name: /publishers/i }, { timeout: 2000 })).toBeInTheDocument()
+  })
+
+  it('switches to results immediately under prefers-reduced-motion', async () => {
+    setReducedMotion(true)
+    const user = userEvent.setup()
+    await start(user)
+    act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
+    expect(screen.getByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+  })
+
+  it('an error event shows the error banner and stops running', async () => {
+    const user = userEvent.setup()
+    await start(user)
+    act(() => emit({ stage: 'error', data: { message: 'The AI service is taking too long — try again or pick a sample.' } }))
+    expect(screen.getByRole('alert')).toHaveTextContent('taking too long')
+    expect(screen.getByRole('button', { name: /build campaign/i })).toBeEnabled()
+  })
+
+  it('goHome cancels the stream and ignores late events', async () => {
+    const user = userEvent.setup()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: /placement studio home/i }))
+    expect(cancel).toHaveBeenCalled()
+    act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 })

@@ -1,4 +1,4 @@
-import type { CampaignRequest, CampaignResult, Sample, StageEvent } from './types'
+import type { CampaignRequest, CampaignResult, Sample, StageEvent, StageName } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -59,24 +59,91 @@ export function runCampaign(req: CampaignRequest): Promise<CampaignResult> {
   })
 }
 
+export const STREAM_TIMEOUT_MS = 30_000
+export const TIMEOUT_MESSAGE = 'The AI service is taking too long — try again or pick a sample.'
+
+const STAGES: StageName[] = ['understood', 'gate', 'publishers', 'personas', 'creatives', 'config', 'done']
+
 /**
- * Stub until Task 17 (EventSource streaming): runs the campaign and emits a
- * single `done` event. Returns a cancel function.
+ * Streams the pipeline over SSE (EventSource), one `onEvent` per stage, ending
+ * with `done` or `error`. Returns a cancel function.
+ *
+ * EventSource cannot read the body of an HTTP error (422 validation, 429 rate
+ * limit), so a connection error before any event falls back to the regular POST
+ * /api/campaign, which re-surfaces the real `detail` (or, if it unexpectedly
+ * succeeds, the result as a `done`). This costs at most one extra request on the
+ * failure path only, and needs no pre-flight on the happy path.
  */
 export function streamCampaign(
   req: CampaignRequest,
   onEvent: (e: StageEvent) => void,
 ): () => void {
+  let finished = false
   let cancelled = false
-  runCampaign(req)
-    .then((result) => {
-      if (!cancelled) onEvent({ stage: 'done', data: result as unknown as Record<string, unknown> })
+  let gotEvent = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  const params = new URLSearchParams({ text: req.text, budget_usd: String(req.budget_usd) })
+  if (req.answers && Object.keys(req.answers).length) params.set('answers', JSON.stringify(req.answers))
+  const es = new EventSource(`/api/campaign/stream?${params.toString()}`)
+
+  const finish = () => {
+    finished = true
+    clearTimeout(timer)
+    es.close()
+  }
+  const fail = (message: string) => {
+    if (finished) return
+    finish()
+    onEvent({ stage: 'error', data: { message } })
+  }
+  const arm = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => fail(TIMEOUT_MESSAGE), STREAM_TIMEOUT_MS)
+  }
+  arm()
+
+  const parse = (ev: Event): Record<string, unknown> => {
+    try {
+      return JSON.parse((ev as MessageEvent).data) as Record<string, unknown>
+    } catch {
+      return {}
+    }
+  }
+
+  for (const stage of STAGES) {
+    es.addEventListener(stage, (ev) => {
+      if (finished) return
+      gotEvent = true
+      arm()
+      if (stage === 'done') finish()
+      onEvent({ stage, data: parse(ev) })
     })
-    .catch((err: unknown) => {
-      if (!cancelled)
-        onEvent({ stage: 'error', data: { detail: err instanceof Error ? err.message : FALLBACK } })
-    })
+  }
+
+  es.addEventListener('error', (ev) => {
+    if (finished) return
+    // A server-sent `error` event carries data; a native connection error does not.
+    if (typeof (ev as MessageEvent).data === 'string') {
+      const d = parse(ev)
+      fail(String(d.message ?? d.detail ?? FALLBACK))
+    } else if (gotEvent) {
+      fail('The connection dropped before the campaign finished — please try again.')
+    } else {
+      finish()
+      runCampaign(req)
+        .then((result) => {
+          if (!cancelled) onEvent({ stage: 'done', data: result as unknown as Record<string, unknown> })
+        })
+        .catch((err: unknown) => {
+          if (!cancelled)
+            onEvent({ stage: 'error', data: { message: err instanceof Error ? err.message : FALLBACK } })
+        })
+    }
+  })
+
   return () => {
     cancelled = true
+    finish()
   }
 }

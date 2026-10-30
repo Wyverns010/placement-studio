@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CampaignResult, Sample } from '../types'
+import type { CampaignResult, Sample, StreamPartial } from '../types'
 import { formatBudget, parseBudget } from '../format'
 import ReadingPanel from './ReadingPanel'
 
@@ -10,6 +10,7 @@ interface Props {
   running: boolean
   error: string | null
   lastResult: CampaignResult | null
+  partial: StreamPartial
   onTextChange: (t: string) => void
   onBudgetChange: (n: number) => void
   onRun: () => void
@@ -111,7 +112,7 @@ export default function Landing(p: Props) {
         </div>
       </div>
 
-      <ReadingPanel result={p.lastResult} />
+      <ReadingPanel result={p.lastResult} partial={p.partial} running={p.running} />
     </section>
   )
 }
