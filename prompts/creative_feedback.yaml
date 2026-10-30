@@ -8,3 +8,18 @@ headline_product: "headline is just the product name"
 fact_number: "number '{number}' is not in the advertiser's text"
 fact_claim: "claim '{word}' is not in the advertiser's text"
 length: "{field} is {n} characters; the limit is {limit}"
+
+# Labels and slot defaults used when filling creative.md and clarify.md
+none: "none"
+product_default: "not stated"
+facts_default: "- (no specific facts were extracted)"
+no_others: "- (none; this is the only persona)"
+other_persona_line: "- {name}: top messaging preference: {preference}"
+clarify_unknowns_default: "- what the business sells, who buys it, price"
+persona_block: |-
+  ## persona_id: {id} ({name})
+  Description: {description}
+  Category affinities: {affinities}
+  Messaging preferences: {preferences}
+  Disinterested in: {disinterested}
+  Publisher: {publisher}. Notes: {notes}

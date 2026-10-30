@@ -413,3 +413,13 @@ def test_length_only_retry_does_not_list_other_headlines():
     assert len(llm.calls) == 3
     assert "Headlines already used" not in llm.calls[-1]["user"]
     assert "characters; the limit is" in llm.calls[-1]["user"]
+
+
+def test_every_feedback_key_requested_by_code_exists_in_yaml():
+    import re
+    from pathlib import Path
+    import yaml
+    keys = yaml.safe_load((Path(__file__).resolve().parent.parent / "prompts/creative_feedback.yaml").read_text())
+    src = (Path(__file__).resolve().parent.parent / "app/create.py").read_text()
+    used = set(re.findall(r'feedback\(\s*"(\w+)"', src))
+    assert used and used <= set(keys), used - set(keys)

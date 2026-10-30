@@ -144,14 +144,14 @@ def _pick_publisher(
 
 
 def _persona_block(persona: Persona, pub: PublisherScore, catalog: Catalog) -> str:
-    notes = catalog.publisher(pub.publisher_id).notes or "none"
-    return (
-        f"## persona_id: {persona.id} ({persona.name})\n"
-        f"Description: {persona.description}\n"
-        f"Category affinities: {', '.join(persona.category_affinities)}\n"
-        f"Messaging preferences: {'; '.join(persona.messaging_preferences)}\n"
-        f"Disinterested in: {'; '.join(persona.disinterested_in)}\n"
-        f"Publisher: {pub.name}. Notes: {notes}"
+    return feedback(
+        "persona_block",
+        id=persona.id, name=persona.name, description=persona.description,
+        affinities=", ".join(persona.category_affinities),
+        preferences="; ".join(persona.messaging_preferences),
+        disinterested="; ".join(persona.disinterested_in),
+        publisher=pub.name,
+        notes=catalog.publisher(pub.publisher_id).notes or feedback("none"),
     )
 
 
@@ -161,17 +161,18 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Pro
     persona, pub = target
     system = render(
         "creative",
-        product=brief.product or "not stated",
-        facts="\n".join(f"- {f}" for f in brief.facts) or "- (no specific facts were extracted)",
+        product=brief.product or feedback("product_default"),
+        facts="\n".join(f"- {f}" for f in brief.facts) or feedback("facts_default"),
         headline_max=t.creative.headline_max_chars,
         body_max=t.creative.body_max_chars,
         cta_max=t.creative.cta_max_chars,
         personas=_persona_block(persona, pub, catalog),
         others="\n".join(
-            f"- {o.name}: top messaging preference: {o.messaging_preferences[0] if o.messaging_preferences else 'none'}"
+            feedback("other_persona_line", name=o.name,
+                     preference=o.messaging_preferences[0] if o.messaging_preferences else feedback("none"))
             for o, _ in others
         )
-        or "- (none; this is the only persona)",
+        or feedback("no_others"),
     )
     user = wrap_advertiser_text(text)
     if violations:
@@ -183,15 +184,15 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Pro
     return next((it for it in out.items if it.persona_id == persona.id), None)
 
 
-def _call_many(text, brief, targets, all_targets, catalog, llm, t, feedback=None, current=None) -> dict[str, CreativeItem]:
+def _call_many(text, brief, targets, all_targets, catalog, llm, t, retry_problems=None, current=None) -> dict[str, CreativeItem]:
     """Concurrent per-persona calls; the first LLMError (or other exception) propagates."""
-    feedback = feedback or {}
+    retry_problems = retry_problems or {}
     current = current or {}
 
     def run(target):
         others = [x for x in all_targets if x[0].id != target[0].id]
         heads = [current[o.id] for o, _ in others if o.id in current]
-        return _call_one(text, brief, target, others, catalog, llm, t, feedback.get(target[0].id), heads)
+        return _call_one(text, brief, target, others, catalog, llm, t, retry_problems.get(target[0].id), heads)
 
     with ThreadPoolExecutor(max_workers=len(targets)) as pool:
         results = list(pool.map(run, targets))  # input order; re-raises worker exceptions
@@ -259,7 +260,7 @@ def write_creatives(
     bad = problems()
     if bad:
         retry_targets = [(p, pub) for p, pub in targets if p.id in bad]
-        for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, feedback=bad,
+        for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, retry_problems=bad,
                                  current={pid: r.headline for pid, r in result.items()}).items():
             result[pid] = build(it)
         for pid, c in result.items():  # re-check headlines against the final set
@@ -286,9 +287,9 @@ def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalo
     system = render(
         "clarify",
         categories=category_words(catalog),
-        product=brief.product or "not stated",
-        facts="; ".join(brief.facts) or "none",
-        unknowns="\n".join(f"- {u}" for u in brief.unknowns) or "- what the business sells, who buys it, price",
+        product=brief.product or feedback("product_default"),
+        facts="; ".join(brief.facts) or feedback("none"),
+        unknowns="\n".join(f"- {u}" for u in brief.unknowns) or feedback("clarify_unknowns_default"),
     )
     user = wrap_advertiser_text(text)
     out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=model_fast())
