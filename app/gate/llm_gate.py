@@ -1,0 +1,24 @@
+from __future__ import annotations
+
+from app.gate import decide_outcome
+from app.models import Brief, GateResult
+from app.tuning import Tuning
+
+_BUSINESS_PROB = {"business": 1.0, "unclear": 0.5, "consumer": 0.0}
+
+
+class LLMSelfReportGate:
+    """Maps the brief's own self-report to gate inputs; no extra LLM call."""
+
+    def __init__(self, tuning: Tuning):
+        self.t = tuning.gate
+
+    def assess(self, text: str, brief: Brief) -> GateResult:
+        return decide_outcome(
+            has_content=1.0 if brief.describes_business else 0.0,
+            business_prob=_BUSINESS_PROB[brief.audience_type],
+            clarity=brief.self_confidence,
+            t=self.t,
+            impl="llm",
+            signals={},
+        )
