@@ -1,7 +1,7 @@
 [project]
-name = "testing-dth"
+name = "placement-studio"
 version = "0.1.0"
-description = "Add your description here"
+description = "Describe a business in a sentence; get ranked publishers, persona-tuned ads and an explained campaign config."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.162.0",
