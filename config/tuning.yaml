@@ -4,7 +4,8 @@ publisher:
   audience_weights: {age: 0.7, gender: 0.3}
   income_targets: {value: 1, mid: 1.5, premium: 2.5, luxury: 3}   # brief price tier -> target income rank
   income_scale: 2               # income factor = 1 - |rank - target| / scale
-  aov_log2_scale: 2             # aov factor = 1 - |log2(price/aov)| / scale
+  aov_log2_scale: 2             # aov factor = 1 - |log2(price/aov)| / scale, price above AOV
+  aov_below_log2_scale: 5       # same, price below AOV (fits inside a bigger basket: milder)
   attribute_tags: [subscription, dtc, personalized, sustainable, natural, organic, non_toxic, gifting]
   no_category_penalty: 0.5      # fit *= this when category level is attribute or none
   aov_gate_floor: 0.4           # when price known: fit *= floor + (1-floor)*aov_factor

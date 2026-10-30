@@ -111,8 +111,21 @@ def test_aov_log2_and_gate():
     assert _pub("pub_007").avg_order_value_usd == 64
     assert abs(_f(s, "pub_007", "aov").score - 0.5) < 1e-9  # |log2(128/64)| = 1 -> 1 - 1/2
     for p in CAT.publishers:
-        want = max(0.0, 1 - abs(math.log2(128 / p.avg_order_value_usd)) / T.publisher.aov_log2_scale)
+        ratio = math.log2(128 / p.avg_order_value_usd)
+        scale = T.publisher.aov_log2_scale if ratio >= 0 else T.publisher.aov_below_log2_scale
+        want = max(0.0, 1 - abs(ratio) / scale)
         assert abs(_f(s, p.id, "aov").score - want) < 1e-9
+
+
+def test_aov_penalises_price_below_basket_less_than_above():
+    # a $16 item fits inside a $64 basket; a $256 item is far beyond what the audience spends
+    pt = T.publisher
+    assert pt.aov_below_log2_scale > pt.aov_log2_scale
+    below = _f(score_publishers(brief(categories=["pet"], price_usd=16), CAT, T), "pub_007", "aov").score
+    above = _f(score_publishers(brief(categories=["pet"], price_usd=256), CAT, T), "pub_007", "aov").score
+    assert abs(below - (1 - 2 / pt.aov_below_log2_scale)) < 1e-9  # log2(16/64) = -2
+    assert abs(above - max(0.0, 1 - 2 / pt.aov_log2_scale)) < 1e-9  # log2(256/64) = 2
+    assert below > above
 
 
 def test_aov_gate_not_applied_when_price_none():

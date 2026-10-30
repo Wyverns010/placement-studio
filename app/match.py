@@ -79,7 +79,10 @@ def _income(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
 def _aov(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
     if b.price_usd is None or b.price_usd <= 0:
         return Factor(name="aov", score=t.publisher.unknown_factor, note="Price unknown"), True
-    score = max(0.0, 1 - abs(math.log2(b.price_usd / p.avg_order_value_usd)) / t.publisher.aov_log2_scale)
+    ratio = math.log2(b.price_usd / p.avg_order_value_usd)
+    # a product cheaper than the typical basket can sit inside it; one far above it is the real mismatch
+    scale = t.publisher.aov_log2_scale if ratio >= 0 else t.publisher.aov_below_log2_scale
+    score = max(0.0, 1 - abs(ratio) / scale)
     return Factor(name="aov", score=score, note=f"AOV ${p.avg_order_value_usd:.0f} vs ${b.price_usd:.0f} price"), False
 
 
