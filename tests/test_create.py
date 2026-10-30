@@ -343,3 +343,35 @@ def test_creative_prompt_asks_for_distinct_non_product_headlines():
     llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid))})
     write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
     assert "The headline must not be just the product name" in llm.calls[0]["system"]
+
+
+def test_near_duplicate_headlines_flagged_and_distinct_ones_not():
+    from app.create import headline_similarity, headlines_similar
+    a, b = "A thoughtful gift, hand-poured in Vermont", "A thoughtful gift, poured by hand in Vermont"
+    assert headline_similarity(a, b) >= T.creative.headline_similarity
+    assert headlines_similar(a, b, T.creative.headline_similarity)
+    assert not headlines_similar("Senior dog food, on autopay", "Premium food for your senior dog",
+                                 T.creative.headline_similarity)
+
+
+def test_near_duplicate_pair_gets_violation():
+    from app.create import headline_problems
+    cs = [cr(headline="A thoughtful gift, hand-poured in Vermont"),
+          cr(headline="A thoughtful gift, poured by hand in Vermont")]
+    cs[1] = cs[1].model_copy(update={"persona_id": "persona_001"})
+    out = headline_problems(cs, None, {"persona_004": "X"}, 0.8)
+    assert "persona_001" in out and "persona_004" not in out
+
+
+def test_headline_retry_message_lists_other_headlines():
+    def fn(pid, n):
+        if pid == "persona_001" and n == 1:
+            return item(pid, headline="Fresh Food!")
+        return item(pid, headline="Another angle" if pid == "persona_001" else "Fresh food")
+
+    llm = FakeProvider({"CreativeBatch": per_persona(fn)})
+    write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
+                    [pub("pub_007")], CAT, llm, T)
+    retry = llm.calls[-1]["user"]
+    assert "Headlines already used" in retry
+    assert "Fresh food" in retry

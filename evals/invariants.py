@@ -1,7 +1,7 @@
 """Structural invariants every CampaignResult must satisfy, whatever the outcome."""
 from __future__ import annotations
 
-from app.create import check_facts, normalise_headline
+from app.create import check_facts, headlines_similar
 from app.models import CampaignConfig, CampaignResult
 from app.tuning import Tuning
 
@@ -41,12 +41,11 @@ def check(result: CampaignResult, t: Tuning) -> list[str]:
         if result.creatives:
             out.append(f"{o}: must have no creatives")
 
-    seen: set[str] = set()
+    seen: list[str] = []
     for c in result.creatives:
-        h = normalise_headline(c.headline)
-        if h in seen:
+        if any(headlines_similar(h, c.headline, t.creative.headline_similarity) for h in seen):
             out.append(f"creative {c.creative_id}: duplicate headline {c.headline!r}")
-        seen.add(h)
+        seen.append(c.headline)
 
     if o == "weak_fit" and not (cfg and cfg.budget.get("test_budget")):
         out.append("weak_fit: config.budget.test_budget not set")

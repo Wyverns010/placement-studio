@@ -78,22 +78,38 @@ def normalise_headline(text: str) -> str:
     return re.sub(r"[\W_]+", "", text.lower())
 
 
+def _words(text: str) -> set[str]:
+    return set(re.findall(r"\w+", text.lower()))
+
+
+def headline_similarity(a: str, b: str) -> float:
+    """Token-set Jaccard of two headlines' lowercase words (1.0 = same words)."""
+    wa, wb = _words(a), _words(b)
+    return len(wa & wb) / len(wa | wb) if wa | wb else 1.0
+
+
+def headlines_similar(a: str, b: str, threshold: float) -> bool:
+    return normalise_headline(a) == normalise_headline(b) or headline_similarity(a, b) >= threshold
+
+
 def headline_problems(creatives: list[Creative], product: str | None,
-                      names: dict[str, str]) -> dict[str, list[str]]:
+                      names: dict[str, str], threshold: float = 1.0) -> dict[str, list[str]]:
     """Per persona_id: a headline that repeats an earlier persona's (in order) or is just the
     product name. `names` maps persona_id -> display name."""
     out: dict[str, list[str]] = {}
-    seen: dict[str, str] = {}
+    seen: list[tuple[str, str]] = []  # (headline, persona_id)
     prod = normalise_headline(product or "")
     for c in creatives:
         h = normalise_headline(c.headline)
         if prod and h == prod:
             out.setdefault(c.persona_id, []).append("headline is just the product name")
-        elif h in seen:
-            out.setdefault(c.persona_id, []).append(
-                f"headline duplicates {names.get(seen[h], seen[h])}'s — write a different one")
         else:
-            seen[h] = c.persona_id
+            dup = next((pid for hl, pid in seen if headlines_similar(hl, c.headline, threshold)), None)
+            if dup:
+                out.setdefault(c.persona_id, []).append(
+                    f"headline duplicates {names.get(dup, dup)}'s — write a different one")
+            else:
+                seen.append((c.headline, c.persona_id))
     return out
 
 
@@ -126,7 +142,8 @@ def _persona_block(persona: Persona, pub: PublisherScore, catalog: Catalog) -> s
     )
 
 
-def _call_one(text, brief, target, others, catalog, llm, t, violations: list[str] | None = None):
+def _call_one(text, brief, target, others, catalog, llm, t, violations: list[str] | None = None,
+              other_headlines: list[str] | None = None):
     """One LLM call for one persona. Returns its CreativeItem, or None if it came back without one."""
     persona, pub = target
     system = render(
@@ -149,17 +166,22 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[str
             "\n\nYour previous ad broke the rules. Rewrite it and fix every problem: "
             + "; ".join(violations)
         )
+        if other_headlines and any(v.startswith("headline") for v in violations):
+            user += ("\n\nHeadlines already used by the other personas; yours must differ in "
+                     "wording and angle: " + " | ".join(f'"{h}"' for h in other_headlines))
     out = llm.parse(system=system, user=user, schema=CreativeBatch, model=model_creative())
     return next((it for it in out.items if it.persona_id == persona.id), None)
 
 
-def _call_many(text, brief, targets, all_targets, catalog, llm, t, feedback=None) -> dict[str, CreativeItem]:
+def _call_many(text, brief, targets, all_targets, catalog, llm, t, feedback=None, current=None) -> dict[str, CreativeItem]:
     """Concurrent per-persona calls; the first LLMError (or other exception) propagates."""
     feedback = feedback or {}
+    current = current or {}
 
     def run(target):
         others = [x for x in all_targets if x[0].id != target[0].id]
-        return _call_one(text, brief, target, others, catalog, llm, t, feedback.get(target[0].id))
+        heads = [current[o.id] for o, _ in others if o.id in current]
+        return _call_one(text, brief, target, others, catalog, llm, t, feedback.get(target[0].id), heads)
 
     with ThreadPoolExecutor(max_workers=len(targets)) as pool:
         results = list(pool.map(run, targets))  # input order; re-raises worker exceptions
@@ -206,7 +228,7 @@ def write_creatives(
         return [result[p.id] for p, _ in targets if p.id in result]
 
     def add_headline_problems() -> None:
-        for pid, vs in headline_problems(ordered(), brief.product, names).items():
+        for pid, vs in headline_problems(ordered(), brief.product, names, t.creative.headline_similarity).items():
             result[pid].fact_violations = result[pid].fact_violations + vs
 
     add_headline_problems()
@@ -224,7 +246,8 @@ def write_creatives(
     bad = problems()
     if bad:
         retry_targets = [(p, pub) for p, pub in targets if p.id in bad]
-        for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, feedback=bad).items():
+        for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, feedback=bad,
+                                 current={pid: r.headline for pid, r in result.items()}).items():
             result[pid] = build(it)
         for c in result.values():  # re-check headlines against the final set
             c.fact_violations = check_facts(c, text, t)
