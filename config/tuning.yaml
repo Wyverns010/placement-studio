@@ -1,7 +1,8 @@
 publisher:
   weights: {category: 0.45, audience: 0.20, income: 0.15, aov: 0.20}
-  category_scores: {primary: 1.0, subcategory: 0.85, adjacent: 0.5}
-  no_category_penalty: 0.5      # fit *= this when category factor == 0
+  category_scores: {primary: 1.0, subcategory: 0.85, same_category: 0.70, adjacent: 0.5, attribute: 0.20}
+  attribute_tags: [subscription, dtc, personalized, sustainable, natural, organic, non_toxic, gifting]
+  no_category_penalty: 0.5      # fit *= this when category level is attribute or none
   aov_gate_floor: 0.4           # when price known: fit *= floor + (1-floor)*aov_factor
   unknown_factor: 0.6           # factor value when the brief lacks the needed field
   cutoff: 0.40

@@ -16,12 +16,15 @@ class PublisherWeights(BaseModel):
 class CategoryScores(BaseModel):
     primary: float
     subcategory: float
+    same_category: float
     adjacent: float
+    attribute: float
 
 
 class PublisherTuning(BaseModel):
     weights: PublisherWeights
     category_scores: CategoryScores
+    attribute_tags: list[str]
     no_category_penalty: float
     aov_gate_floor: float
     unknown_factor: float

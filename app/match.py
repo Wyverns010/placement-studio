@@ -18,16 +18,24 @@ def _label(s: str) -> str:
     return s.replace("_", " ")
 
 
-def _category(b: Brief, p: Publisher, t: Tuning) -> Factor:
+def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> Factor:
     cs = t.publisher.category_scores
+    attrs = set(t.publisher.attribute_tags)
     if p.category in b.categories:
         return Factor(name="category", score=cs.primary, note=f"{_label(p.category).capitalize()} category match")
-    sub = [c for c in p.subcategories if c in b.categories]
+    sub = [c for c in p.subcategories if c in b.categories and c not in attrs]
     if sub:
         return Factor(name="category", score=cs.subcategory, note=f"{_label(sub[0]).capitalize()} subcategory match")
-    adj = sorted(p.tags & set(b.adjacent_categories))
+    # parent category of a brief term: some publisher lists the term as a subcategory under p.category
+    parents = {q.category for term in b.categories for q in catalog.publishers if term in q.subcategories}
+    if p.category in parents:
+        return Factor(name="category", score=cs.same_category, note=f"Same category: {_label(p.category)}")
+    adj = sorted((p.tags & set(b.adjacent_categories)) - attrs)
     if adj:
         return Factor(name="category", score=cs.adjacent, note=f"Adjacent: {_label(adj[0])}")
+    shared = sorted(p.tags & (set(b.categories) | set(b.adjacent_categories)) & attrs)
+    if shared:
+        return Factor(name="category", score=cs.attribute, note=f"Shared attribute: {_label(shared[0])}")
     return Factor(name="category", score=0.0, note="No category overlap")
 
 
@@ -76,9 +84,9 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning) -> list[Publishe
     weights = {"category": w.category, "audience": w.audience, "income": w.income, "aov": w.aov}
     rows: list[tuple[float, Publisher, list[Factor]]] = []
     for p in catalog.publishers:
-        factors = [_category(brief, p, t), _audience(brief, p, t), _income(brief, p, t), _aov(brief, p, t)]
+        factors = [_category(brief, p, t, catalog), _audience(brief, p, t), _income(brief, p, t), _aov(brief, p, t)]
         fit = sum(weights[f.name] * f.score for f in factors)
-        if factors[0].score == 0:
+        if factors[0].score in (0, pt.category_scores.attribute):
             fit *= pt.no_category_penalty
         if brief.price_usd is not None and brief.price_usd > 0:
             fit *= pt.aov_gate_floor + (1 - pt.aov_gate_floor) * factors[3].score

@@ -33,3 +33,27 @@ def test_sorted_all_20_and_mark_stretch_copies():
     assert [p.stretch for p in m].count(True) == T.publisher.weak_fit_show
     assert all(p.recommended == p.stretch for p in m)
     assert not any(p.stretch for p in s)
+
+
+def _dog_food():
+    return brief(categories=["pet_food"], adjacent_categories=["pet_health", "subscription"],
+                 price_tier="premium", business_model="subscription")
+
+
+def _by_id(scores, pid):
+    return next(p for p in scores if p.publisher_id == pid)
+
+
+def test_same_category_parent_match():
+    tail = _by_id(score_publishers(_dog_food(), CAT, T), "pub_018")
+    assert tail.factors[0].score == 0.70 and tail.recommended
+
+
+def test_attribute_only_match_is_penalized():
+    move = _by_id(score_publishers(_dog_food(), CAT, T), "pub_002")
+    assert move.factors[0].score == 0.20 and not move.recommended
+
+
+def test_dog_food_top3_are_pet_publishers():
+    s = score_publishers(_dog_food(), CAT, T)
+    assert {p.publisher_id for p in [p for p in s if p.recommended][:3]} == {"pub_007", "pub_009", "pub_018"}
