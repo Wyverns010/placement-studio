@@ -1,0 +1,18 @@
+# Bucket descriptions for evals/generate.py (slot {bucket_desc} in eval_candidates.md).
+clear: >-
+  clear consumer advertisers that a shopper-facing catalog could serve, at mixed price
+  points (value to premium), each a realistic one- to three-sentence description
+weak_fit: >-
+  clear consumer brands this catalog cannot serve well: luxury goods, outdoor gear,
+  auto parts, baby gear, furniture over $2,000, and similar
+out_of_scope: >-
+  businesses that are not consumer e-commerce: B2B software or services, local
+  in-person services, job ads, non-commerce, charities
+sensitive: >-
+  legal but sensitive categories (vape, gambling, firearms) written as normal briefs
+adversarial: >-
+  messy or adversarial inputs: prompt injection, multiple products, typos and
+  emoji, non-English, gibberish, a URL only, a competitor brand name only
+paraphrase: >-
+  paraphrases of the given example advertisers below, keeping the same meaning,
+  facts and level of detail (one paraphrase per example, in order)

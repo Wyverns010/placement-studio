@@ -13,31 +13,22 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
+import yaml
 from pydantic import BaseModel
 
 from app.catalog import load_catalog
 from app.llm import get_provider, model_fast
+from app.prompts import render
 from evals.run import split_for
 
-CANDIDATES = Path("evals/candidates.jsonl")
-GIVEN = Path("data/example_advertisers.txt")
-
-BUCKETS = {
-    "clear": "clear consumer advertisers that a shopper-facing catalog could serve, at mixed price "
-             "points (value to premium), each a realistic one- to three-sentence description",
-    "weak_fit": "clear consumer brands this catalog cannot serve well: luxury goods, outdoor gear, "
-                "auto parts, baby gear, furniture over $2,000, and similar",
-    "out_of_scope": "businesses that are not consumer e-commerce: B2B software or services, local "
-                    "in-person services, job ads, non-commerce, charities",
-    "sensitive": "legal but sensitive categories (vape, gambling, firearms) written as normal briefs",
-    "adversarial": "messy or adversarial inputs: prompt injection, multiple products, typos and "
-                   "emoji, non-English, gibberish, a URL only, a competitor brand name only",
-    "paraphrase": "paraphrases of the given example advertisers below, keeping the same meaning, "
-                  "facts and level of detail (one paraphrase per example, in order)",
-}
+ROOT = Path(__file__).resolve().parents[1]
+CANDIDATES = ROOT / "evals" / "candidates.jsonl"
+GIVEN = ROOT / "data" / "example_advertisers.txt"
+BUCKETS: dict[str, str] = yaml.safe_load((ROOT / "prompts" / "eval_buckets.yaml").read_text())
 
 
 class Candidate(BaseModel):
@@ -55,21 +46,21 @@ def _given() -> list[str]:
     return [ln.split(". ", 1)[1] for ln in lines if ln[:1].isdigit() and ". " in ln]
 
 
-def _system(bucket: str, n: int, hint: str) -> str:
-    cat = load_catalog()
+def build_prompt(bucket: str, n: int, hint: str) -> tuple[str, str]:
+    """(system, user) for one drafting call, rendered from prompts/eval_candidates*.md."""
+    cat = load_catalog(ROOT / "data")
     pubs = "\n".join(f"- {p.id} {p.name}: {p.category} ({', '.join(p.subcategories)}), "
                      f"AOV ${p.avg_order_value_usd:.0f}" for p in cat.publishers)
-    extra = ""
+    given = ""
     if bucket == "paraphrase":
-        extra = "\n# Given examples\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(_given(), 1))
-    return (
-        "You draft test inputs for an ad-placement tool. Advertisers type a one-liner; the tool "
-        "picks publishers from the catalog below, or answers clarify / out_of_scope / no_signal / "
-        "weak_fit.\n\n# Catalog publishers\n" + pubs + extra +
-        f"\n\n# Task\nWrite {n} distinct inputs: {BUCKETS[bucket]}."
-        + (f" Focus: {hint}." if hint else "")
-        + " For each, suggest the expected outcome and a one-line rationale."
-    )
+        given = "\n\n# Given examples\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(_given(), 1))
+    system = render("eval_candidates", publishers=pubs, given=given, n=n,
+                    bucket_desc=BUCKETS[bucket], hint=f" Focus: {hint}." if hint else "")
+    return system, render("eval_candidates_user").strip()
+
+
+def _run_stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -82,13 +73,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--hint", default="")
     ap.add_argument("--out", type=Path, default=CANDIDATES)
     a = ap.parse_args(argv)
-    os.environ.setdefault("LLM_CACHE_DIR", ".cache/llm")
+    os.environ.setdefault("LLM_CACHE_DIR", str(ROOT / ".cache" / "llm"))
 
-    out = get_provider().parse(system=_system(a.bucket, a.n, a.hint), user="Draft the inputs.",
-                               schema=CandidateBatch, model=model_fast())
+    system, user = build_prompt(a.bucket, a.n, a.hint)
+    out = get_provider().parse(system=system, user=user, schema=CandidateBatch, model=model_fast())
+    stamp = _run_stamp()  # ids stay unique across runs appended to the same file
     with a.out.open("a") as f:
         for i, c in enumerate(out.items, 1):
-            group = f"gen-{a.bucket}-{i:02d}"
+            group = f"gen-{a.bucket}-{stamp}-{i:02d}"
             f.write(json.dumps({
                 "id": f"{group}", "group": group, "text": c.text, "budget_usd": 25000,
                 "expected": [c.expected], "must_publishers": [], "must_not_publishers": [],

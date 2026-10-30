@@ -21,8 +21,9 @@ from app.pipeline import collect, run_pipeline
 from app.tuning import load_tuning
 from evals.invariants import check
 
-CASES = Path("evals/cases.jsonl")
-LAST_RUN = Path("evals/last_run.json")
+ROOT = Path(__file__).resolve().parents[1]
+CASES = ROOT / "evals" / "cases.jsonl"
+LAST_RUN = ROOT / "evals" / "last_run.json"
 OUTCOMES = ["proceed", "weak_fit", "clarify", "out_of_scope", "no_signal"]
 COLS = OUTCOMES + ["error"]
 
@@ -204,8 +205,8 @@ def main(argv: list[str] | None = None) -> int:
     if a.no_cache:
         os.environ.pop("LLM_CACHE_DIR", None)
     else:
-        os.environ.setdefault("LLM_CACHE_DIR", ".cache/llm")
-    t = load_tuning()
+        os.environ.setdefault("LLM_CACHE_DIR", str(ROOT / ".cache" / "llm"))
+    t = load_tuning(ROOT / "config" / "tuning.yaml")
     try:
         gate = get_gate(a.gate, tuning=t)
     except ImportError as e:
@@ -215,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
 
     only = {x for x in a.only.split(",") if x} or None
     cases = load_cases(a.cases, split=a.split, only=only)
-    recs = run_cases(cases, llm=get_provider(), gate=gate, catalog=load_catalog(), t=t,
+    recs = run_cases(cases, llm=get_provider(), gate=gate, catalog=load_catalog(ROOT / "data"), t=t,
                      concurrency=a.concurrency)
     LAST_RUN.write_text(json.dumps(recs, indent=1))
     LAST_RUN.with_name(f"last_run_{a.gate}_{a.split}.json").write_text(json.dumps(recs, indent=1))

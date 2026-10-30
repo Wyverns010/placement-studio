@@ -18,8 +18,8 @@ import yaml
 from app.gate import decide_outcome
 from app.tuning import GateTuning, load_tuning
 
-LAST_RUN = Path("evals/last_run.json")
-TUNING = Path("config/tuning.yaml")
+LAST_RUN = Path(__file__).resolve().parents[1] / "evals" / "last_run.json"
+TUNING = Path(__file__).resolve().parents[1] / "config" / "tuning.yaml"
 KEYS = ("proceed_threshold", "no_signal_threshold", "business_threshold")
 
 
