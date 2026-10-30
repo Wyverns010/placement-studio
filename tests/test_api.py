@@ -117,8 +117,30 @@ def test_rate_limit_429_after_12(client):
     assert r.status_code == 429
     assert r.json() == {"detail": "Demo limit reached — try a sample or wait a few minutes."}
     # a different client IP is unaffected
-    ok = client.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "9.9.9.9, 1.1.1.1"})
+    ok = client.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "1.1.1.1, 9.9.9.9"})
     assert ok.status_code == 200
+
+
+def test_rate_limit_keys_on_rightmost_forwarded_hop(client):
+    # the proxy appends the real client IP; a client-chosen leading value must not open a new bucket
+    for i in range(12):
+        r = client.post("/api/campaign", json={"text": "dog food"},
+                        headers={"X-Forwarded-For": f"10.0.0.{i}, 5.5.5.5"})
+        assert r.status_code == 200
+    r = client.post("/api/campaign", json={"text": "dog food"},
+                    headers={"X-Forwarded-For": "10.9.9.9, 5.5.5.5"})
+    assert r.status_code == 429
+
+
+def test_global_cap_returns_busy(client):
+    busy = RateLimiter(limit=12, window_s=600, global_limit=2)
+    api.app.dependency_overrides[api.get_limiter] = lambda: busy
+    for ip in ("1.0.0.1", "1.0.0.2"):
+        assert client.post("/api/campaign", json={"text": "dog food"},
+                           headers={"X-Forwarded-For": ip}).status_code == 200
+    r = client.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "1.0.0.3"})
+    assert r.status_code == 429
+    assert r.json() == {"detail": "The demo is busy — try a sample or come back in a bit."}
 
 
 def test_validation_errors_do_not_consume_limit(client):

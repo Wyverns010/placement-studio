@@ -1,19 +1,28 @@
-"""In-memory sliding-window rate limiter keyed by client id."""
+"""In-memory sliding-window rate limiter: a per-client cap plus a process-wide cap."""
 from __future__ import annotations
 
 import threading
 import time
 from collections import defaultdict, deque
+from typing import Literal
 
 
 class RateLimiter:
-    def __init__(self, limit: int = 12, window_s: float = 600.0, clock=time.monotonic):
+    """Per-client sliding window (``limit`` hits per ``window_s``) plus an optional process-wide
+    cap (``global_limit`` hits per ``global_window_s``) on everything that gets through."""
+
+    def __init__(self, limit: int = 12, window_s: float = 600.0, *,
+                 global_limit: int | None = None, global_window_s: float = 3600.0,
+                 clock=time.monotonic):
         self.limit, self.window_s, self.clock = limit, window_s, clock
+        self.global_limit, self.global_window_s = global_limit, global_window_s
         self._hits: dict[str, deque[float]] = defaultdict(deque)
+        self._global: deque[float] = deque()
         self._lock = threading.Lock()
 
-    def allow(self, key: str) -> bool:
-        """Record a hit and return True if under the limit; False (not recorded) otherwise."""
+    def check(self, key: str) -> Literal["client", "global"] | None:
+        """Record a hit and return None if allowed; otherwise return which cap refused it
+        ("client" first, then "global"). A refused hit is not recorded."""
         now = self.clock()
         with self._lock:
             for k in list(self._hits):
@@ -22,12 +31,26 @@ class RateLimiter:
                     d.popleft()
                 if not d:
                     del self._hits[k]
+            while self._global and now - self._global[0] >= self.global_window_s:
+                self._global.popleft()
             q = self._hits[key]
             if len(q) >= self.limit:
-                return False
+                if not q:
+                    del self._hits[key]
+                return "client"
+            if self.global_limit is not None and len(self._global) >= self.global_limit:
+                if not q:
+                    del self._hits[key]
+                return "global"
             q.append(now)
-            return True
+            self._global.append(now)
+            return None
+
+    def allow(self, key: str) -> bool:
+        """Record a hit and return True if under both caps; False (not recorded) otherwise."""
+        return self.check(key) is None
 
     def reset(self) -> None:
         with self._lock:
             self._hits.clear()
+            self._global.clear()

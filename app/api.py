@@ -26,19 +26,22 @@ from app.tuning import Tuning, load_tuning
 load_dotenv()  # never overrides env vars already set
 
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
+BUSY_MSG = "The demo is busy — try a sample or come back in a bit."
 REPLAY_DELAY_S = 0.3
 
 app = FastAPI(title="Placement Studio")
-_limiter = RateLimiter(limit=12, window_s=600)
-
-
-def get_limiter() -> RateLimiter:
-    return _limiter
 
 
 @lru_cache(maxsize=1)
 def get_tuning() -> Tuning:
     return load_tuning()
+
+
+@lru_cache(maxsize=1)
+def get_limiter() -> RateLimiter:
+    """One process-wide limiter: 12 live runs per client per 10 min, plus a global hourly cap."""
+    return RateLimiter(limit=12, window_s=600,
+                       global_limit=get_tuning().ratelimit.global_runs_per_hour)
 
 
 @lru_cache(maxsize=1)
@@ -61,9 +64,13 @@ class CampaignRequest(BaseModel):
 
 
 def _client_key(request: Request) -> str:
+    """The right-most X-Forwarded-For hop: the one our trusted proxy (HF) appended. Earlier
+    entries are whatever the client sent, so keying on them would let anyone mint new buckets."""
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
-        return fwd.split(",")[0].strip()
+        hops = [h.strip() for h in fwd.split(",") if h.strip()]
+        if hops:
+            return hops[-1]
     return request.client.host if request.client else "unknown"
 
 
@@ -93,8 +100,9 @@ def _cached(text: str, budget: float, has_answers: bool, t: Tuning) -> CampaignR
 
 
 def _check_rate(request: Request, limiter: RateLimiter) -> None:
-    if not limiter.allow(_client_key(request)):
-        raise HTTPException(429, RATE_LIMIT_MSG)
+    refused = limiter.check(_client_key(request))
+    if refused:
+        raise HTTPException(429, BUSY_MSG if refused == "global" else RATE_LIMIT_MSG)
 
 
 @app.get("/api/health")
