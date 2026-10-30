@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import math
 
-from app.catalog import Catalog, Publisher
-from app.models import Brief, Factor, PublisherScore
+from app.catalog import Catalog, Persona, Publisher
+from app.models import Brief, Factor, PersonaScore, PublisherScore
 from app.tuning import Tuning
 
 _INCOME_NAME = {1: "mid", 2: "mid-high", 3: "high"}
@@ -36,15 +36,20 @@ def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Fact
     return Factor(name="category", score=0.0, note="No category overlap"), "none"
 
 
+def _age_overlap(b: Brief, other_min: int, other_max: int, unknown: float) -> float:
+    """Share of the brief's age range covered by [other_min, other_max]; `unknown` if the brief has no range."""
+    lo, hi = b.age_min, b.age_max
+    if lo is None or hi is None:
+        return unknown
+    if hi <= lo:
+        return 1.0 if other_min <= lo <= other_max else 0.0
+    return max(0.0, min(hi, other_max) - max(lo, other_min)) / (hi - lo)
+
+
 def _audience(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
     u = t.publisher.unknown_factor
     lo, hi = b.age_min, b.age_max
-    if lo is None or hi is None:
-        age = u
-    elif hi <= lo:
-        age = 1.0 if p.age_min <= lo <= p.age_max else 0.0
-    else:
-        age = max(0.0, min(hi, p.age_max) - max(lo, p.age_min)) / (hi - lo)
+    age = _age_overlap(b, p.age_min, p.age_max, u)
     split = p.audience.gender_split
     if b.gender_skew == "female":
         gender = split.get("female", 0.0)
@@ -123,3 +128,71 @@ def mark_stretch(scores: list[PublisherScore], t: Tuning) -> list[PublisherScore
         s.model_copy(update={"recommended": i < n, "stretch": i < n})
         for i, s in enumerate(scores)
     ]
+
+
+# ---- personas ----
+
+
+def _affinity(b: Brief, p: Persona, t: Tuning) -> Factor:
+    sc = t.persona.affinity_scores
+    attrs = set(t.publisher.attribute_tags)
+    aff = set(p.category_affinities) - attrs
+    direct = sorted(aff & set(b.categories))
+    if direct:
+        return Factor(name="affinity", score=sc.direct, note=f"Affinity: {direct[0]}")
+    adj = sorted(aff & set(b.adjacent_categories))
+    if adj:
+        return Factor(name="affinity", score=sc.adjacent, note=f"Adjacent affinity: {adj[0]}")
+    return Factor(name="affinity", score=0.0, note="No affinity overlap")
+
+
+def _persona_price(b: Brief, p: Persona, t: Tuning) -> Factor:
+    ideal = t.persona.price_ideal.get(b.price_tier)
+    if ideal is None:
+        return Factor(name="price", score=t.publisher.unknown_factor, note="Price tier unknown")
+    score = max(0.0, 1 - abs(ideal - p.price_rank) / t.persona.price_scale)
+    sens = p.price_sensitivity
+    return Factor(name="price", score=score, note=f"{sens.capitalize()} price sensitivity vs {b.price_tier}")
+
+
+def _persona_age(b: Brief, p: Persona, t: Tuning) -> Factor:
+    score = _age_overlap(b, p.age_min, p.age_max, t.publisher.unknown_factor)
+    if b.age_min is None or b.age_max is None:
+        note = "Brief ages unknown"
+    else:
+        note = f"Ages {p.age_min}\u2013{p.age_max} vs {b.age_min}\u2013{b.age_max}"
+    return Factor(name="age", score=score, note=note)
+
+
+def _persona_raw(b: Brief, p: Persona, t: Tuning) -> tuple[float, list[Factor]]:
+    """Unclamped fit and its factors (a 4th `conflict` factor only when a penalty applies)."""
+    w = t.persona.weights
+    aff, price, age = _affinity(b, p, t), _persona_price(b, p, t), _persona_age(b, p, t)
+    factors = [aff, price, age]
+    raw = w.affinity * aff.score + w.price * price.score + w.age * age.score
+    hit = sorted({c.lower() for c in b.conflicts} & {d.lower() for d in p.disinterested_in})
+    if hit:
+        pen = t.persona.conflict_penalty
+        raw -= pen
+        factors.append(Factor(name="conflict", score=-pen, note=f"Conflicts: {hit[0]}"))
+    return raw, factors
+
+
+def score_personas(brief: Brief, catalog: Catalog, t: Tuning) -> list[PersonaScore]:
+    rows = []
+    for p in catalog.personas:
+        raw, factors = _persona_raw(brief, p, t)
+        rows.append((max(0.0, min(1.0, raw)), p, factors))
+    rows.sort(key=lambda r: (-r[0], r[1].id))
+    return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False)
+            for fit, p, f in rows]
+
+
+def select_personas(scores: list[PersonaScore], t: Tuning) -> list[PersonaScore]:
+    """Scores must be sorted best-first. Qualifiers (>= cutoff, up to max), else stretch-fill up to min."""
+    pt = t.persona
+    chosen = [s.model_copy(update={"stretch": False}) for s in scores if s.fit >= pt.cutoff][: pt.max]
+    if len(chosen) < pt.min:
+        rest = [s for s in scores if s.fit < pt.cutoff][: pt.min - len(chosen)]
+        chosen += [s.model_copy(update={"stretch": True}) for s in rest]
+    return chosen

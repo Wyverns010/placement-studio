@@ -49,8 +49,16 @@ class PersonaWeights(BaseModel):
     age: float
 
 
+class AffinityScores(BaseModel):
+    direct: float
+    adjacent: float
+
+
 class PersonaTuning(BaseModel):
     weights: PersonaWeights
+    affinity_scores: AffinityScores
+    price_ideal: dict[str, float]
+    price_scale: float
     conflict_penalty: float
     cutoff: float
     min: int

@@ -15,6 +15,9 @@ publisher:
   weak_fit_show: 3
 persona:
   weights: {affinity: 0.5, price: 0.2, age: 0.3}
+  affinity_scores: {direct: 1.0, adjacent: 0.5}
+  price_ideal: {value: 2, mid: 1, premium: 0.5, luxury: 0}   # brief price tier -> ideal persona price_rank
+  price_scale: 2                # price factor = 1 - |ideal - price_rank| / scale
   conflict_penalty: 0.35
   cutoff: 0.45
   min: 3
