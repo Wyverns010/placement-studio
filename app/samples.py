@@ -17,7 +17,8 @@ LABELS = {
 }
 _LINE = re.compile(r"^(\d+)\.\s+(.*\S)\s*$")
 EXAMPLES = Path("data/example_advertisers.txt")
-CACHE = Path("cache/samples.json")
+ROOT = Path(__file__).resolve().parent.parent
+CACHE = ROOT / "cache/samples.json"
 
 
 def norm(text: str) -> str:
@@ -34,6 +35,31 @@ def load_samples(path: Path = EXAMPLES) -> list[dict]:
     return out
 
 
+_memo: dict[tuple[Path, int, int], dict[str, CampaignResult]] = {}
+
+
+def _load_cache(path: Path) -> dict[str, CampaignResult]:
+    """Parse the cache file once per (path, mtime, size); {} when missing or unreadable."""
+    try:
+        st = path.stat()
+        key = (path, st.st_mtime_ns, st.st_size)
+        if key in _memo:
+            return _memo[key]
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    out: dict[str, CampaignResult] = {}
+    for item in (raw.values() if isinstance(raw, dict) else raw):
+        try:
+            r = CampaignResult.model_validate(item)
+        except ValueError:
+            continue
+        out.setdefault(norm(r.input_text), r)
+    _memo.clear()
+    _memo[key] = out
+    return out
+
+
 def cached_result(text: str, budget: float, *, default_budget: float | None = None,
                   path: Path = CACHE) -> CampaignResult | None:
     """Precomputed result for a sample, only at the default budget."""
@@ -41,17 +67,5 @@ def cached_result(text: str, budget: float, *, default_budget: float | None = No
         default_budget = load_tuning().budget.default_monthly_usd
     if budget != default_budget:
         return None
-    try:
-        raw = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    items = raw.values() if isinstance(raw, dict) else raw
-    key = norm(text)
-    for item in items:
-        try:
-            r = CampaignResult.model_validate(item)
-        except ValueError:
-            continue
-        if norm(r.input_text) == key and r.budget_usd == default_budget:
-            return r
-    return None
+    r = _load_cache(Path(path)).get(norm(text))
+    return r if r is not None and r.budget_usd == default_budget else None

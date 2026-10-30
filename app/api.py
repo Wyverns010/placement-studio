@@ -77,6 +77,7 @@ def _prepare(text: str, budget: float | None, answers: dict[str, str] | None,
         raise HTTPException(
             422, f"Budget must be between ${b.min_usd:,.0f} and ${b.max_usd:,.0f}.")
     if answers:
+        answers = {str(q)[:200]: str(a)[:200] for q, a in list(answers.items())[:5]}
         text += "\n\nAdditional details:\n" + "\n".join(f"- {q}: {a}" for q, a in answers.items())
     return text, budget, bool(answers)
 
@@ -158,11 +159,11 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
     return EventSourceResponse(gen())
 
 
-DIST = Path("web/dist")
+DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
 if DIST.is_dir():
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
-        if path.startswith("api/"):
+        if path == "api" or path.startswith("api/"):
             raise HTTPException(404)
         f = (DIST / path).resolve()
         if path and f.is_file() and DIST.resolve() in f.parents:

@@ -16,9 +16,13 @@ class RateLimiter:
         """Record a hit and return True if under the limit; False (not recorded) otherwise."""
         now = self.clock()
         with self._lock:
+            for k in list(self._hits):
+                d = self._hits[k]
+                while d and now - d[0] >= self.window_s:
+                    d.popleft()
+                if not d:
+                    del self._hits[k]
             q = self._hits[key]
-            while q and now - q[0] >= self.window_s:
-                q.popleft()
             if len(q) >= self.limit:
                 return False
             q.append(now)

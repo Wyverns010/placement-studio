@@ -15,11 +15,11 @@ from pydantic import BaseModel, ValidationError
 T = TypeVar("T", bound=BaseModel)
 
 def model_fast() -> str:
-    return os.getenv("OPENAI_MODEL_FAST") or "gpt-5-mini"
+    return os.getenv("OPENAI_MODEL_FAST") or "gpt-5.4-mini"
 
 
 def model_creative() -> str:
-    return os.getenv("OPENAI_MODEL_CREATIVE") or "gpt-5"
+    return os.getenv("OPENAI_MODEL_CREATIVE") or "gpt-5.5"
 
 
 class LLMError(Exception):
@@ -38,7 +38,7 @@ class OpenAIProvider:
         if self._client is None:
             from openai import OpenAI
 
-            self._client = OpenAI(timeout=25, max_retries=1)
+            self._client = OpenAI(timeout=25, max_retries=0)
         return self._client
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:

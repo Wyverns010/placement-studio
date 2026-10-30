@@ -157,3 +157,33 @@ def test_cached_result_rules(tmp_path):
     p.write_text(json.dumps([res.model_dump()]))
     assert samples_mod.cached_result("a\tb", 25000, path=p) is not None
     assert samples_mod.cached_result("a b", 1000, path=p) is None
+
+
+def test_answers_capped(client):
+    ans = {f"q{i}": "x" * 500 for i in range(9)}
+    r = client.post("/api/campaign", json={"text": "dog food", "answers": ans}).json()
+    lines = r["input_text"].split("Additional details:\n")[1].splitlines()
+    assert len(lines) == 5 and all(len(l) <= len("- q0: ") + 200 for l in lines)
+
+
+def test_clarify_replay_mirrors_live():
+    from app.pipeline import result_events, run_pipeline, collect
+    from tests.test_pipeline import fake
+    llm = fake(self_confidence=0.3)
+    live = list(run_pipeline("dog food", 25000, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T))
+    replay = result_events(collect(iter(live)))
+    assert [(e.stage, e.data) for e in replay[:4]] == [(e.stage, e.data) for e in live[:4]]
+
+
+def test_cache_memoised(tmp_path, monkeypatch):
+    res = CampaignResult(input_text="a", budget_usd=25000, outcome="no_signal", message=None,
+                         brief=None, gate=None, publishers=[], personas=[], creatives=[],
+                         clarify=[], config=None)
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps([res.model_dump()]))
+    assert samples_mod.cached_result("a", 25000, path=p)
+    calls = []
+    orig = CampaignResult.model_validate
+    monkeypatch.setattr(CampaignResult, "model_validate", classmethod(lambda c, *a, **k: calls.append(1) or orig(*a, **k)))
+    assert samples_mod.cached_result("a", 25000, path=p)
+    assert calls == []

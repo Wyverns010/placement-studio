@@ -37,7 +37,9 @@ class PipelineError(Exception):
     """Raised by collect() when the stream ended in an error event; message is user-safe."""
 
 
-def _pub_data(pubs: list[PublisherScore]) -> dict:
+def _pub_data(pubs: list[PublisherScore], outcome: str = "proceed") -> dict:
+    if outcome == "clarify":
+        pubs = pubs[:3]  # faded best guess: top 3 only
     return {
         "recommended": [p.publisher_id for p in pubs if p.recommended],
         "top": [{"id": p.publisher_id, "name": p.name, "fit": p.fit} for p in pubs[:5]],
@@ -57,7 +59,7 @@ def result_events(r: CampaignResult) -> list[StageEvent]:
     if r.gate:
         ev.append(StageEvent(stage="gate", data=r.gate.model_dump()))
     if r.publishers:
-        ev.append(StageEvent(stage="publishers", data=_pub_data(r.publishers)))
+        ev.append(StageEvent(stage="publishers", data=_pub_data(r.publishers, r.outcome)))
     if r.personas:
         ev.append(StageEvent(stage="personas", data=_persona_data(r.personas)))
     if r.creatives:
@@ -111,7 +113,7 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
     persona_scores = score_personas(brief, catalog, t)
 
     if g.outcome == "clarify":
-        yield StageEvent(stage="publishers", data=_pub_data(scored[:3]))
+        yield StageEvent(stage="publishers", data=_pub_data(scored, "clarify"))
         top = select_personas(persona_scores, t)[:1]
         yield StageEvent(stage="personas", data=_persona_data(top))
         questions = clarify_questions(text, brief, llm)

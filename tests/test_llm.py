@@ -99,8 +99,8 @@ def test_get_provider_cache_toggle(monkeypatch, tmp_path):
 def test_model_defaults(monkeypatch):
     monkeypatch.delenv("OPENAI_MODEL_FAST", raising=False)
     monkeypatch.delenv("OPENAI_MODEL_CREATIVE", raising=False)
-    assert llm.model_fast() == "gpt-5-mini"
-    assert llm.model_creative() == "gpt-5"
+    assert llm.model_fast() == "gpt-5.4-mini"
+    assert llm.model_creative() == "gpt-5.5"
     monkeypatch.setenv("OPENAI_MODEL_FAST", "x")
     assert llm.model_fast() == "x"
 
@@ -128,3 +128,16 @@ def test_cache_key_includes_schema_shape(tmp_path):
     cp.parse(system="s", user="u", schema=B, model="m")
     assert len(list(tmp_path.glob("*.json"))) == 2
     assert len(fake.calls) == 2
+
+
+def test_client_built_with_no_retries_and_25s_timeout(monkeypatch):
+    import openai
+    seen = {}
+
+    class Stub:
+        def __init__(self, **kw):
+            seen.update(kw)
+
+    monkeypatch.setattr(openai, "OpenAI", Stub)
+    llm.OpenAIProvider()._get_client()
+    assert seen == {"timeout": 25, "max_retries": 0}
