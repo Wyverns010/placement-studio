@@ -202,11 +202,11 @@ describe('Results', () => {
     clarify: [],
     config: null,
   }
-  it('renders a stub with Back for non-proceed outcomes', async () => {
+  it('renders the clarify view with Back for non-proceed outcomes', async () => {
     const onBack = vi.fn()
     const user = userEvent.setup()
     render(<Results result={{ ...base, outcome: 'clarify' } as CampaignResult} onBack={onBack} />)
-    expect(screen.getByTestId('outcome')).toHaveTextContent('clarify: Please say more')
+    expect(screen.getByText('We need a bit more before spending your budget.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /new campaign/i }))
     expect(onBack).toHaveBeenCalled()
   })

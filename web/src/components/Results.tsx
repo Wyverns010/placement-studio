@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import type { CampaignResult } from '../types'
+import { usd } from '../format'
+import type { CampaignResult, Sample } from '../types'
+import ClarifyView from './ClarifyView'
+import OutOfScopeView from './OutOfScopeView'
+import OutcomeBanner from './OutcomeBanner'
 import ConfigTab from './ConfigTab'
 import PersonasTab from './PersonasTab'
 import PublishersTab from './PublishersTab'
@@ -8,19 +12,51 @@ import ResultHeader from './ResultHeader'
 
 type Tab = 'publishers' | 'personas' | 'config'
 
-export default function Results({ result, onBack }: { result: CampaignResult; onBack: () => void }) {
+interface Props {
+  result: CampaignResult
+  onBack: () => void
+  samples?: Sample[]
+  onPickSample?: (s: Sample) => void
+  onRebuild?: (answers: Record<string, string>) => void
+  rebuilding?: boolean
+  rebuildError?: string | null
+}
+
+export default function Results({
+  result,
+  onBack,
+  samples = [],
+  onPickSample = () => {},
+  onRebuild = () => {},
+  rebuilding = false,
+  rebuildError = null,
+}: Props) {
   const [tab, setTab] = useState<Tab>('publishers')
 
   if (result.outcome !== 'proceed' && result.outcome !== 'weak_fit') {
-    // Task 14 replaces this stub with the dedicated clarify / out-of-scope / no-signal views.
     return (
-      <section className="py-14">
-        <button type="button" className="pill pill-sm" onClick={onBack}>
-          ← New campaign
-        </button>
-        <p className="mt-6 text-lg" data-testid="outcome">
-          {result.outcome}: {result.message ?? ''}
-        </p>
+      <section>
+        <ResultHeader result={result} onBack={onBack} />
+        {rebuildError && (
+          <div className="mb-4">
+            <OutcomeBanner variant="error" title="We couldn't rebuild that campaign.">
+              <p className="m-0 mb-2.5">{rebuildError}</p>
+              <button type="button" className="pill pill-sm" onClick={onBack}>
+                Try a sample
+              </button>
+            </OutcomeBanner>
+          </div>
+        )}
+        {result.outcome === 'out_of_scope' ? (
+          <OutOfScopeView result={result} samples={samples} onPickSample={onPickSample} />
+        ) : (
+          <ClarifyView
+            key={result.clarify.map((q) => q.question).join('|')}
+            result={result}
+            onRebuild={onRebuild}
+            rebuilding={rebuilding}
+          />
+        )}
       </section>
     )
   }
@@ -35,6 +71,18 @@ export default function Results({ result, onBack }: { result: CampaignResult; on
   return (
     <section>
       <ResultHeader result={result} onBack={onBack} />
+      {result.outcome === 'weak_fit' && (
+        <div className="mb-4">
+          <OutcomeBanner variant="amber" title="Weak fit — treat this as a test.">
+            {result.message && <p className="m-0">{result.message}</p>}
+            {typeof result.config?.budget.monthly_usd === 'number' && (
+              <p className="m-0 mt-1 font-semibold">
+                Test budget: {usd(result.config.budget.monthly_usd)} of {usd(result.budget_usd)}
+              </p>
+            )}
+          </OutcomeBanner>
+        </div>
+      )}
       <Tabs tabs={tabs} value={tab} onChange={setTab} label="Results sections">
       {tab === 'publishers' && <PublishersTab publishers={result.publishers} config={result.config} />}
       {tab === 'personas' && (

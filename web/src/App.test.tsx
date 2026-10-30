@@ -149,3 +149,104 @@ describe('Landing', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('Outcome states', () => {
+  const clarify: CampaignResult = {
+    ...result,
+    outcome: 'clarify',
+    gate: { outcome: 'clarify', confidence: 0.31, threshold: 0.7, impl: 'llm', signals: {} },
+    clarify: [{ question: 'What is the product?', options: ['Physical product'] }],
+    publishers: [{ ...result.publishers[0], recommended: false }],
+  }
+
+  async function toClarify(user: ReturnType<typeof userEvent.setup>) {
+    vi.mocked(runCampaign).mockResolvedValueOnce(clarify)
+    render(<App />)
+    const ta = await screen.findByLabelText('Describe your brand')
+    await waitFor(() => expect(ta).toHaveValue(samples[0].text))
+    await user.click(screen.getByRole('button', { name: /build campaign/i }))
+    await screen.findByRole('button', { name: /rebuild campaign/i })
+  }
+
+  it('Rebuild re-runs with the original text, budget and answers, and replaces the result', async () => {
+    const user = userEvent.setup()
+    await toClarify(user)
+    await user.click(screen.getByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    expect(runCampaign).toHaveBeenLastCalledWith({
+      text: samples[0].text,
+      budget_usd: 25000,
+      answers: { 'What is the product?': 'Physical product' },
+    })
+    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+  })
+
+  it('a failed rebuild shows a red alert, no spinner, and Try a sample returns to landing', async () => {
+    const user = userEvent.setup()
+    await toClarify(user)
+    vi.mocked(runCampaign).mockRejectedValueOnce(new ApiError(500, 'Boom'))
+    await user.click(screen.getByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Boom')
+    expect(screen.getByRole('button', { name: /rebuild campaign/i })).toBeEnabled()
+    expect(screen.queryByText(/rebuilding/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try a sample' }))
+    expect(await screen.findByLabelText('Describe your brand')).toBeInTheDocument()
+  })
+
+  it('out_of_scope shows the message, excluded list with Show more, and sample chips that run', async () => {
+    const user = userEvent.setup()
+    const pubs = Array.from({ length: 8 }, (_, i) => ({
+      ...result.publishers[1],
+      publisher_id: `x${i}`,
+      name: `Pub ${i}`,
+      fit: 0.5 - i * 0.01,
+      reason: 'B2B is not shoppable',
+    }))
+    vi.mocked(runCampaign).mockResolvedValueOnce({
+      ...result,
+      outcome: 'out_of_scope',
+      message: 'We place consumer shopping ads only.',
+      publishers: pubs,
+      personas: [],
+    })
+    render(<App />)
+    await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
+    await user.click(screen.getByRole('button', { name: /build campaign/i }))
+    expect(await screen.findByText('We place consumer shopping ads only.')).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('excluded')).toHaveLength(6)
+    await user.click(screen.getByRole('button', { name: /show 2 more/i }))
+    expect(screen.getAllByTestId('excluded')).toHaveLength(8)
+    await user.click(screen.getByRole('button', { name: 'Vermont candles' }))
+    expect(runCampaign).toHaveBeenLastCalledWith({ text: samples[1].text, budget_usd: 25000 })
+  })
+
+  it('weak_fit keeps the tabs and adds a banner with the test budget', async () => {
+    const user = userEvent.setup()
+    vi.mocked(runCampaign).mockResolvedValueOnce({
+      ...result,
+      outcome: 'weak_fit',
+      message: 'Few publishers match this closely.',
+      config: {
+        campaign_id: 'c',
+        objective: 'conversions',
+        conversion_event: 'purchase',
+        budget: { monthly_usd: 5000, test_budget: true },
+        bid_strategy: {},
+        targeting: {},
+        line_items: [],
+        frequency_cap: {},
+        guardrails: {},
+        rationales: {},
+        decision_trace: {},
+      },
+    })
+    render(<App />)
+    await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
+    await user.click(screen.getByRole('button', { name: /build campaign/i }))
+    expect(await screen.findByText('Test budget: $5,000 of $25,000')).toBeInTheDocument()
+    expect(screen.getByText('Few publishers match this closely.')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+  })
+})
