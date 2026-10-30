@@ -1,0 +1,116 @@
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel
+
+Outcome = Literal["proceed", "clarify", "out_of_scope", "no_signal", "weak_fit"]
+PriceTier = Literal["value", "mid", "premium", "luxury", "unknown"]
+
+
+class Brief(BaseModel):
+    describes_business: bool  # false for "idk just try it"
+    product: str | None
+    audience_type: Literal["consumer", "business", "unclear"]
+    categories: list[str]  # subset of catalog.vocab: direct fit
+    adjacent_categories: list[str]  # subset of catalog.vocab: related
+    conflicts: list[str]  # subset of catalog.conflict_vocab the product embodies
+    price_usd: float | None
+    price_tier: PriceTier
+    business_model: Literal["subscription", "one_off", "unknown"]
+    age_min: int | None
+    age_max: int | None
+    gender_skew: Literal["female", "male", "balanced", "unknown"]
+    facts: list[str]  # claims stated in the input, verbatim-ish
+    unknowns: list[str]  # what's missing that would change the plan
+    self_confidence: float  # 0-1, LLM's own read of clarity (LLM gate only)
+
+
+class GateResult(BaseModel):
+    outcome: Outcome  # never "weak_fit" (decided after match)
+    confidence: float
+    threshold: float
+    impl: Literal["llm", "laya"]
+    signals: dict[str, float | str]  # raw per-question values, shown in Details
+
+
+class Factor(BaseModel):
+    name: str
+    score: float
+    note: str
+
+
+class PublisherScore(BaseModel):
+    publisher_id: str
+    name: str
+    fit: float
+    factors: list[Factor]
+    recommended: bool
+    stretch: bool
+    reason: str  # about 8 words max
+
+
+class PersonaScore(BaseModel):
+    persona_id: str
+    name: str
+    fit: float
+    factors: list[Factor]
+    stretch: bool
+
+
+class Creative(BaseModel):
+    creative_id: str
+    persona_id: str
+    publisher_id: str
+    headline: str
+    body: str
+    cta: str
+    why: str
+    fact_violations: list[str] = []
+
+
+class ClarifyQuestion(BaseModel):
+    question: str
+    options: list[str]
+
+
+class LineItem(BaseModel):
+    publisher_id: str
+    share: float
+    budget_usd: float
+    creative_id: str | None
+
+
+class CampaignConfig(BaseModel):
+    campaign_id: str
+    objective: Literal["conversions"]
+    conversion_event: Literal["purchase", "subscription_start"]
+    budget: dict  # {"monthly_usd", "pacing": "even", "unallocated_usd", "test_budget"}
+    bid_strategy: dict  # {"type": "target_cpa", "target_usd": float}
+    targeting: dict  # {"age_range", "gender", "geo", "interests", "personas"}
+    line_items: list[LineItem]
+    frequency_cap: dict  # {"impressions": int, "per_days": int}
+    guardrails: dict  # {"pause_if_cpa_over_x": float, "min_impressions": int}
+    rationales: dict[str, str]  # field name -> one line, shown on hover
+    decision_trace: dict
+
+
+class CampaignResult(BaseModel):
+    input_text: str
+    budget_usd: float
+    outcome: Outcome
+    message: str | None
+    brief: Brief | None
+    gate: GateResult | None
+    publishers: list[PublisherScore]
+    personas: list[PersonaScore]
+    creatives: list[Creative]
+    clarify: list[ClarifyQuestion]
+    config: CampaignConfig | None
+
+
+class StageEvent(BaseModel):
+    stage: Literal[
+        "understood", "gate", "publishers", "personas", "creatives", "config", "done", "error"
+    ]
+    data: dict

@@ -1,0 +1,40 @@
+publisher:
+  weights: {category: 0.45, audience: 0.20, income: 0.15, aov: 0.20}
+  category_scores: {primary: 1.0, subcategory: 0.85, adjacent: 0.5}
+  no_category_penalty: 0.5      # fit *= this when category factor == 0
+  aov_gate_floor: 0.4           # when price known: fit *= floor + (1-floor)*aov_factor
+  unknown_factor: 0.6           # factor value when the brief lacks the needed field
+  cutoff: 0.40
+  max_recommended: 5
+  weak_fit_min_recommended: 2
+  weak_fit_show: 3
+persona:
+  weights: {affinity: 0.5, price: 0.2, age: 0.3}
+  conflict_penalty: 0.35
+  cutoff: 0.45
+  min: 3
+  max: 5
+budget:
+  default_monthly_usd: 25000
+  min_usd: 500
+  max_usd: 5000000
+  assumed_cpm_usd: 12
+  min_share: 0.10
+  weak_fit_test_fraction: 0.20
+bid:
+  cpa_fraction_of_order_value: 0.35
+  subscription_ltv_multiplier: 2.0
+  frequency_cap: {impressions: 3, per_days: 7}
+  guardrail_cpa_multiple: 1.5
+  guardrail_min_impressions: 2000
+gate:
+  proceed_threshold: 0.70
+  no_signal_threshold: 0.30
+  business_threshold: 0.50
+  category_disagreement_factor: 0.80
+creative:
+  headline_max_chars: 60
+  body_max_chars: 160
+  cta_max_chars: 24
+input:
+  max_chars: 1500
