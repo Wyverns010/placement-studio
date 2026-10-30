@@ -10,3 +10,24 @@ __pycache__/
 *.pyc
 evals/last_run*.json
 evals/candidates.jsonl
+
+# Design docs, specs and screenshots stay local
+docs/
+# Launch-video output (brag)
+brag-output/
+# Env variants (keep the example)
+.env.*
+!.env.example
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+# Tool caches and build artefacts
+*.log
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.tsbuildinfo
+*.egg-info/
+build/
