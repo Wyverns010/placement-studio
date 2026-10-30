@@ -44,21 +44,36 @@ re-asked after a facts or length violation) and latency p50/p90.
 | | Accuracy | Invariant failures | Must hit | Must-not avoided |
 |---|---|---|---|---|
 | Train baseline (before tuning) | 61/84 = 72.6% | 0 | 90% | 100% |
-| Train after tuning (uncached re-run) | 84/84 = 100% | 0 | 94% | 100% |
-| **Held-out test (single run)** | **34/36 = 94.4%** | **0** | 100% | 100% |
+| Train after tuning, examples de-contaminated | 83/84 = 98.8% | 0 | 94% | 100% |
+| **Held-out test (official, re-run)** | **35/36 = 97.2%** | **0** | 100% | 100% |
+| Held-out test, first run (contaminated, superseded) | 34/36 = 94.4% | 0 | 100% | 100% |
 | **The 15 given examples** | **15/15** (13 train, 2 test) | 0 | | |
 
+**The first held-out run was contaminated.** Several examples in `prompts/understand.md` copied
+eval wording: "just make a campaign" (test case `ladder-protein-empty`), "Glossier", "$2.50 a can,
+12-packs", "we're in the self-care space", "we help people feel better" (given #5, which is in the
+test split), "idk just try it", "$1,200 handbag", plumber/dentist/lawyer, and others. Every example
+was replaced with wording that appears in no case text; the rules stayed the same. Train and test
+were then re-run once each. The official held-out figure is the re-run: **35/36**. The first run
+scored 34/36. Before the fix, train was 84/84. The one case it lost, `clear-beverages-1` ("$2.50 a
+can, sold in 12-packs"), had only passed because the prompt quoted its own wording. It was left as
+a known miss rather than re-tuned.
+
+`aov_below_log2_scale: 5` was fit on the train split only. Values 4, 5 and 6 gave identical train
+results in the offline simulation.
+
 Targets: at least 85% held out, 15/15 given, 0 invariant failures. All met. Creative retry rate: 1
-persona in about 290 across the uncached train run and the test run (about 0.3%), with no residual
-violations. Latency at concurrency 8, uncached: p50 5.7s, p90 6.7s per case.
+persona in about 780 across the five post-tuning runs (about 0.1%), with no residual violations.
+Latency at concurrency 8, uncached Understand: p50 5.6s, p90 7.1s per case.
 
 ## Known misses
 
-- Held out, both at the clarify / no_signal edge: `ladder-throws-empty` ("Our company.") came back
-  clarify (the model marked it as business content with confidence 0.14), and `ladder-protein-vague`
-  ("Helping people hit their goals.") came back no_signal. A likely fix is to treat
-  `self_confidence < 0.2` as no_signal in the gate. It was not applied, because that would mean
-  tuning on the test split.
+- Held out: `ladder-throws-empty` ("Our company.") came back clarify. The model marked it as
+  business content with confidence 0.14. A likely fix is to treat `self_confidence < 0.2` as
+  no_signal in the gate. It was not applied, because that would mean tuning on the test split.
+  `ladder-protein-vague`, which missed on the first contaminated run, passed on the re-run.
+- Train: `clear-beverages-1`. The model kept the $2.50 per-can price instead of the 12-pack
+  price, so Pop & Sip's AOV fit fails and the case comes back weak_fit.
 - `given-09` / `para-09` (refill cleaning concentrate): Swiftcart (household) is recommended, but
   Pantrygood, the must publisher, is not always in the list.
 - With a female buyer and a mid price tier, Marlowe & Co. and Linden Park (women aged 45 to 70)
