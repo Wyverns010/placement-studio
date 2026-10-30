@@ -15,7 +15,7 @@ from evals.run import load_cases, run_cases, split_for, summarize
 from tests.conftest import CAT, T
 from tests.test_pipeline import CLARIFY, _creatives, brief_obj, fake
 
-SEED = Path("evals/cases.jsonl")
+SEED = Path("tests/fixtures/seed_cases.jsonl")
 
 
 def result_for(llm, text="We sell dog food") -> CampaignResult:
@@ -174,3 +174,33 @@ def test_confusion_diagonal_when_outcome_in_expected():
              "recommended_ids": [], "must_publishers": [], "must_not_publishers": [],
              "invariant_failures": []}]
     assert summarize(recs)["confusion"]["weak_fit"] == {"weak_fit": 1}
+
+
+def test_run_cases_counts_creative_retries_and_truncates_like_api():
+    seen = []
+
+    def brief_cb(system, user):
+        seen.append(user)
+        return brief_obj()
+
+    calls = {"n": 0}
+
+    def creatives(system, user):
+        calls["n"] += 1
+        out = _creatives(system, user)
+        if "previous ad broke the rules" not in user and calls["n"] == 1:
+            for it in out.items:
+                it.headline = "Save 99% today"  # number not in the input -> one retry
+        return out
+
+    llm = FakeProvider({"BriefSchema": brief_cb, "CreativeBatch": creatives, "ClarifyBatch": CLARIFY})
+    case = {"id": "x", "group": "x", "split": split_for("x"), "expected": ["proceed"],
+            "text": "We sell dog food. " + "z" * 3000}
+    [rec] = run_cases([case], llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T,
+                      concurrency=1)
+    assert len(seen[0]) < 1500 + 200  # wrapped text, truncated to input.max_chars
+    assert rec["creative_retries"] == 1
+    assert rec["creative_calls"] == len(rec["persona_ids"]) + 1
+    s = summarize([rec])
+    assert s["retry_rate"] == 1 / len(rec["persona_ids"])
+    assert s["latency_p50"] is not None

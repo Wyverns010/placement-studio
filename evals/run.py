@@ -44,16 +44,30 @@ def load_cases(path: Path = CASES, *, split: str = "train", only: set[str] | Non
     return cases
 
 
+class _CallCounter:
+    """Per-case LLM wrapper that counts calls by schema name (creative retries = extra calls)."""
+
+    def __init__(self, inner):
+        self.inner = inner
+        self.calls: Counter = Counter()
+
+    def parse(self, *, system, user, schema, model):
+        self.calls[schema.__name__] += 1
+        return self.inner.parse(system=system, user=user, schema=schema, model=model)
+
+
 def _run_one(case: dict, llm, gate, catalog, t) -> dict:
     rec = {"id": case["id"], "split": case["split"], "expected": case["expected"],
            "must_publishers": case.get("must_publishers", []),
            "must_not_publishers": case.get("must_not_publishers", []),
            "outcome": "error", "signals": {}, "weak_fit_if_proceed": False,
            "recommended_ids": [], "persona_ids": [], "invariant_failures": [],
-           "latency_s": 0.0}
+           "latency_s": 0.0, "creative_calls": 0, "creative_retries": 0, "residual_violations": 0}
+    text = case["text"].strip()[: t.input.max_chars]  # same truncation as the API
+    counter = _CallCounter(llm)
     start = time.perf_counter()
     try:
-        r = collect(run_pipeline(case["text"], case.get("budget_usd", 25000), llm=llm, gate=gate,
+        r = collect(run_pipeline(text, case.get("budget_usd", 25000), llm=counter, gate=gate,
                                  catalog=catalog, t=t))
         rec["outcome"] = r.outcome
         if r.gate:
@@ -64,6 +78,10 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
         rec["recommended_ids"] = [p.publisher_id for p in r.publishers if p.recommended]
         rec["persona_ids"] = [p.persona_id for p in r.personas]
         rec["invariant_failures"] = check(r, t)
+        rec["creative_calls"] = counter.calls["CreativeBatch"]
+        # first pass makes one call per persona; every call beyond that is a retry
+        rec["creative_retries"] = max(0, rec["creative_calls"] - len(r.personas)) if rec["creative_calls"] else 0
+        rec["residual_violations"] = sum(1 for c in r.creatives if c.fact_violations)
     except Exception as e:  # noqa: BLE001 - one bad case must never abort the run
         rec["error"] = f"{type(e).__name__}: {e}"[:200]
     rec["latency_s"] = round(time.perf_counter() - start, 2)
@@ -97,7 +115,16 @@ def summarize(recs: list[dict]) -> dict:
         ok = sum(len(m & rec) if want_present else len(m - rec) for m, rec in rows)
         return ok / total if total else None
 
-    return {"n": n, "correct": correct, "accuracy": correct / n if n else 0.0, "per": per,
+    first = sum(r.get("creative_calls", 0) - r.get("creative_retries", 0) for r in recs)
+    lat = sorted(r["latency_s"] for r in recs if "latency_s" in r)
+
+    def pct(q):
+        return lat[min(len(lat) - 1, int(q * len(lat)))] if lat else None
+
+    return {"n": n, "correct": correct,
+            "retry_rate": sum(r.get("creative_retries", 0) for r in recs) / first if first else None,
+            "residual_violations": sum(r.get("residual_violations", 0) for r in recs),
+            "latency_p50": pct(0.5), "latency_p90": pct(0.9), "accuracy": correct / n if n else 0.0, "per": per,
             "confusion": {e: dict(c) for e, c in conf.items()},
             "must_hit": hit("must_publishers", True),
             "must_not_clear": hit("must_not_publishers", False),
@@ -121,6 +148,10 @@ def render(s: dict) -> str:
         L.append(f"{e:<13}" + "".join(f"{row.get(c, 0):>8}" for c in COLS))
     L += ["", f"must publishers hit (proceed/weak_fit cases):     {_pct(s['must_hit'])}",
           f"must-not publishers avoided (same cases):           {_pct(s['must_not_clear'])}", ""]
+    L.append(f"creative retry rate (personas re-asked after a facts/length miss): {_pct(s['retry_rate'])}; "
+             f"residual violations: {s['residual_violations']}")
+    if s["latency_p50"] is not None:
+        L.append(f"latency p50 {s['latency_p50']:.1f}s, p90 {s['latency_p90']:.1f}s (near 0 when cached)")
     if s["invariant_failures"]:
         L.append("invariant failures:")
         for cid, fs in s["invariant_failures"].items():
