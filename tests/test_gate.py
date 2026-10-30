@@ -55,6 +55,12 @@ def test_llm_gate_maps_business_brief_to_out_of_scope():
     assert r.outcome == "out_of_scope" and r.impl == "llm"
 
 
+def test_llm_gate_maps_not_shoppable_brief_to_out_of_scope():
+    # local in-person services, job ads, charities, political messages: nothing a shopper buys online
+    r = LLMSelfReportGate(load_tuning()).assess("x", _brief(audience_type="not_shoppable"))
+    assert r.outcome == "out_of_scope"
+
+
 def test_llm_gate_no_signal_and_clarify_and_proceed():
     g = LLMSelfReportGate(load_tuning())
     assert g.assess("x", _brief(describes_business=False)).outcome == "no_signal"

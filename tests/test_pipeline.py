@@ -104,6 +104,13 @@ def test_out_of_scope_all_excluded():
     assert evs[2].data["recommended"] == []
 
 
+def test_out_of_scope_message_for_not_shoppable_does_not_claim_business_buyers():
+    r = collect(iter(run(fake(audience_type="not_shoppable", product="emergency plumbing"))))
+    assert r.outcome == "out_of_scope" and r.config is None
+    assert "business buyers" not in r.message
+    assert "emergency plumbing" in r.message and "shoppers" in r.message
+
+
 def test_out_of_scope_message_falls_back_without_product():
     r = collect(iter(run(fake(audience_type="business", product=None))))
     assert "this product" in r.message

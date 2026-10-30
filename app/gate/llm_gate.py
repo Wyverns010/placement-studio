@@ -5,7 +5,7 @@ from app.models import Brief, GateResult
 from app.tuning import Tuning
 
 # unclear sits below business_threshold so a vague buyer falls through to the clarity check (clarify), not out_of_scope
-_BUSINESS_PROB = {"business": 1.0, "unclear": 0.25, "consumer": 0.0}
+_BUSINESS_PROB = {"business": 1.0, "not_shoppable": 1.0, "unclear": 0.25, "consumer": 0.0}
 
 
 class LLMSelfReportGate:

@@ -28,7 +28,10 @@ def msg_weak_fit(product: str | None, n: int) -> str:
             f"These are the closest {n} — run them as a small test.")
 
 
-def msg_out_of_scope(product: str | None) -> str:
+def msg_out_of_scope(product: str | None, audience_type: str = "business") -> str:
+    if audience_type == "not_shoppable":
+        return (f"This catalog reaches online shoppers at checkout; {product or 'this'} isn't "
+                "something they buy there, so we don't recommend spending here.")
     return (f"This catalog reaches shoppers at checkout; {product or 'this product'} sells to "
             "business buyers, so we don't recommend spending here.")
 
@@ -107,7 +110,7 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
         excluded = [s.model_copy(update={"recommended": False, "stretch": False}) for s in scored]
         yield StageEvent(stage="publishers", data=_pub_data(excluded))
         yield StageEvent(stage="done", data=result(
-            "out_of_scope", msg_out_of_scope(brief.product), publishers=excluded).model_dump())
+            "out_of_scope", msg_out_of_scope(brief.product, brief.audience_type), publishers=excluded).model_dump())
         return
 
     persona_scores = score_personas(brief, catalog, t)

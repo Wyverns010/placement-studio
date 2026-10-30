@@ -11,7 +11,8 @@ PriceTier = Literal["value", "mid", "premium", "luxury", "unknown"]
 class Brief(BaseModel):
     describes_business: bool  # false for "idk just try it"
     product: str | None
-    audience_type: Literal["consumer", "business", "unclear"]
+    # not_shoppable: nothing a shopper buys online (local in-person service, job ad, charity, politics)
+    audience_type: Literal["consumer", "business", "not_shoppable", "unclear"]
     categories: list[str]  # subset of catalog.vocab: direct fit
     adjacent_categories: list[str]  # subset of catalog.vocab: related
     conflicts: list[str]  # subset of catalog.conflict_vocab the product embodies
