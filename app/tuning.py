@@ -21,10 +21,19 @@ class CategoryScores(BaseModel):
     attribute: float
 
 
+class AudienceWeights(BaseModel):
+    age: float
+    gender: float
+
+
 class PublisherTuning(BaseModel):
     weights: PublisherWeights
     category_scores: CategoryScores
     attribute_tags: list[str]
+    audience_weights: AudienceWeights
+    income_targets: dict[str, float]
+    income_scale: float
+    aov_log2_scale: float
     no_category_penalty: float
     aov_gate_floor: float
     unknown_factor: float
