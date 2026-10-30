@@ -90,7 +90,7 @@ def test_weak_fit_outcome_from_proceed_gate():
     rec = [p for p in r.publishers if p.recommended]
     assert len(rec) == T.publisher.weak_fit_show and all(p.stretch for p in rec)
     assert "widgets" in r.message and str(len(rec)) in r.message
-    assert r.config.budget["test_budget"] is True or r.config.budget["test_budget"]
+    assert r.config.budget["test_budget"]
 
 
 def test_out_of_scope_all_excluded():
