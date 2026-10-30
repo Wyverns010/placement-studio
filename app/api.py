@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
+from dotenv import load_dotenv
+
 from app import samples
 from app.catalog import Catalog, load_catalog
 from app.gate import ConfidenceGate, get_gate
@@ -20,6 +22,8 @@ from app.models import CampaignResult, StageEvent
 from app.pipeline import PipelineError, collect, result_events, run_pipeline
 from app.ratelimit import RateLimiter
 from app.tuning import Tuning, load_tuning
+
+load_dotenv()  # never overrides env vars already set
 
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
 REPLAY_DELAY_S = 0.3
