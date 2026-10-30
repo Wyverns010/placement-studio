@@ -173,7 +173,7 @@ def test_no_signal_questions_static():
 
 def test_claim_words_use_word_boundaries():
     assert check_facts(cr(body="Secure checkout, manicure kits"), "Nail kits", T) == []
-    assert check_facts(cr(body="Top #10 pick"), "Nail kits", T) == []
+    assert check_facts(cr(body="Top #10 pick"), "Nail kits, 10 shades", T) == []
     assert len(check_facts(cr(body="Clinically proven"), "Nail kits", T)) == 2
     assert check_facts(cr(body="Clinically proven"), "It is clinically proven", T) == []
 
