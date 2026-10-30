@@ -26,7 +26,7 @@ from app.pipeline import collect, run_pipeline  # noqa: E402
 from app.samples import CACHE, load_samples, norm  # noqa: E402
 from app.tuning import load_tuning  # noqa: E402
 
-# Spec table "Expected outcomes for the 15 examples"; any listed outcome is acceptable.
+# The expected outcomes for the 15 given examples; any listed outcome is acceptable.
 EXPECTED: dict[int, tuple[str, ...]] = {
     1: ("proceed",), 2: ("proceed",), 3: ("proceed",), 4: ("proceed",), 5: ("clarify",),
     6: ("weak_fit",), 7: ("out_of_scope",), 8: ("clarify",), 9: ("proceed", "weak_fit"),
