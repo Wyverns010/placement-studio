@@ -68,7 +68,7 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     interests = _dedup(brief.categories + brief.adjacent_categories)
     cpa_limit = round(cpa * bid.guardrail_cpa_multiple, 2)
 
-    ltv = f" × {bid.subscription_ltv_multiplier:g} subscription LTV" if subscription else ""
+    ltv = f" × {bid.subscription_ltv_multiplier:.1f} subscription LTV" if subscription else ""
     src = "your price" if brief.price_usd else "fit-weighted publisher AOV"
     rationales = {
         "objective": "Conversions: the goal is "
