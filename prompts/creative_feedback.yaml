@@ -1,0 +1,10 @@
+# Text the app sends back to the creative model (and shows as violation chips) when code rejects an ad.
+# Loaded by app.prompts.feedback(key, **slots); templates use str.format slots.
+retry_preamble: "\n\nYour previous ad broke the rules. Rewrite it and fix every problem: {problems}"
+other_headlines: "\n\nHeadlines already used by the other personas; yours must differ in wording and angle: {headlines}"
+missing: "missing creative"
+headline_duplicate: "headline duplicates {name}'s — write a different one"
+headline_product: "headline is just the product name"
+fact_number: "number '{number}' is not in the advertiser's text"
+fact_claim: "claim '{word}' is not in the advertiser's text"
+length: "{field} is {n} characters; the limit is {limit}"

@@ -2,7 +2,7 @@
 
 Describe a business in a sentence; get ranked publishers (and why the rest lost), 3–5 persona-tuned ads and a launch-ready campaign config, every number explained. Bad input gets an honest answer, not a campaign.
 
-**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed: instant, and they survive an OpenAI outage. A live run takes about 8–10 s.
+**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed: instant, and they survive an OpenAI outage. A live run takes about 7–9 s.
 
 ```
 cp .env.example .env          # add OPENAI_API_KEY

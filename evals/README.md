@@ -49,6 +49,11 @@ Note: the default creative model is now gpt-5.4-mini (was gpt-5.5); eval accurac
 
 ## Latest numbers (2026-10-31, LLM gate, gpt-5.4-mini for Understand/clarify, gpt-5.5 for creatives, effort low)
 
+This table predates the creative-model switch. Post-switch train re-run (gpt-5.4-mini for creatives):
+83/84, with 1 transient OpenAI timeout and 2 exact duplicate-headline invariant failures. Those
+motivated the retry hardening (other headlines shown on retry, near-duplicate check at Jaccard 0.8).
+It has not been re-run since.
+
 | | Accuracy | Invariant failures | Must hit | Must-not avoided |
 |---|---|---|---|---|
 | Train baseline (before tuning, 2026-10-30) | 61/84 = 72.6% | 0 | 90% | 100% |

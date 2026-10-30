@@ -375,3 +375,41 @@ def test_headline_retry_message_lists_other_headlines():
     retry = llm.calls[-1]["user"]
     assert "Headlines already used" in retry
     assert "Fresh food" in retry
+
+
+def test_retry_headline_list_excludes_own_and_is_sanitised():
+    def fn(pid, n):
+        if pid == "persona_001" and n == 1:
+            return item(pid, headline="Fresh Food!")
+        if pid == "persona_004":
+            return item(pid, headline="Fresh food")
+        return item(pid, headline="Another angle")
+
+    llm = FakeProvider({"CreativeBatch": per_persona(fn)})
+    write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
+                    [pub("pub_007")], CAT, llm, T)
+    retry = llm.calls[-1]["user"]
+    assert '"Fresh food"' in retry and "Fresh Food!" not in retry  # own headline excluded
+
+
+def test_other_headlines_are_flattened_and_unquoted():
+    from app.create import Problem, _call_one
+    llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid))})
+    persona = CAT.personas[0]
+    _call_one("Dog treats", brief(), (persona, pub("pub_007")),
+              [], CAT, llm, T, [Problem("headline_duplicate", "dup")], ['Say "hi"\nthere'])
+    assert '"Say hi there"' in llm.calls[-1]["user"]
+
+
+def test_length_only_retry_does_not_list_other_headlines():
+    def fn(pid, n):
+        if pid == "persona_001" and n == 1:
+            return item(pid, headline="x" * 61)
+        return item(pid, headline="Another angle" if pid == "persona_001" else "Fresh food")
+
+    llm = FakeProvider({"CreativeBatch": per_persona(fn)})
+    write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
+                    [pub("pub_007")], CAT, llm, T)
+    assert len(llm.calls) == 3
+    assert "Headlines already used" not in llm.calls[-1]["user"]
+    assert "characters; the limit is" in llm.calls[-1]["user"]

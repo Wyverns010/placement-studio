@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import re
 from concurrent.futures import ThreadPoolExecutor
+from typing import NamedTuple
 
 from pydantic import BaseModel
 
 from app.catalog import Catalog, Persona
 from app.llm import LLMProvider, model_creative, model_fast
 from app.models import Brief, ClarifyQuestion, Creative, PersonaScore, PublisherScore
-from app.prompts import render, wrap_advertiser_text
+from app.prompts import feedback, render, wrap_advertiser_text
 from app.tuning import Tuning
 
 
@@ -38,7 +39,15 @@ NO_SIGNAL_QUESTIONS: list[ClarifyQuestion] = [
     ClarifyQuestion(question="Roughly what does it cost?", options=["Under $30", "$30–100", "$100+"]),
 ]
 
-MISSING = "missing creative"
+HEADLINE_KINDS = {"headline_duplicate", "headline_product"}
+
+
+class Problem(NamedTuple):
+    """One thing code rejected in an ad; `kind` drives retry behaviour, `message` is the text."""
+    kind: str  # fact_number | fact_claim | length | headline_duplicate | headline_product | missing
+    message: str
+
+
 _NUMBER = re.compile(r"\$?\d[\d,.]*%?")
 
 
@@ -52,16 +61,20 @@ def _has_word(word: str, text: str) -> bool:
 
 
 def check_facts(creative: Creative, input_text: str, t: Tuning) -> list[str]:
-    """Violations: numbers/claim words absent from the input, and over-length fields."""
-    violations: list[str] = []
+    """Violation messages: numbers/claim words absent from the input, and over-length fields."""
+    return [p.message for p in fact_problems(creative, input_text, t)]
+
+
+def fact_problems(creative: Creative, input_text: str, t: Tuning) -> list[Problem]:
+    violations: list[Problem] = []
     copy = f"{creative.headline} {creative.body} {creative.cta}"
     known = _numbers(input_text)
     for n in sorted(_numbers(copy)):
         if n not in known:
-            violations.append(f"number '{n}' is not in the advertiser's text")
+            violations.append(Problem("fact_number", feedback("fact_number", number=n)))
     for w in t.creative.claim_words:
         if _has_word(w, copy) and not _has_word(w, input_text):
-            violations.append(f"claim '{w}' is not in the advertiser's text")
+            violations.append(Problem("fact_claim", feedback("fact_claim", word=w)))
     for field, limit in (
         ("headline", t.creative.headline_max_chars),
         ("body", t.creative.body_max_chars),
@@ -69,7 +82,7 @@ def check_facts(creative: Creative, input_text: str, t: Tuning) -> list[str]:
     ):
         n = len(getattr(creative, field))
         if n > limit:
-            violations.append(f"{field} is {n} characters; the limit is {limit}")
+            violations.append(Problem("length", feedback("length", field=field, n=n, limit=limit)))
     return violations
 
 
@@ -93,21 +106,21 @@ def headlines_similar(a: str, b: str, threshold: float) -> bool:
 
 
 def headline_problems(creatives: list[Creative], product: str | None,
-                      names: dict[str, str], threshold: float = 1.0) -> dict[str, list[str]]:
+                      names: dict[str, str], threshold: float = 1.0) -> dict[str, list[Problem]]:
     """Per persona_id: a headline that repeats an earlier persona's (in order) or is just the
     product name. `names` maps persona_id -> display name."""
-    out: dict[str, list[str]] = {}
+    out: dict[str, list[Problem]] = {}
     seen: list[tuple[str, str]] = []  # (headline, persona_id)
     prod = normalise_headline(product or "")
     for c in creatives:
         h = normalise_headline(c.headline)
         if prod and h == prod:
-            out.setdefault(c.persona_id, []).append("headline is just the product name")
+            out.setdefault(c.persona_id, []).append(Problem("headline_product", feedback("headline_product")))
         else:
             dup = next((pid for hl, pid in seen if headlines_similar(hl, c.headline, threshold)), None)
             if dup:
                 out.setdefault(c.persona_id, []).append(
-                    f"headline duplicates {names.get(dup, dup)}'s — write a different one")
+                    Problem("headline_duplicate", feedback("headline_duplicate", name=names.get(dup, dup))))
             else:
                 seen.append((c.headline, c.persona_id))
     return out
@@ -142,7 +155,7 @@ def _persona_block(persona: Persona, pub: PublisherScore, catalog: Catalog) -> s
     )
 
 
-def _call_one(text, brief, target, others, catalog, llm, t, violations: list[str] | None = None,
+def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Problem] | None = None,
               other_headlines: list[str] | None = None):
     """One LLM call for one persona. Returns its CreativeItem, or None if it came back without one."""
     persona, pub = target
@@ -162,13 +175,10 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[str
     )
     user = wrap_advertiser_text(text)
     if violations:
-        user += (
-            "\n\nYour previous ad broke the rules. Rewrite it and fix every problem: "
-            + "; ".join(violations)
-        )
-        if other_headlines and any(v.startswith("headline") for v in violations):
-            user += ("\n\nHeadlines already used by the other personas; yours must differ in "
-                     "wording and angle: " + " | ".join(f'"{h}"' for h in other_headlines))
+        user += feedback("retry_preamble", problems="; ".join(v.message for v in violations))
+        if other_headlines and any(v.kind in HEADLINE_KINDS for v in violations):
+            clean = [" ".join(h.replace('"', "").split()) for h in other_headlines]
+            user += feedback("other_headlines", headlines=" | ".join(f'"{h}"' for h in clean))
     out = llm.parse(system=system, user=user, schema=CreativeBatch, model=model_creative())
     return next((it for it in out.items if it.persona_id == persona.id), None)
 
@@ -209,6 +219,7 @@ def write_creatives(
     if not targets:
         return []
     pub_of = {p.id: pub for p, pub in targets}
+    probs: dict[str, list[Problem]] = {}
 
     def build(it: CreativeItem) -> Creative:
         c = Creative(
@@ -217,7 +228,8 @@ def write_creatives(
             publisher_id=pub_of[it.persona_id].publisher_id,
             headline=it.headline, body=it.body, cta=it.cta, why=it.why,
         )
-        c.fact_violations = check_facts(c, text, t)
+        probs[it.persona_id] = fact_problems(c, text, t)
+        c.fact_violations = [p.message for p in probs[it.persona_id]]
         return c
 
     items = _call_many(text, brief, targets, targets, catalog, llm, t)
@@ -229,18 +241,19 @@ def write_creatives(
 
     def add_headline_problems() -> None:
         for pid, vs in headline_problems(ordered(), brief.product, names, t.creative.headline_similarity).items():
-            result[pid].fact_violations = result[pid].fact_violations + vs
+            probs[pid] = probs.get(pid, []) + vs
+            result[pid].fact_violations = result[pid].fact_violations + [v.message for v in vs]
 
     add_headline_problems()
 
-    def problems() -> dict[str, list[str]]:
-        out: dict[str, list[str]] = {}
+    def problems() -> dict[str, list[Problem]]:
+        out: dict[str, list[Problem]] = {}
         for p, _ in targets:
             c = result.get(p.id)
             if c is None:
-                out[p.id] = [MISSING]
+                out[p.id] = [Problem("missing", feedback("missing"))]
             elif c.fact_violations:
-                out[p.id] = list(c.fact_violations)
+                out[p.id] = list(probs.get(p.id, []))
         return out
 
     bad = problems()
@@ -249,8 +262,9 @@ def write_creatives(
         for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, feedback=bad,
                                  current={pid: r.headline for pid, r in result.items()}).items():
             result[pid] = build(it)
-        for c in result.values():  # re-check headlines against the final set
-            c.fact_violations = check_facts(c, text, t)
+        for pid, c in result.items():  # re-check headlines against the final set
+            probs[pid] = fact_problems(c, text, t)
+            c.fact_violations = [p.message for p in probs[pid]]
         add_headline_problems()
     return ordered()
 
