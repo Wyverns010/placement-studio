@@ -1,4 +1,7 @@
-from app.match import is_weak_fit, mark_stretch, score_publishers
+import math
+
+from app.match import _pick_reason, is_weak_fit, mark_stretch, score_publishers
+from app.models import Factor
 from tests.conftest import CAT, T, brief
 
 
@@ -104,15 +107,12 @@ def test_income_target_premium_vs_high_and_mid():
 
 
 def test_aov_log2_and_gate():
-    pub = next(p for p in CAT.publishers if p.avg_order_value_usd == 64) if any(
-        p.avg_order_value_usd == 64 for p in CAT.publishers) else None
     s = score_publishers(brief(categories=["pet"], price_usd=128), CAT, T)
+    assert _pub("pub_007").avg_order_value_usd == 64
+    assert abs(_f(s, "pub_007", "aov").score - 0.5) < 1e-9  # |log2(128/64)| = 1 -> 1 - 1/2
     for p in CAT.publishers:
-        import math
         want = max(0.0, 1 - abs(math.log2(128 / p.avg_order_value_usd)) / T.publisher.aov_log2_scale)
         assert abs(_f(s, p.id, "aov").score - want) < 1e-9
-    if pub:
-        assert abs(_f(s, pub.id, "aov").score - 0.5) < 1e-9
 
 
 def test_aov_gate_not_applied_when_price_none():
@@ -123,10 +123,24 @@ def test_aov_gate_not_applied_when_price_none():
     assert abs(p.fit - round(want, 3)) < 1e-9
 
 
-def test_reason_skips_unknown_placeholder_factors():
-    s = score_publishers(brief(categories=["pet_food"]), CAT, T)  # price, tier, age, gender unknown
-    top = _by_id(s, "pub_007")
-    assert top.recommended and top.reason == "Pet food subcategory match"
+def test_pick_reason_ignores_unknown_placeholders():
+    fs = [Factor(name="category", score=0.5, note="Adjacent: x"),
+          Factor(name="audience", score=0.6, note="Skews 1-2, 50% women"),
+          Factor(name="income", score=0.6, note="Price tier unknown"),
+          Factor(name="aov", score=0.6, note="Price unknown")]
+    # placeholders (0.6) beat the known category (0.5) under max-over-all; must not win
+    assert _pick_reason(fs, [False, True, True, True], True).note == "Adjacent: x"
+    # excluded: weakest known, not weakest placeholder
+    fs2 = [Factor(name="category", score=0.9, note="cat"), Factor(name="audience", score=0.3, note="aud"),
+           Factor(name="income", score=0.1, note="Price tier unknown"), Factor(name="aov", score=0.2, note="Price unknown")]
+    assert _pick_reason(fs2, [False, False, True, True], False).note == "aud"
+    assert _pick_reason(fs2, [False, True, True, True], False).note == "cat"
+
+
+def test_recommended_reason_is_never_a_placeholder_note():
+    s = score_publishers(brief(categories=["pet_food"], adjacent_categories=["pet_health"]), CAT, T)
+    recs = [p for p in s if p.recommended]
+    assert recs and all(p.reason not in ("Price unknown", "Price tier unknown") for p in recs)
     assert _f(s, "pub_007", "income").note == "Price tier unknown"
 
 

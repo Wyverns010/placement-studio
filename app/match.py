@@ -78,6 +78,12 @@ def _aov(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
     return Factor(name="aov", score=score, note=f"AOV ${p.avg_order_value_usd:.0f} vs ${b.price_usd:.0f} price"), False
 
 
+def _pick_reason(factors: list[Factor], unknown: list[bool], recommended: bool) -> Factor:
+    """Strongest (recommended) or weakest (excluded) factor, ignoring unknown-placeholder factors."""
+    known = [f for f, u in zip(factors, unknown) if not u] or factors[:1]
+    return max(known, key=lambda f: f.score) if recommended else min(known, key=lambda f: f.score)
+
+
 def score_publishers(brief: Brief, catalog: Catalog, t: Tuning) -> list[PublisherScore]:
     pt = t.publisher
     w = pt.weights
@@ -99,11 +105,7 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning) -> list[Publishe
     out: list[PublisherScore] = []
     for rank, (fit, p, factors, unk) in enumerate(rows):
         recommended = fit >= pt.cutoff and rank < pt.max_recommended
-        if recommended:
-            known = [f for f, u in zip(factors, unk) if not u] or factors[:1]
-            pick = max(known, key=lambda f: f.score)
-        else:
-            pick = min(factors, key=lambda f: f.score)
+        pick = _pick_reason(factors, unk, recommended)
         out.append(PublisherScore(
             publisher_id=p.id, name=p.name, fit=round(fit, 3), factors=factors,
             recommended=recommended, stretch=False, reason=pick.note,
