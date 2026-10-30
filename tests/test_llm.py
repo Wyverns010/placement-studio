@@ -138,6 +138,7 @@ def test_client_built_with_no_retries_and_25s_timeout(monkeypatch):
         def __init__(self, **kw):
             seen.update(kw)
 
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(openai, "OpenAI", Stub)
     llm.OpenAIProvider()._get_client()
     assert seen["timeout"] == 25 and seen["max_retries"] == 0
@@ -172,11 +173,14 @@ def test_openai_client_gets_stripped_api_key(monkeypatch):
     assert seen == {"api_key": "sk-test", "timeout": 25, "max_retries": 0}
 
 
-def test_openai_client_blank_key_falls_back_to_none(monkeypatch):
+@pytest.mark.parametrize("raw", ["", " \n"])
+def test_openai_client_blank_key_raises_without_constructing(monkeypatch, raw):
+    # api_key=None would make the SDK fall back to the raw env value, whitespace and all
     import openai
 
-    seen = {}
-    monkeypatch.setenv("OPENAI_API_KEY", " \n")
-    monkeypatch.setattr(openai, "OpenAI", lambda **kw: seen.update(kw))
-    OpenAIProvider()._get_client()
-    assert seen["api_key"] is None
+    built = []
+    monkeypatch.setenv("OPENAI_API_KEY", raw)
+    monkeypatch.setattr(openai, "OpenAI", lambda **kw: built.append(kw))
+    with pytest.raises(LLMError, match="OPENAI_API_KEY is not set"):
+        OpenAIProvider()._get_client()
+    assert built == []
