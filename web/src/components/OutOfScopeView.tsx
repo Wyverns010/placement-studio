@@ -13,10 +13,12 @@ export default function OutOfScopeView({
   result,
   samples,
   onPickSample,
+  running = false,
 }: {
   result: CampaignResult
   samples: Sample[]
   onPickSample: (s: Sample) => void
+  running?: boolean
 }) {
   const [showAll, setShowAll] = useState(false)
   const excluded = [...result.publishers].sort((a, b) => b.fit - a.fit)
@@ -33,10 +35,16 @@ export default function OutOfScopeView({
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-[12.5px] text-muted">Try a sample:</span>
           {chips.map((s) => (
-            <button key={s.id} type="button" className="chip" onClick={() => onPickSample(s)}>
+            <button key={s.id} type="button" className="chip" disabled={running} onClick={() => onPickSample(s)}>
               {s.label}
             </button>
           ))}
+          {running && (
+            <span role="status" className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-violet-dark">
+              <span className="spinner spinner-dark" aria-hidden="true" />
+              Reading your brand…
+            </span>
+          )}
         </div>
       )}
 

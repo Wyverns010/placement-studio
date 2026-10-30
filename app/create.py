@@ -195,9 +195,23 @@ def write_creatives(
     return [result[p.id] for p, _ in targets if p.id in result]
 
 
-def clarify_questions(text: str, brief: Brief, llm: LLMProvider) -> list[ClarifyQuestion]:
+_CATEGORY_WORDS = {
+    "pet": "pet", "apparel": "apparel", "home": "home goods", "beauty": "beauty",
+    "groceries": "groceries", "meal_kits": "meal kits", "beverages": "drinks",
+    "wellness_dtc": "wellness products", "wellness_services": "fitness/wellness services",
+    "instant_delivery": "instant delivery",
+}
+
+
+def category_words(catalog: Catalog) -> str:
+    cats = sorted({p.category for p in catalog.publishers})
+    return ", ".join(_CATEGORY_WORDS.get(c, c.replace("_", " ")) for c in cats)
+
+
+def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalog) -> list[ClarifyQuestion]:
     system = render(
         "clarify",
+        categories=category_words(catalog),
         product=brief.product or "not stated",
         facts="; ".join(brief.facts) or "none",
         unknowns="\n".join(f"- {u}" for u in brief.unknowns) or "- what the business sells, who buys it, price",

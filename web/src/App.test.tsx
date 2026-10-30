@@ -186,7 +186,7 @@ describe('Outcome states', () => {
     await toClarify(user)
     vi.mocked(runCampaign).mockResolvedValueOnce({
       ...clarify,
-      input_text: `${samples[0].text}. Additional details: - What is the product?: Physical product`,
+      input_text: `${samples[0].text}\n\nAdditional details:\n- What is the product?: Physical product`,
       clarify: [{ question: 'Which category?', options: ['Home'] }],
     })
     await user.click(screen.getByRole('button', { name: 'Physical product' }))
@@ -240,6 +240,64 @@ describe('Outcome states', () => {
     expect(screen.getAllByTestId('excluded')).toHaveLength(8)
     await user.click(screen.getByRole('button', { name: 'Vermont candles' }))
     expect(runCampaign).toHaveBeenLastCalledWith({ text: samples[1].text, budget_usd: 25000 })
+  })
+
+  it('a failing sample run from out_of_scope shows the red alert, no spinner; chips disabled while running', async () => {
+    const user = userEvent.setup()
+    vi.mocked(runCampaign).mockResolvedValueOnce({ ...result, outcome: 'out_of_scope', message: 'No.', publishers: [], personas: [] })
+    render(<App />)
+    await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
+    await user.click(screen.getByRole('button', { name: /build campaign/i }))
+    await screen.findByText('No.')
+    let reject!: (e: Error) => void
+    vi.mocked(runCampaign).mockReturnValueOnce(new Promise((_, r) => (reject = r)))
+    await user.click(screen.getByRole('button', { name: 'Vermont candles' }))
+    expect(screen.getByRole('button', { name: 'Vermont candles' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Senior dog food' })).toBeDisabled()
+    reject(new ApiError(500, 'Sample failed'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sample failed')
+    expect(screen.queryByText(/reading your brand/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Vermont candles' })).toBeEnabled()
+  })
+
+  it('ignores a late result after going back home', async () => {
+    const user = userEvent.setup()
+    await toClarify(user)
+    let resolve!: (r: CampaignResult) => void
+    vi.mocked(runCampaign).mockReturnValueOnce(new Promise((r) => (resolve = r)))
+    await user.click(screen.getByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    await user.click(screen.getByRole('button', { name: /new campaign/i }))
+    resolve(result)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.getByLabelText('Describe your brand')).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+  })
+
+  it('a re-answered key at the cap counts as newest', async () => {
+    const user = userEvent.setup()
+    await toClarify(user)
+    const qs = ['q1', 'q2', 'q3', 'q4', 'q5']
+    for (let i = 0; i < 5; i++) {
+      vi.mocked(runCampaign).mockResolvedValueOnce({
+        ...clarify,
+        clarify: [{ question: qs[i], options: ['a'] }, ...(i === 4 ? [{ question: 'What is the product?', options: ['Physical product'] }] : [])],
+      })
+    }
+    // first rebuild answers the original question, then q1..q4 in turn
+    await user.click(screen.getByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    for (let i = 0; i < 4; i++) {
+      await user.click(await screen.findByRole('button', { name: 'a' }))
+      await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    }
+    // now asked q5 and the original question again: answer both
+    await user.click(await screen.findByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: 'a' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    const last = vi.mocked(runCampaign).mock.calls.at(-1)![0].answers!
+    // oldest untouched answer (q1) is dropped; the re-answered key is kept as newest
+    expect(Object.keys(last)).toEqual(['q2', 'q3', 'q4', 'What is the product?', 'q5'])
   })
 
   it('weak_fit keeps the tabs and adds a banner with the test budget', async () => {

@@ -71,6 +71,19 @@ describe('ClarifyView', () => {
     expect(screen.getAllByRole('button', { name: 'Other…' })).toHaveLength(1)
   })
 
+  it('de-dupes only whole Other-style options', () => {
+    setup({
+      clarify: [
+        { question: 'Q?', options: ['Other', 'Other (please specify)', 'Something else', 'Other brands', 'Others', 'Otherwise'] },
+      ],
+    })
+    for (const n of ['Other', 'Other (please specify)', 'Something else'])
+      expect(screen.queryByRole('button', { name: n })).not.toBeInTheDocument()
+    for (const n of ['Other brands', 'Others', 'Otherwise'])
+      expect(screen.getByRole('button', { name: n })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Other…' })).toHaveLength(1)
+  })
+
   it('empty Other text does not count as an answer', async () => {
     const { user } = setup()
     await user.click(screen.getAllByRole('button', { name: 'Other…' })[0])

@@ -18,7 +18,7 @@ interface Props {
   samples?: Sample[]
   onPickSample?: (s: Sample) => void
   onRebuild?: (answers: Record<string, string>) => void
-  rebuilding?: boolean
+  running?: boolean
   rebuildError?: string | null
 }
 
@@ -28,7 +28,7 @@ export default function Results({
   samples = [],
   onPickSample = () => {},
   onRebuild = () => {},
-  rebuilding = false,
+  running = false,
   rebuildError = null,
 }: Props) {
   const [tab, setTab] = useState<Tab>('publishers')
@@ -39,7 +39,7 @@ export default function Results({
         <ResultHeader result={result} onBack={onBack} />
         {rebuildError && (
           <div className="mb-4">
-            <OutcomeBanner variant="error" title="We couldn't rebuild that campaign.">
+            <OutcomeBanner variant="error" title="That run didn't finish.">
               <p className="m-0 mb-2.5">{rebuildError}</p>
               <button type="button" className="pill pill-sm" onClick={onBack}>
                 Try a sample
@@ -48,13 +48,13 @@ export default function Results({
           </div>
         )}
         {result.outcome === 'out_of_scope' ? (
-          <OutOfScopeView result={result} samples={samples} onPickSample={onPickSample} />
+          <OutOfScopeView result={result} samples={samples} onPickSample={onPickSample} running={running} />
         ) : (
           <ClarifyView
             key={result.clarify.map((q) => q.question).join('|')}
             result={result}
             onRebuild={onRebuild}
-            rebuilding={rebuilding}
+            rebuilding={running}
           />
         )}
       </section>

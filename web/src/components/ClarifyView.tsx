@@ -4,6 +4,8 @@ import OutcomeBanner from './OutcomeBanner'
 
 const OTHER = 'Other…'
 const MAX_LEN = 200
+// Whole-option variants only: "Other", "Other…", "Other (please specify)", "Something else".
+export const OTHER_VARIANT = /^(other|something else)\s*(\(.*\))?\s*(…|\.{3})?$/i
 
 type Pick = { kind: 'option'; value: string } | { kind: 'other'; text: string }
 
@@ -107,7 +109,7 @@ export default function ClarifyView({
             <fieldset key={q.question} className="m-0 mt-5 min-w-0 border-0 p-0">
               <legend className="mb-2 p-0 text-[14px] font-semibold">{q.question}</legend>
               <div className="flex flex-wrap gap-2">
-                {[...q.options.filter((o) => !/^other\b/i.test(o.trim())), OTHER].map((opt) => {
+                {[...q.options.filter((o) => !OTHER_VARIANT.test(o.trim())), OTHER].map((opt) => {
                   const isOther = opt === OTHER
                   const selected = isOther ? pick?.kind === 'other' : pick?.kind === 'option' && pick.value === opt
                   return (
@@ -133,7 +135,6 @@ export default function ClarifyView({
               {pick?.kind === 'other' && (
                 <input
                   type="text"
-                  autoFocus
                   maxLength={MAX_LEN}
                   aria-label={`Your answer: ${q.question}`}
                   placeholder="Type your answer"

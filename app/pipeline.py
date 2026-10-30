@@ -119,7 +119,7 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
         yield StageEvent(stage="publishers", data=_pub_data(scored, "clarify"))
         top = select_personas(persona_scores, t)[:1]
         yield StageEvent(stage="personas", data=_persona_data(top))
-        questions = clarify_questions(text, brief, llm)
+        questions = clarify_questions(text, brief, llm, catalog)
         yield StageEvent(stage="done", data=result(
             "clarify", None, publishers=scored, personas=top, clarify=questions).model_dump())
         return
