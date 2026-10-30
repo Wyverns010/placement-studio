@@ -6,15 +6,20 @@ schemas are built dynamically per catalog.
 import hashlib
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Callable, Protocol, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
 
-MODEL_FAST = os.getenv("OPENAI_MODEL_FAST", "gpt-5-mini")
-MODEL_CREATIVE = os.getenv("OPENAI_MODEL_CREATIVE", "gpt-5")
+def model_fast() -> str:
+    return os.getenv("OPENAI_MODEL_FAST") or "gpt-5-mini"
+
+
+def model_creative() -> str:
+    return os.getenv("OPENAI_MODEL_CREATIVE") or "gpt-5"
 
 
 class LLMError(Exception):
@@ -82,14 +87,31 @@ class CachedProvider:
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
         key = hashlib.sha256(
-            json.dumps([model, system, user, schema.__name__]).encode()
+            json.dumps(
+                [
+                    model,
+                    system,
+                    user,
+                    schema.__name__,
+                    json.dumps(schema.model_json_schema(), sort_keys=True),
+                ]
+            ).encode()
         ).hexdigest()
         path = self.cache_dir / f"{key}.json"
-        if path.exists():
+        try:
             return schema.model_validate_json(path.read_text(encoding="utf-8"))
+        except (ValidationError, OSError, ValueError):
+            pass  # missing or corrupt entry: fall through to the live call
         result = self.inner.parse(system=system, user=user, schema=schema, model=model)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(result.model_dump_json(), encoding="utf-8")
+        fd, tmp = tempfile.mkstemp(dir=self.cache_dir, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(result.model_dump_json())
+            os.replace(tmp, path)
+        except BaseException:
+            Path(tmp).unlink(missing_ok=True)
+            raise
         return result
 
 

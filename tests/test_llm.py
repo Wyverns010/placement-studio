@@ -96,5 +96,35 @@ def test_get_provider_cache_toggle(monkeypatch, tmp_path):
     assert isinstance(llm.get_provider(), OpenAIProvider)
 
 
-def test_model_defaults():
-    assert llm.MODEL_FAST and llm.MODEL_CREATIVE
+def test_model_defaults(monkeypatch):
+    monkeypatch.delenv("OPENAI_MODEL_FAST", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL_CREATIVE", raising=False)
+    assert llm.model_fast() == "gpt-5-mini"
+    assert llm.model_creative() == "gpt-5"
+    monkeypatch.setenv("OPENAI_MODEL_FAST", "x")
+    assert llm.model_fast() == "x"
+
+
+def test_cached_provider_corrupt_entry_falls_through(tmp_path):
+    fake = FakeProvider({"Out": Out(answer="x")})
+    cp = CachedProvider(fake, tmp_path)
+    cp.parse(system="s", user="u", schema=Out, model="m")
+    (f,) = tmp_path.glob("*.json")
+    f.write_text("{garbage")
+    assert cp.parse(system="s", user="u", schema=Out, model="m") == Out(answer="x")
+    assert len(fake.calls) == 2
+    assert Out.model_validate_json(f.read_text()) == Out(answer="x")
+
+
+def test_cache_key_includes_schema_shape(tmp_path):
+    from pydantic import create_model
+
+    A = create_model("Same", a=(str, ...))
+    B = create_model("Same", b=(int, ...))
+    fake = FakeProvider({"Same": lambda s, u: A(a="1")})
+    cp = CachedProvider(fake, tmp_path)
+    cp.parse(system="s", user="u", schema=A, model="m")
+    fake.responses["Same"] = lambda s, u: B(b=2)
+    cp.parse(system="s", user="u", schema=B, model="m")
+    assert len(list(tmp_path.glob("*.json"))) == 2
+    assert len(fake.calls) == 2
