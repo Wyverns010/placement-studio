@@ -73,6 +73,30 @@ def check_facts(creative: Creative, input_text: str, t: Tuning) -> list[str]:
     return violations
 
 
+def normalise_headline(text: str) -> str:
+    """Lowercase with punctuation and whitespace removed, for duplicate checks."""
+    return re.sub(r"[\W_]+", "", text.lower())
+
+
+def headline_problems(creatives: list[Creative], product: str | None,
+                      names: dict[str, str]) -> dict[str, list[str]]:
+    """Per persona_id: a headline that repeats an earlier persona's (in order) or is just the
+    product name. `names` maps persona_id -> display name."""
+    out: dict[str, list[str]] = {}
+    seen: dict[str, str] = {}
+    prod = normalise_headline(product or "")
+    for c in creatives:
+        h = normalise_headline(c.headline)
+        if prod and h == prod:
+            out.setdefault(c.persona_id, []).append("headline is just the product name")
+        elif h in seen:
+            out.setdefault(c.persona_id, []).append(
+                f"headline duplicates {names.get(seen[h], seen[h])}'s — write a different one")
+        else:
+            seen[h] = c.persona_id
+    return out
+
+
 def _pick_publisher(
     persona: Persona, publishers: list[PublisherScore], catalog: Catalog, used: set[str] | None = None
 ) -> PublisherScore | None:
@@ -176,6 +200,16 @@ def write_creatives(
 
     items = _call_many(text, brief, targets, targets, catalog, llm, t)
     result: dict[str, Creative] = {pid: build(it) for pid, it in items.items()}
+    names = {p.id: p.name for p, _ in targets}
+
+    def ordered() -> list[Creative]:
+        return [result[p.id] for p, _ in targets if p.id in result]
+
+    def add_headline_problems() -> None:
+        for pid, vs in headline_problems(ordered(), brief.product, names).items():
+            result[pid].fact_violations = result[pid].fact_violations + vs
+
+    add_headline_problems()
 
     def problems() -> dict[str, list[str]]:
         out: dict[str, list[str]] = {}
@@ -192,7 +226,10 @@ def write_creatives(
         retry_targets = [(p, pub) for p, pub in targets if p.id in bad]
         for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, feedback=bad).items():
             result[pid] = build(it)
-    return [result[p.id] for p, _ in targets if p.id in result]
+        for c in result.values():  # re-check headlines against the final set
+            c.fact_violations = check_facts(c, text, t)
+        add_headline_problems()
+    return ordered()
 
 
 _CATEGORY_WORDS = {

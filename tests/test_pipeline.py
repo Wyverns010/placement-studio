@@ -28,7 +28,7 @@ def brief_obj(**over):
 def _creatives(system: str, user: str) -> CreativeBatch:
     ids = re.findall(r"persona_id: (persona_\d+)", system)
     return CreativeBatch.model_validate({"items": [
-        dict(persona_id=i, headline="Good food", body="Made with care", cta="Shop now", why="fit")
+        dict(persona_id=i, headline="Good food " + "xyz" * int(i[-3:]), body="Made with care", cta="Shop now", why="fit")
         for i in ids]})
 
 

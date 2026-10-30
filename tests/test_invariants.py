@@ -267,3 +267,12 @@ def test_calibrate_laya_creates_missing_laya_block(tmp_path):
     new = yaml.safe_load(tun.read_text())
     assert set(new["gate"]["laya"]) == {"proceed_threshold", "no_signal_threshold", "business_threshold"}
     assert list(new) == list(yaml.safe_load(src))  # block inserted inside gate, order kept
+
+
+def test_invariants_flag_duplicate_headlines():
+    r = result_for(fake())
+    assert len(r.creatives) >= 2
+    dup = [c.model_copy(update={"headline": "Same  thing!"}) for c in r.creatives[:2]]
+    dup[1] = dup[1].model_copy(update={"headline": "same thing"})
+    bad = r.model_copy(update={"creatives": dup + r.creatives[2:]})
+    assert any("headline" in f and "duplicate" in f for f in check(bad, T))

@@ -24,6 +24,7 @@ Use only the facts listed above and what the advertiser text literally says. Do 
 # How to write each ad
 - Tune the ad to that persona: lean into their messaging preferences, speak to what they care about, and stay away from what they are disinterested in.
 - Take a different angle from the other personas listed above: do not lean on their top messaging preference, and use your own opening and call to action rather than phrasing that would fit their ad.
+- The headline must not be just the product name; give each persona its own angle.
 - Match the tone of the publisher it will appear on, using the publisher name and notes.
 - why: one line, at most 15 words, naming the persona's real affinity and messaging-preference terms (use the wording from the persona lists above) that this ad leans on. Do not describe the ad; explain the match.
 - Write every term in plain words, like a person would say it. Never output underscores or snake_case tokens: write "pet health", not "pet_health". This applies to every field, especially why.

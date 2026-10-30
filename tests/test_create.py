@@ -28,7 +28,9 @@ def cr(headline="Fresh food", body="Made with care", cta="Shop now") -> Creative
     )
 
 
-def item(pid="persona_004", headline="Fresh food", body="Made with care", cta="Shop now"):
+def item(pid="persona_004", headline=None, body="Made with care", cta="Shop now"):
+    if headline is None:  # distinct per persona so the duplicate-headline check stays quiet
+        headline = "Fresh food" if pid == "persona_004" else "Fresh food " + "xyz" * int(pid[-3:])
     return dict(persona_id=pid, headline=headline, body=body, cta=cta, why="Pet food fans")
 
 
@@ -297,3 +299,47 @@ def test_placement_reuses_best_publisher_when_all_are_used():
     out = write_creatives("Dog food", brief(), personas, pubs, CAT, llm, T)
     assert len(out) == 3
     assert {c.publisher_id for c in out} == {"pub_007", "pub_009"}
+
+
+def test_duplicate_headline_retried_with_named_violation():
+    def fn(pid, n):
+        if pid == "persona_001" and n == 1:
+            return item(pid, headline="Fresh Food!")  # same as persona_004's once normalised
+        return item(pid, headline="Another angle" if pid == "persona_001" else "Fresh food")
+
+    llm = FakeProvider({"CreativeBatch": per_persona(fn)})
+    out = write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
+                          [pub("pub_007")], CAT, llm, T)
+    assert len(llm.calls) == 3  # only the later persona is re-asked
+    p4 = next(p for p in CAT.personas if p.id == "persona_004")
+    retry = llm.calls[-1]
+    assert pid_of(retry["system"]) == "persona_001"
+    assert f"headline duplicates {p4.name}'s — write a different one" in retry["user"]
+    assert [c.headline for c in out] == ["Fresh food", "Another angle"]
+    assert all(c.fact_violations == [] for c in out)
+
+
+def test_duplicate_headline_kept_with_violation_after_retry():
+    llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid, headline="Fresh food"))})
+    out = write_creatives("Dog treats", brief(), [pscore("persona_004"), pscore("persona_001")],
+                          [pub("pub_007")], CAT, llm, T)
+    assert len(llm.calls) == 3
+    p4 = next(p for p in CAT.personas if p.id == "persona_004")
+    assert out[0].fact_violations == []
+    assert out[1].fact_violations == [f"headline duplicates {p4.name}'s — write a different one"]
+
+
+def test_headline_equal_to_product_name_is_a_violation():
+    llm = FakeProvider({"CreativeBatch": per_persona(
+        lambda pid, n: item(pid, headline="Dog Treats." if n == 1 else "Treats they beg for"))})
+    out = write_creatives("Dog treats", brief(product="dog treats"), [pscore("persona_004")],
+                          [pub("pub_007")], CAT, llm, T)
+    assert len(llm.calls) == 2
+    assert "headline is just the product name" in llm.calls[1]["user"]
+    assert out[0].headline == "Treats they beg for" and out[0].fact_violations == []
+
+
+def test_creative_prompt_asks_for_distinct_non_product_headlines():
+    llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid))})
+    write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
+    assert "The headline must not be just the product name" in llm.calls[0]["system"]
