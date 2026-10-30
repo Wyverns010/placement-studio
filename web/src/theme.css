@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-violet: #7c3aed;
+  --color-violet-dark: #5b21b6;
+  --color-violet-soft: #ede5fd;
+  --color-ink: #14121f;
+  --color-muted: #6b6880;
+  --color-line: #e4def0;
+  --color-lavender: #f4f1fa;
+  --color-card: #fbfaff;
+  --color-ok: #2f8f5b;
+  --color-ok-soft: #e3f3ea;
+  --color-warn: #b26b0e;
+  --color-warn-soft: #fbefdc;
+  --color-bad: #b4364a;
+  --radius-card: 22px;
+  --radius-input: 18px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background:
+      radial-gradient(1200px 600px at 85% -10%, #f6e6ee 0, transparent 60%),
+      var(--color-lavender);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-violet);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .pill {
+    border-radius: 999px;
+    padding: 11px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    color: var(--color-ink);
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+  }
+  .pill-primary {
+    background: linear-gradient(180deg, var(--color-violet), var(--color-violet-dark));
+    color: #fff;
+    border: 0;
+    box-shadow: 0 8px 20px -8px #7c3aed99;
+  }
+  .pill-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px -8px #7c3aedaa;
+  }
+  .pill:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .pill-sm {
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+  .blk {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid #cdbff0;
+    background: #e9e0fb;
+    margin: 2px 6px 2px 0;
+    font-size: 12.5px;
+  }
+  .blk-ph {
+    background: transparent;
+    border-style: dashed;
+    color: var(--color-muted);
+  }
+  .chip {
+    font-size: 12.5px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--color-line);
+    color: #3b3850;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .chip:hover:not(:disabled) {
+    border-color: var(--color-violet);
+  }
+  .chip:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #ffffff66;
+  border-top-color: #fff;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}

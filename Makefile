@@ -1,4 +1,4 @@
-.PHONY: test dev-api dev-web eval samples
+.PHONY: test dev-api dev-web build-web eval samples
 test:
 	uv run pytest -q
 dev-api:
@@ -9,3 +9,5 @@ eval:
 	uv run python -m evals.run
 samples:
 	uv run python scripts/precompute_samples.py
+build-web:
+	cd web && npm ci && npm run build
