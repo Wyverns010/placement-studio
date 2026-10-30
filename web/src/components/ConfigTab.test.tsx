@@ -1,0 +1,184 @@
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+import type { CampaignConfig, CampaignResult, Creative, PublisherScore } from '../types'
+import ConfigTab from './ConfigTab'
+import PersonasTab from './PersonasTab'
+import PublishersTab from './PublishersTab'
+import Results from './Results'
+
+const config: CampaignConfig = {
+  campaign_id: 'cmp_1',
+  objective: 'conversions',
+  conversion_event: 'subscription_start',
+  budget: { monthly_usd: 25000, pacing: 'even', unallocated_usd: 1500, test_budget: true },
+  bid_strategy: { type: 'target_cpa', target_usd: 42 },
+  targeting: {
+    age_range: [30, 60],
+    gender: 'all',
+    geo: ['US'],
+    interests: ['pet'],
+    personas: ['persona_001'],
+  },
+  line_items: [
+    { publisher_id: 'pub_a', share: 0.41, budget_usd: 10250, creative_id: 'cr1' },
+    { publisher_id: 'pub_b', share: 0.59, budget_usd: 14750, creative_id: null },
+  ],
+  frequency_cap: { impressions: 3, per_days: 7 },
+  guardrails: { pause_if_cpa_over_x: 1.5, cpa_limit_usd: 63, min_impressions: 2000 },
+  rationales: { bid_strategy: '65% of $64 order value' },
+  decision_trace: { gate_impl: 'llm' },
+}
+
+const fac = (name: string, score: number) => ({ name, score, note: `${name} note text` })
+const pub = (id: string, name: string, fit: number, recommended: boolean, extra = {}): PublisherScore => ({
+  publisher_id: id,
+  name,
+  fit,
+  factors: [fac('category', 0.9), fac('audience', 0.8), fac('income', 0.7), fac('aov', 0.6)],
+  recommended,
+  stretch: false,
+  reason: `${name} reason`,
+  ...extra,
+})
+
+describe('ConfigTab', () => {
+  it('shows Formatted by default with $25,000, JSON on click, from the same object', async () => {
+    const user = userEvent.setup()
+    render(<ConfigTab config={config} />)
+    expect(screen.getByText(/\$25,000/)).toBeInTheDocument()
+    expect(screen.getByText(/Target CPA · \$42/)).toBeInTheDocument()
+    expect(screen.getByText('Test budget')).toBeInTheDocument()
+    expect(screen.getByText(/Unallocated \$1,500/)).toBeInTheDocument()
+    expect(screen.getByText(/3 \/ user \/ 7 days/)).toBeInTheDocument()
+    expect(screen.queryByText(/"bid_strategy"/)).toBeNull()
+    await user.click(screen.getByRole('tab', { name: 'JSON' }))
+    expect(screen.getAllByText(/"bid_strategy"/).length).toBeGreaterThan(0)
+    expect(screen.getByText('25000')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Formatted' }))
+    expect(screen.getByText(/\$25,000/)).toBeInTheDocument()
+  })
+
+  it('puts rationales in a title tooltip', () => {
+    render(<ConfigTab config={config} />)
+    expect(screen.getByTitle('65% of $64 order value')).toHaveTextContent('Bid strategy')
+  })
+
+  it('escapes markup from values in the JSON view', async () => {
+    const user = userEvent.setup()
+    const evil = { ...config, campaign_id: '<script>alert(1)</script>' }
+    const { container } = render(<ConfigTab config={evil} />)
+    await user.click(screen.getByRole('tab', { name: 'JSON' }))
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('pre')!.textContent).toContain('<script>alert(1)</script>')
+  })
+
+  it('Copy writes pretty JSON to the clipboard and shows Copied', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    render(<ConfigTab config={config} />)
+    await user.click(screen.getByRole('tab', { name: 'JSON' }))
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify(config, null, 2))
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+  })
+})
+
+describe('PublishersTab', () => {
+  const pubs = [
+    pub('pub_a', 'Pawline', 0.88, true, { stretch: true }),
+    pub('pub_b', 'Ruffco', 0.79, true),
+    ...Array.from({ length: 6 }, (_, i) => pub(`x${i}`, `Excl${i}`, 0.1 + i * 0.05, false)),
+  ]
+
+  it('shows budget and share from the config line item, stretch badge, and Details toggle', async () => {
+    const user = userEvent.setup()
+    render(<PublishersTab publishers={pubs} config={config} />)
+    const card = screen.getByRole('article', { name: 'Pawline' })
+    expect(within(card).getByText('$10,250 · 41%')).toBeInTheDocument()
+    expect(within(card).getByText('0.88')).toBeInTheDocument()
+    expect(within(card).getByText('Stretch')).toBeInTheDocument()
+    expect(within(card).getAllByTestId('factor-bar')).toHaveLength(4)
+    expect(within(card).queryByText(/category note text/)).toBeNull()
+    await user.click(within(card).getByRole('button', { name: /details/i }))
+    expect(within(card).getByText(/category note text/)).toBeInTheDocument()
+  })
+
+  it('lists first 4 excluded by fit desc then Show N more', async () => {
+    const user = userEvent.setup()
+    render(<PublishersTab publishers={pubs} config={config} />)
+    expect(screen.getByText('Excluded · 6')).toBeInTheDocument()
+    let rows = screen.getAllByTestId('excluded')
+    expect(rows).toHaveLength(4)
+    expect(rows[0]).toHaveTextContent('Excl5')
+    await user.click(screen.getByRole('button', { name: /show 2 more/i }))
+    rows = screen.getAllByTestId('excluded')
+    expect(rows).toHaveLength(6)
+  })
+})
+
+describe('PersonasTab', () => {
+  it('renders ad, stretch prefix and a fact-violation chip', () => {
+    const creatives: Creative[] = [
+      {
+        creative_id: 'cr1',
+        persona_id: 'persona_001',
+        publisher_id: 'pub_a',
+        headline: 'Read the label',
+        body: 'Body copy',
+        cta: 'See formula',
+        why: 'Buys on evidence',
+        fact_violations: ['claims "vet approved"'],
+      },
+    ]
+    render(
+      <PersonasTab
+        personas={[{ persona_id: 'persona_001', name: 'The Wellness Optimizer', fit: 0.58, factors: [], stretch: true }]}
+        creatives={creatives}
+        publishers={[pub('pub_a', 'Pawline', 0.8, true)]}
+      />,
+    )
+    expect(screen.getByText('Sponsored · on Pawline')).toBeInTheDocument()
+    expect(screen.getByText('Stretch:')).toBeInTheDocument()
+    expect(screen.getByText('science-backed claims')).toBeInTheDocument()
+    expect(screen.getByText('Check: claims "vet approved"')).toBeInTheDocument()
+  })
+})
+
+describe('Results', () => {
+  const base = {
+    input_text: 'dog food',
+    budget_usd: 25000,
+    message: 'Please say more',
+    brief: null,
+    gate: null,
+    publishers: [],
+    personas: [],
+    creatives: [],
+    clarify: [],
+    config: null,
+  }
+  it('renders a stub with Back for non-proceed outcomes', async () => {
+    const onBack = vi.fn()
+    const user = userEvent.setup()
+    render(<Results result={{ ...base, outcome: 'clarify' } as CampaignResult} onBack={onBack} />)
+    expect(screen.getByTestId('outcome')).toHaveTextContent('clarify: Please say more')
+    await user.click(screen.getByRole('button', { name: /new campaign/i }))
+    expect(onBack).toHaveBeenCalled()
+  })
+  it('defaults to Publishers with count pills and switches tabs', async () => {
+    const user = userEvent.setup()
+    const r = {
+      ...base,
+      outcome: 'proceed',
+      publishers: [pub('pub_a', 'Pawline', 0.88, true)],
+      config,
+    } as CampaignResult
+    render(<Results result={r} onBack={() => {}} />)
+    expect(screen.getByRole('tab', { name: /publishers\s*1/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('article', { name: 'Pawline' })).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /campaign config/i }))
+    expect(screen.getByText(/Target CPA/)).toBeInTheDocument()
+  })
+})

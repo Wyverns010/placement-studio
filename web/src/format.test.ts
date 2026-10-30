@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest'
+import { jsonHighlight, pct, usd } from './format'
+
+describe('usd / pct', () => {
+  it('formats dollars with separators', () => {
+    expect(usd(25000)).toBe('$25,000')
+    expect(usd(1234.56)).toBe('$1,235')
+    expect(usd(0)).toBe('$0')
+  })
+  it('formats shares as whole percents', () => {
+    expect(pct(0.41)).toBe('41%')
+    expect(pct(0.125)).toBe('13%')
+  })
+})
+
+describe('jsonHighlight', () => {
+  it('wraps keys, strings and numbers in spans', () => {
+    const html = jsonHighlight({ a: 1, b: 'x', c: [true, null] })
+    expect(html).toContain('<span class="k">"a"</span>')
+    expect(html).toContain('<span class="n">1</span>')
+    expect(html).toContain('<span class="s">"x"</span>')
+    expect(html).toContain('<span class="n">true</span>')
+    expect(html).toContain('<span class="n">null</span>')
+  })
+  it('escapes markup in string values and keys', () => {
+    const html = jsonHighlight({ '<k>': '<script>alert("x")</script> & co' })
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('<k>')
+    expect(html).toContain('&lt;script&gt;')
+    expect(html).toContain('&amp; co')
+    expect(html).toContain('&quot;')
+  })
+  it('round-trips to pretty JSON once tags are stripped', () => {
+    const obj = { n: { x: [1, 2], s: 'a<b' } }
+    const text = jsonHighlight(obj)
+      .replace(/<[^>]+>/g, '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+    expect(JSON.parse(text)).toEqual(obj)
+    expect(text).toBe(JSON.stringify(obj, null, 2))
+  })
+})

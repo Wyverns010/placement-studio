@@ -96,3 +96,14 @@ describe('streamCampaign (stub)', () => {
     expect(cancelled).toEqual([])
   })
 })
+
+describe('network failure', () => {
+  it('wraps fetch rejection in ApiError(0) with a friendly message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    await expect(getSamples()).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 0,
+      message: "Can't reach the server — check your connection and try again.",
+    })
+  })
+})

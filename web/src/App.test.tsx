@@ -71,7 +71,7 @@ describe('Landing', () => {
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'Vermont candles' }))
     expect(runCampaign).toHaveBeenCalledWith({ text: samples[1].text, budget_usd: 25000 })
-    expect(await screen.findByTestId('outcome')).toHaveTextContent('proceed')
+    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
   })
 
   it('Build campaign runs, switches to results, Back returns with the panel filled', async () => {
@@ -80,8 +80,8 @@ describe('Landing', () => {
     const ta = await screen.findByLabelText('Describe your brand')
     await waitFor(() => expect(ta).toHaveValue(samples[0].text))
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
-    expect(await screen.findByTestId('outcome')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /back/i }))
+    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /new campaign/i }))
     const panel = screen.getByLabelText('How we read your brand')
     expect(within(panel).getByText('Pawline')).toBeInTheDocument()
     expect(within(panel).getByText('Pet Parent')).toBeInTheDocument()
@@ -98,6 +98,15 @@ describe('Landing', () => {
     expect(screen.getByRole('button', { name: /build campaign/i })).toBeDisabled()
   })
 
+  it('disables the button when the budget is zero', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const ta = await screen.findByLabelText('Describe your brand')
+    await waitFor(() => expect(ta).toHaveValue(samples[0].text))
+    await user.clear(screen.getByLabelText('Monthly budget in USD'))
+    expect(screen.getByRole('button', { name: /build campaign/i })).toBeDisabled()
+  })
+
   it('disables the button and shows reading state while running', async () => {
     const user = userEvent.setup()
     let resolve!: (r: CampaignResult) => void
@@ -109,7 +118,7 @@ describe('Landing', () => {
     const btn = await screen.findByRole('button', { name: /reading your brand/i })
     expect(btn).toBeDisabled()
     resolve(result)
-    expect(await screen.findByTestId('outcome')).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
   })
 
   it('renders a string-shaped error detail inline', async () => {

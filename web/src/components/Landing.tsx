@@ -19,7 +19,7 @@ interface Props {
 export default function Landing(p: Props) {
   const [showAll, setShowAll] = useState(false)
   const visible = showAll ? p.samples : p.samples.slice(0, 8)
-  const canRun = !p.running && p.text.trim().length > 0
+  const canRun = !p.running && p.text.trim().length > 0 && p.budget > 0
 
   return (
     <section className="grid items-center gap-10 pt-10 pb-16 min-[900px]:grid-cols-[1fr_1.05fr] min-[900px]:gap-12 min-[900px]:pt-14 min-[900px]:pb-[70px]">

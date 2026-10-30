@@ -28,7 +28,12 @@ export function formatDetail(detail: unknown): string {
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init)
+  let res: Response
+  try {
+    res = await fetch(url, init)
+  } catch {
+    throw new ApiError(0, "Can't reach the server — check your connection and try again.")
+  }
   if (!res.ok) {
     let message = FALLBACK
     try {

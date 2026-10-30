@@ -21,3 +21,39 @@ export function tierLabel(t: string): string | null {
 export function titleCase(s: string): string {
   return s.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 }
+
+export function usd(n: number): string {
+  return '$' + Math.round(n).toLocaleString('en-US')
+}
+
+export function pct(share: number): string {
+  return `${Math.round(share * 100)}%`
+}
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+const TOKEN = /("(?:\\.|[^"\\])*")(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g
+
+/**
+ * Pretty-prints `obj` as HTML with `.k` (keys), `.s` (strings) and `.n`
+ * (numbers/booleans/null) spans. Every piece of text is escaped, so the result
+ * is safe for dangerouslySetInnerHTML.
+ */
+export function jsonHighlight(obj: unknown): string {
+  const text = JSON.stringify(obj, null, 2) ?? 'null'
+  let out = ''
+  let last = 0
+  for (const m of text.matchAll(TOKEN)) {
+    out += esc(text.slice(last, m.index))
+    if (m[1] !== undefined) {
+      const cls = m[2] ? 'k' : 's'
+      out += `<span class="${cls}">"${esc(m[1].slice(1, -1))}"</span>${esc(m[2] ?? '')}`
+    } else {
+      out += `<span class="n">${m[0]}</span>`
+    }
+    last = m.index + m[0].length
+  }
+  return out + esc(text.slice(last))
+}

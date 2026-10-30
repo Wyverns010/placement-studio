@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSamples, runCampaign } from './api'
 import Landing from './components/Landing'
 import Nav from './components/Nav'
-import ResultsPlaceholder from './components/ResultsPlaceholder'
+import Results from './components/Results'
 import type { CampaignResult, Sample } from './types'
 
 const DEFAULT_BUDGET = 25000
@@ -61,7 +61,7 @@ export default function App() {
     <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-7">
       <Nav onHome={goHome} />
       {state.view === 'results' && state.result ? (
-        <ResultsPlaceholder result={state.result} onBack={goHome} />
+        <Results result={state.result} onBack={goHome} />
       ) : (
         <Landing
           samples={samples}
