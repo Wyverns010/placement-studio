@@ -88,11 +88,20 @@ class BidTuning(BaseModel):
     guardrail_min_impressions: int
 
 
+class LayaThresholds(BaseModel):
+    """Thresholds fit for the Laya gate (its probabilities live on a different scale)."""
+
+    proceed_threshold: float
+    no_signal_threshold: float
+    business_threshold: float
+
+
 class GateTuning(BaseModel):
     proceed_threshold: float
     no_signal_threshold: float
     business_threshold: float
     category_disagreement_factor: float
+    laya: LayaThresholds | None = None  # absent -> the Laya gate uses the values above
 
 
 class CreativeTuning(BaseModel):

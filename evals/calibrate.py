@@ -1,6 +1,8 @@
 """Fit gate thresholds offline from evals/last_run.json (no LLM calls).
 
-    uv run python -m evals.calibrate [--split train] [--dry-run]
+    uv run python -m evals.calibrate [--gate llm|laya] [--split train] [--dry-run]
+
+--gate laya fits and writes the separate gate.laya block from a `evals.run --gate laya` run.
 """
 from __future__ import annotations
 
@@ -27,6 +29,8 @@ def _grid(lo: float, hi: float, step: float = 0.05) -> list[float]:
 
 GRIDS = {"proceed_threshold": _grid(0.40, 0.90), "no_signal_threshold": _grid(0.10, 0.50),
          "business_threshold": _grid(0.30, 0.80)}
+# Laya's probabilities sit on their own scale, so search wider
+LAYA_GRIDS = {k: _grid(0.05, 0.95) for k in KEYS}
 
 
 def redecide(rec: dict, g: GateTuning) -> str:
@@ -44,11 +48,13 @@ def accuracy(recs: list[dict], g: GateTuning) -> float:
     return sum(1 for r in recs if redecide(r, g) in r["expected"]) / len(recs)
 
 
-def fit(records: list[dict], current: GateTuning, *, split: str = "train") -> tuple[dict, float]:
+def fit(records: list[dict], current: GateTuning, *, split: str = "train",
+        grids: dict | None = None) -> tuple[dict, float]:
+    grids = grids or GRIDS
     recs = [r for r in records if r.get("signals") and (split == "all" or r["split"] == split)]
     cur = {k: getattr(current, k) for k in KEYS}
     best, best_key = None, None
-    for combo in itertools.product(*(GRIDS[k] for k in KEYS)):
+    for combo in itertools.product(*(grids[k] for k in KEYS)):
         cand = dict(zip(KEYS, combo))
         acc = accuracy(recs, current.model_copy(update=cand))
         dist = sum(abs(cand[k] - cur[k]) for k in KEYS)
@@ -58,25 +64,33 @@ def fit(records: list[dict], current: GateTuning, *, split: str = "train") -> tu
     return best, -best_key[0]
 
 
-def write_tuning(path: Path, values: dict) -> None:
-    """Rewrite only the three gate values in place, keeping comments and formatting."""
+def write_tuning(path: Path, values: dict, *, block: str = "gate") -> None:
+    """Rewrite only the given values directly under `block` (e.g. "gate" or "gate.laya") in place,
+    keeping comments and formatting. Keys in nested blocks are left alone."""
     lines = Path(path).read_text().splitlines(keepends=True)
-    in_gate, done = False, set()
+    stack: list[tuple[int, str]] = []  # (indent, key) of the enclosing mapping keys
+    target, done = block.split("."), set()
     for i, line in enumerate(lines):
-        if re.match(r"^\S", line):
-            in_gate = line.startswith("gate:")
+        m = re.match(r"^(\s*)(\w+)(:\s*)(.*)$", line, re.S)
+        if not m or line.lstrip().startswith("#"):
             continue
-        m = re.match(r"^(\s+)(\w+)(:\s*)([-\d.]+)(.*)$", line, re.S)
-        if in_gate and m and m.group(2) in values:
-            lines[i] = f"{m.group(1)}{m.group(2)}{m.group(3)}{values[m.group(2)]}{m.group(5)}"
+        indent = len(m.group(1))
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        val = re.match(r"^([-\d.]+)(.*)$", m.group(4), re.S)
+        if [k for _, k in stack] == target and m.group(2) in values and val:
+            lines[i] = f"{m.group(1)}{m.group(2)}{m.group(3)}{values[m.group(2)]}{val.group(2)}"
             done.add(m.group(2))
+        if not m.group(4).strip() or m.group(4).lstrip().startswith("#"):
+            stack.append((indent, m.group(2)))  # opens a nested block
     if done != set(values):
-        raise ValueError(f"gate keys not found in {path}: {sorted(set(values) - done)}")
+        raise ValueError(f"{block} keys not found in {path}: {sorted(set(values) - done)}")
     Path(path).write_text("".join(lines))
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="evals.calibrate")
+    ap.add_argument("--gate", choices=["llm", "laya"], default="llm")
     ap.add_argument("--split", choices=["train", "test", "all"], default="train")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--runs", type=Path, default=LAST_RUN)
@@ -85,20 +99,29 @@ def main(argv: list[str] | None = None) -> int:
 
     t = load_tuning(a.tuning)
     records = json.loads(a.runs.read_text())
+    wrong = {r.get("gate_impl", "llm") for r in records if r.get("signals")} - {a.gate}
+    if wrong:
+        print(f"{a.runs} holds {sorted(wrong)} gate records; re-run evals.run --gate {a.gate}",
+              file=sys.stderr)
+        return 1
     recs = [r for r in records if r.get("signals") and (a.split == "all" or r["split"] == a.split)]
     if not recs:
         print(f"no usable records for split {a.split!r} in {a.runs}", file=sys.stderr)
         return 1
-    before = accuracy(recs, t.gate)
-    best, after = fit(records, t.gate, split=a.split)
-    print(f"split={a.split} n={len(recs)}")
-    print(f"before: {', '.join(f'{k}={getattr(t.gate, k)}' for k in KEYS)}  accuracy {before:.1%}")
+    current = t.gate
+    if a.gate == "laya" and t.gate.laya:
+        current = t.gate.model_copy(update=t.gate.laya.model_dump())
+    before = accuracy(recs, current)
+    best, after = fit(records, current, split=a.split, grids=LAYA_GRIDS if a.gate == "laya" else GRIDS)
+    print(f"gate={a.gate} split={a.split} n={len(recs)}")
+    print(f"before: {', '.join(f'{k}={getattr(current, k)}' for k in KEYS)}  accuracy {before:.1%}")
     print(f"after:  {', '.join(f'{k}={best[k]}' for k in KEYS)}  accuracy {after:.1%}")
     if a.dry_run:
         print("dry run: config not written")
     else:
-        write_tuning(a.tuning, best)
-        print(f"wrote {a.tuning}")
+        block = "gate.laya" if a.gate == "laya" else "gate"
+        write_tuning(a.tuning, best, block=block)
+        print(f"wrote {block} in {a.tuning}")
     return 0
 
 

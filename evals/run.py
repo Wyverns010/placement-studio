@@ -56,6 +56,21 @@ class _CallCounter:
         return self.inner.parse(system=system, user=user, schema=schema, model=model)
 
 
+class _TimedGate:
+    """Per-case gate wrapper that records how long assess() took."""
+
+    def __init__(self, inner):
+        self.inner = inner
+        self.seconds = 0.0
+
+    def assess(self, text, brief):
+        start = time.perf_counter()
+        try:
+            return self.inner.assess(text, brief)
+        finally:
+            self.seconds += time.perf_counter() - start
+
+
 def _run_one(case: dict, llm, gate, catalog, t) -> dict:
     rec = {"id": case["id"], "split": case["split"], "expected": case["expected"],
            "must_publishers": case.get("must_publishers", []),
@@ -65,14 +80,17 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
            "latency_s": 0.0, "creative_calls": 0, "creative_retries": 0, "residual_violations": 0}
     text = case["text"].strip()[: t.input.max_chars]  # same truncation as the API
     counter = _CallCounter(llm)
+    timed = _TimedGate(gate)
     start = time.perf_counter()
     try:
-        r = collect(run_pipeline(text, case.get("budget_usd", 25000), llm=counter, gate=gate,
+        r = collect(run_pipeline(text, case.get("budget_usd", 25000), llm=counter, gate=timed,
                                  catalog=catalog, t=t))
         rec["outcome"] = r.outcome
         if r.gate:
+            rec["gate_impl"] = r.gate.impl
             rec["signals"] = {k: v for k, v in r.gate.signals.items()
                               if k in ("has_content", "business_prob", "clarity")}
+            rec["gate_signals"] = r.gate.signals
         if r.brief and r.outcome != "no_signal":
             rec["weak_fit_if_proceed"] = is_weak_fit(score_publishers(r.brief, catalog, t), t)
         rec["recommended_ids"] = [p.publisher_id for p in r.publishers if p.recommended]
@@ -85,6 +103,7 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
     except Exception as e:  # noqa: BLE001 - one bad case must never abort the run
         rec["error"] = f"{type(e).__name__}: {e}"[:200]
     rec["latency_s"] = round(time.perf_counter() - start, 2)
+    rec["gate_latency_s"] = round(timed.seconds, 6)
     return rec
 
 
@@ -117,6 +136,7 @@ def summarize(recs: list[dict]) -> dict:
 
     first = sum(r.get("creative_calls", 0) - r.get("creative_retries", 0) for r in recs)
     lat = sorted(r["latency_s"] for r in recs if "latency_s" in r)
+    gate_lat = [r["gate_latency_s"] for r in recs if "gate_latency_s" in r]
 
     def pct(q):
         return lat[min(len(lat) - 1, int(q * len(lat)))] if lat else None
@@ -124,7 +144,9 @@ def summarize(recs: list[dict]) -> dict:
     return {"n": n, "correct": correct,
             "retry_rate": sum(r.get("creative_retries", 0) for r in recs) / first if first else None,
             "residual_violations": sum(r.get("residual_violations", 0) for r in recs),
-            "latency_p50": pct(0.5), "latency_p90": pct(0.9), "accuracy": correct / n if n else 0.0, "per": per,
+            "latency_p50": pct(0.5), "latency_p90": pct(0.9),
+            "gate_latency_mean": sum(gate_lat) / len(gate_lat) if gate_lat else None,
+            "accuracy": correct / n if n else 0.0, "per": per,
             "confusion": {e: dict(c) for e, c in conf.items()},
             "must_hit": hit("must_publishers", True),
             "must_not_clear": hit("must_not_publishers", False),
@@ -152,6 +174,8 @@ def render(s: dict) -> str:
              f"residual violations: {s['residual_violations']}")
     if s["latency_p50"] is not None:
         L.append(f"latency p50 {s['latency_p50']:.1f}s, p90 {s['latency_p90']:.1f}s (near 0 when cached)")
+    if s.get("gate_latency_mean") is not None:
+        L.append(f"gate latency mean {s["gate_latency_mean"] * 1000:.2f} ms per case")
     if s["invariant_failures"]:
         L.append("invariant failures:")
         for cid, fs in s["invariant_failures"].items():
@@ -184,8 +208,8 @@ def main(argv: list[str] | None = None) -> int:
     t = load_tuning()
     try:
         gate = get_gate(a.gate, tuning=t)
-    except NotImplementedError as e:
-        print(f"gate {a.gate!r} is not available yet: {e}", file=sys.stderr)
+    except ImportError as e:
+        print(f"gate {a.gate!r} is not available: {e} (uv sync --group laya)", file=sys.stderr)
         return 2
     from app.llm import get_provider
 
@@ -194,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
     recs = run_cases(cases, llm=get_provider(), gate=gate, catalog=load_catalog(), t=t,
                      concurrency=a.concurrency)
     LAST_RUN.write_text(json.dumps(recs, indent=1))
+    LAST_RUN.with_name(f"last_run_{a.gate}_{a.split}.json").write_text(json.dumps(recs, indent=1))
     print(render(summarize(recs)))
     return 0
 

@@ -33,7 +33,13 @@ rungs use one group each. The result is 84 train and 36 test cases.
 uv run python -m evals.run --split train            # accuracy, confusion, invariants -> last_run.json
 uv run python -m evals.run --only given-05,para-05  # targeted re-check
 uv run python -m evals.calibrate --split train --dry-run
+uv sync --group laya                                 # optional Laya gate (torch + 1.6 GB checkpoint)
+uv run --group laya python -m evals.run --gate laya --split train --concurrency 1
+uv run python -m evals.calibrate --gate laya --split train   # writes gate.laya only
 ```
+
+Each run also writes `last_run_<gate>_<split>.json`. `calibrate --gate laya` refuses records from
+the other gate.
 
 LLM calls are cached in `.cache/llm`, so re-runs are free; `--no-cache` forces live calls. The runner
 truncates input to `input.max_chars` like the API, and reports the creative retry rate (personas
@@ -69,6 +75,55 @@ results in the offline simulation.
 Targets: at least 85% held out, 15/15 given, 0 invariant failures. All met. Creative retry rate: 1
 persona in about 780 across the five post-tuning runs (about 0.1%), with no residual violations.
 Latency at concurrency 8, uncached Understand: p50 5.6s, p90 7.1s per case.
+
+## Gate comparison: LLM self-report vs Laya (2026-10-31)
+
+`LayaGate` asks the open-source Laya encoder (`convaiinnovations/laya`, `typed-decisions`
+checkpoint, Apache-2.0) four typed questions from `prompts/laya_questions.yaml`. Both gates see the
+same Understand briefs (same LLM cache), so only the gate differs. Each gate was calibrated on train
+only: the LLM gate keeps its earlier thresholds (`calibrate --dry-run` found no better values), and
+Laya got its own `gate.laya` block (proceed 0.45, no_signal 0.40, business 0.65; before
+calibration, on the LLM gate's thresholds, Laya scored 28/84). Question wording was iterated on
+train only (82% to 87% in the offline fit). Held out was then run **once per gate**.
+
+| | LLM self-report gate | Laya gate |
+|---|---|---|
+| Train, after own calibration | **84/84 = 100%** | 73/84 = 86.9% |
+| **Held-out test, single run** | **34/36 = 94.4%** | 30/36 = 83.3% |
+| The 15 given examples | 15/15 | 15/15 |
+| Recall, test: proceed / weak_fit / clarify / out_of_scope / no_signal | 17/17, 7/7, 3/4, 3/3, 4/5 | 16/17, 4/7, 4/4, 3/3, 3/5 |
+| Recall, train (same order) | 55/55, 7/7, 7/7, 9/9, 6/6 | 52/55, 6/7, 4/7, 6/9, 5/6 |
+| Gate latency per case | about 0 ms (reads the brief the Understand call already returned) | 278 ms on Apple MPS, about 470 ms on CPU (4 threads) |
+| Extra cost to run | none | +1.6 GB checkpoint, about 1.9 GB RSS on CPU, torch in the image |
+
+Recall here groups cases by their first expected label and counts a hit when the outcome is any
+accepted label. This LLM held-out run is 34/36, not the 35/36 above, because some Understand calls
+were not cached and were re-sampled. It missed `ladder-throws-empty` (clarify) and
+`ladder-protein-vague` (no_signal).
+
+**Laya loses, by about 11 points held out.** The reasons are visible in the raw probabilities:
+
+- They are compressed. `has_content` runs 0.46 to 0.74 for clear advertisers and 0.26 to 0.59 for
+  no-signal inputs, so no single threshold separates them. "Please help us advertise." scores 0.59.
+- The four buyer options rarely leave 0.15 to 0.30 each, so `business + not_shoppable` sits near
+  0.45 for ordinary consumer brands and only reaches 0.56 to 0.83 for real out-of-scope cases.
+- Weak-fit products outside the catalog (car exhaust, rings, golf) get a category that disagrees
+  with the brief (`other`, or `apparel` for golf). The clarity penalty applies on top of an already
+  low `product_identifiable` (0.43 to 0.50), and they come back clarify instead of weak_fit. That is
+  3 of the 6 held-out misses. These are observations only; nothing was re-tuned on test.
+- The 11-way category question uses a temperature that the checkpoint flags as invalid
+  ("treat confidence as uncalibrated"). Only its argmax is used, but it is a warning sign.
+
+The LLM gate wins because its signals come from a model that has already read the text closely
+enough to fill in the whole brief. Laya is a small encoder answering from the text alone.
+
+**Recommendation: keep the LLM gate as the production default (`GATE_IMPL=llm`).** Laya is
+calibrated and inspectable, but on this set it is less accurate on both splits. It adds about 0.3
+to 0.5 s per request and about 2 GB of memory, and it saves no LLM call, because Understand still
+has to run to drive matching. A hybrid (for example, Laya as a cheap no_signal pre-filter before
+the LLM call) is not supported by these numbers: Laya's no_signal recall is 3/5 held out. Revisit
+if a fine-tuned or larger Laya checkpoint becomes available. `GATE_IMPL=laya` stays available for
+side-by-side checks.
 
 ## Known misses
 

@@ -8,5 +8,5 @@ web/dist/
 __pycache__/
 .pytest_cache/
 *.pyc
-evals/last_run.json
+evals/last_run*.json
 evals/candidates.jsonl

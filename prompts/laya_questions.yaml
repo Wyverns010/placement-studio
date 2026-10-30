@@ -1,0 +1,42 @@
+# Questions the Laya gate (app/gate/laya_gate.py) asks about the advertiser's text.
+# The state Laya reads is {"advertiser_text": ..., "brief_categories": [...]}; Laya's own
+# convention is to name the state field in backticks.
+# Wording was tuned on the train split only, and the examples below appear in no eval case
+# (see evals/README.md and the Task 16 report for the iterations).
+has_content:
+  type: noul
+  instructions: Does `advertiser_text` describe a business, organization, product, service or cause?
+  criteria:
+    "true": it names what an organization offers or does
+    "false": filler, a greeting, gibberish, a bare link or a request with no business in it
+buyer:
+  # mirrors the LLM gate's audience types; business + not_shoppable -> business_prob
+  type: choice
+  instructions: Who buys what `advertiser_text` is selling?
+  criteria:
+    consumer: shoppers buying for personal use, including subscriptions and classes booked online
+    business: companies buying for work (B2B, software for businesses, hiring)
+    not_shoppable: a local in-person service, a job ad, a charity, a donation or a political campaign
+    unclear: the text does not say what is sold
+product_identifiable:
+  type: noul
+  instructions: Does `advertiser_text` say which specific product or service is sold?
+  criteria:
+    "true": a concrete kind of product or service, such as cat litter, rain jackets, lip balm or yoga mats
+    "false": only a mood, a vague audience such as "busy parents", a brand name alone, or nothing
+category:
+  # the catalog's 10 primary publisher categories, in plain words, plus other
+  type: choice
+  instructions: Which shopping category fits the product in `advertiser_text`?
+  criteria:
+    instant_delivery: fast delivery of convenience items, snacks, alcohol and household basics
+    apparel: clothing, shoes, socks, underwear and activewear
+    wellness_services: fitness classes, yoga, spa and personal training
+    pet: pet food, treats, toys and pet supplies
+    groceries: organic and natural pantry food and groceries
+    wellness_dtc: vitamins and supplements
+    beauty: skincare, makeup and haircare
+    home: bedding, bath, towels, cookware and kitchen
+    meal_kits: meal kits and prepared meals delivered
+    beverages: drinks, sodas and functional beverages
+    other: none of these categories, or no product

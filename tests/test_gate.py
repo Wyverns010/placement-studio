@@ -71,9 +71,6 @@ def test_llm_gate_no_signal_and_clarify_and_proceed():
 def test_get_gate(monkeypatch):
     monkeypatch.delenv("GATE_IMPL", raising=False)
     assert isinstance(get_gate(), LLMSelfReportGate)
-    monkeypatch.setenv("GATE_IMPL", "laya")
-    with pytest.raises(NotImplementedError):
-        get_gate()
     with pytest.raises(ValueError):
         get_gate("bogus")
 

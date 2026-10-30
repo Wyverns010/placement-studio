@@ -52,5 +52,7 @@ def get_gate(impl: str | None = None, *, tuning: Tuning | None = None) -> Confid
 
         return LLMSelfReportGate(tuning or load_tuning())
     if impl == "laya":
-        raise NotImplementedError("Laya gate arrives in Task 16")
+        from app.gate.laya_gate import LayaGate
+
+        return LayaGate(tuning or load_tuning())
     raise ValueError(f"Unknown gate impl: {impl!r}")
