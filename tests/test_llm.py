@@ -141,3 +141,16 @@ def test_client_built_with_no_retries_and_25s_timeout(monkeypatch):
     monkeypatch.setattr(openai, "OpenAI", Stub)
     llm.OpenAIProvider()._get_client()
     assert seen == {"timeout": 25, "max_retries": 0}
+
+
+def test_reasoning_effort_sent_and_omitted(monkeypatch):
+    monkeypatch.delenv("OPENAI_REASONING_EFFORT", raising=False)
+    c = _Client(Out(answer="y"))
+    OpenAIProvider(client=c).parse(system="s", user="u", schema=Out, model="m")
+    assert c.kw["reasoning"] == {"effort": "low"}
+    monkeypatch.setenv("OPENAI_REASONING_EFFORT", "medium")
+    OpenAIProvider(client=c).parse(system="s", user="u", schema=Out, model="m")
+    assert c.kw["reasoning"] == {"effort": "medium"}
+    monkeypatch.setenv("OPENAI_REASONING_EFFORT", "default")
+    OpenAIProvider(client=c).parse(system="s", user="u", schema=Out, model="m")
+    assert "reasoning" not in c.kw

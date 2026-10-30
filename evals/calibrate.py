@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -58,10 +59,20 @@ def fit(records: list[dict], current: GateTuning, *, split: str = "train") -> tu
 
 
 def write_tuning(path: Path, values: dict) -> None:
-    data = yaml.safe_load(Path(path).read_text())
-    for k in KEYS:
-        data["gate"][k] = values[k]
-    Path(path).write_text(yaml.dump(data, sort_keys=False))
+    """Rewrite only the three gate values in place, keeping comments and formatting."""
+    lines = Path(path).read_text().splitlines(keepends=True)
+    in_gate, done = False, set()
+    for i, line in enumerate(lines):
+        if re.match(r"^\S", line):
+            in_gate = line.startswith("gate:")
+            continue
+        m = re.match(r"^(\s+)(\w+)(:\s*)([-\d.]+)(.*)$", line, re.S)
+        if in_gate and m and m.group(2) in values:
+            lines[i] = f"{m.group(1)}{m.group(2)}{m.group(3)}{values[m.group(2)]}{m.group(5)}"
+            done.add(m.group(2))
+    if done != set(values):
+        raise ValueError(f"gate keys not found in {path}: {sorted(set(values) - done)}")
+    Path(path).write_text("".join(lines))
 
 
 def main(argv: list[str] | None = None) -> int:

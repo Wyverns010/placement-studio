@@ -22,6 +22,10 @@ def model_creative() -> str:
     return os.getenv("OPENAI_MODEL_CREATIVE") or "gpt-5.5"
 
 
+def reasoning_effort() -> str:
+    return os.getenv("OPENAI_REASONING_EFFORT") or "low"
+
+
 class LLMError(Exception):
     pass
 
@@ -44,9 +48,14 @@ class OpenAIProvider:
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
         import openai
 
+        extra = {}
+        effort = reasoning_effort()
+        if effort != "default":
+            extra["reasoning"] = {"effort": effort}
         try:
             resp = self._get_client().responses.parse(
                 model=model,
+                **extra,
                 input=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},

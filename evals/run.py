@@ -33,6 +33,10 @@ def split_for(group: str) -> str:
 
 def load_cases(path: Path = CASES, *, split: str = "train", only: set[str] | None = None) -> list[dict]:
     cases = [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+    for c in cases:
+        if c["split"] != split_for(c["group"]):
+            raise ValueError(f"case {c['id']}: split {c['split']!r} != split_for(group) "
+                             f"{split_for(c['group'])!r}")
     if split != "all":
         cases = [c for c in cases if c["split"] == split]
     if only:
@@ -76,7 +80,8 @@ def summarize(recs: list[dict]) -> dict:
     correct = sum(1 for r in recs if r["outcome"] in r["expected"])
     conf = {e: Counter() for e in OUTCOMES}
     for r in recs:
-        conf[r["expected"][0]][r["outcome"]] += 1
+        row = r["outcome"] if r["outcome"] in r["expected"] else r["expected"][0]
+        conf[row][r["outcome"]] += 1
     per = {}
     for o in OUTCOMES:
         tp = sum(1 for r in recs if r["outcome"] == o and o in r["expected"])

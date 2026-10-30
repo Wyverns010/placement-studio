@@ -128,7 +128,7 @@ def test_fit_thresholds_finds_separating_values():
     best, acc = calibrate.fit(recs, T.gate, split="train")
     assert acc == 1.0
     assert 0.55 < best["proceed_threshold"] <= 0.80
-    assert 0.05 < best["no_signal_threshold"] <= 0.50 or best["no_signal_threshold"] >= 0.10
+    assert 0.10 <= best["no_signal_threshold"] <= 0.50
     assert best["business_threshold"] <= 0.75
 
 
@@ -143,3 +143,34 @@ def test_write_tuning_preserves_other_keys(tmp_path):
     assert new["gate"]["category_disagreement_factor"] == old["gate"]["category_disagreement_factor"]
     assert list(new) == list(old)
     assert {k: v for k, v in new.items() if k != "gate"} == {k: v for k, v in old.items() if k != "gate"}
+
+
+def test_write_tuning_is_byte_identical_except_values(tmp_path):
+    src = Path("config/tuning.yaml").read_text()
+    assert "#" in src and "{" in src
+    p = tmp_path / "tuning.yaml"
+    p.write_text(src)
+    calibrate.write_tuning(p, {"proceed_threshold": 0.55, "no_signal_threshold": 0.2,
+                               "business_threshold": 0.6})
+    a, b = src.splitlines(), p.read_text().splitlines()
+    assert len(a) == len(b)
+    diff = [(x, y) for x, y in zip(a, b) if x != y]
+    assert [y.strip() for _, y in diff] == [
+        "proceed_threshold: 0.55", "no_signal_threshold: 0.2", "business_threshold: 0.6"]
+
+
+def test_load_cases_rejects_wrong_split(tmp_path):
+    import pytest
+    row = json.loads(SEED.read_text().splitlines()[0])
+    row["split"] = "test" if row["split"] == "train" else "train"
+    p = tmp_path / "c.jsonl"
+    p.write_text(json.dumps(row) + "\n")
+    with pytest.raises(ValueError, match=row["id"]):
+        load_cases(p, split="all")
+
+
+def test_confusion_diagonal_when_outcome_in_expected():
+    recs = [{"id": "a", "split": "train", "expected": ["proceed", "weak_fit"], "outcome": "weak_fit",
+             "recommended_ids": [], "must_publishers": [], "must_not_publishers": [],
+             "invariant_failures": []}]
+    assert summarize(recs)["confusion"]["weak_fit"] == {"weak_fit": 1}
