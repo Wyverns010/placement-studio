@@ -179,6 +179,53 @@ describe('streamCampaign', () => {
     expect(events[0]).toEqual({ stage: 'error', data: { message: 'Text is too long.' } })
   })
 
+  it('a hung fallback POST times out with the taking-too-long error', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((_u: string, init: RequestInit) =>
+      new Promise((_r, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('x', 'AbortError'))))))
+    const events: { stage: string; data: Record<string, unknown> }[] = []
+    streamCampaign({ text: 't', budget_usd: 1 }, (e) => events.push(e))
+    FakeES.instances[0].emit('error')
+    await vi.advanceTimersByTimeAsync(30500)
+    expect(events).toEqual([{ stage: 'error', data: { message: 'The AI service is taking too long — try again or pick a sample.' } }])
+  })
+
+  it('cancel aborts the fallback fetch', async () => {
+    let signal!: AbortSignal
+    vi.stubGlobal('fetch', vi.fn((_u: string, init: RequestInit) => {
+      signal = init.signal!
+      return new Promise(() => {})
+    }))
+    const events: string[] = []
+    const cancel = streamCampaign({ text: 't', budget_usd: 1 }, (e) => events.push(e.stage))
+    FakeES.instances[0].emit('error')
+    expect(signal.aborted).toBe(false)
+    cancel()
+    expect(signal.aborted).toBe(true)
+    expect(events).toEqual([])
+  })
+
+  it('a late pre-first-event drop (>3 s) reports the connection error without POSTing', () => {
+    vi.useFakeTimers()
+    const fn = mockFetch(200, {})
+    const events: { stage: string; data: Record<string, unknown> }[] = []
+    streamCampaign({ text: 't', budget_usd: 1 }, (e) => events.push(e))
+    vi.advanceTimersByTime(4000)
+    FakeES.instances[0].emit('error')
+    expect(events[0].stage).toBe('error')
+    expect(String(events[0].data.message)).toMatch(/connection dropped/)
+    expect(fn).not.toHaveBeenCalled()
+  })
+
+  it('a done without an outcome is an error, not results', () => {
+    const events: { stage: string; data: Record<string, unknown> }[] = []
+    streamCampaign({ text: 't', budget_usd: 1 }, (e) => events.push(e))
+    const es = FakeES.instances[0]
+    es.emit('done', { nope: 1 })
+    expect(events).toEqual([{ stage: 'error', data: { message: 'Something went wrong building this campaign.' } }])
+    expect(es.closed).toBe(true)
+  })
+
   it('a connection error after events reports a lost connection without refetching', () => {
     const fn = mockFetch(200, {})
     const events: { stage: string; data: Record<string, unknown> }[] = []

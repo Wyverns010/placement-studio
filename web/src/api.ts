@@ -51,15 +51,19 @@ export function getSamples(): Promise<Sample[]> {
   return request<Sample[]>('/api/samples')
 }
 
-export function runCampaign(req: CampaignRequest): Promise<CampaignResult> {
+export function runCampaign(req: CampaignRequest, signal?: AbortSignal): Promise<CampaignResult> {
   return request<CampaignResult>('/api/campaign', {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
   })
 }
 
 export const STREAM_TIMEOUT_MS = 30_000
+/** A native error this soon after opening is an HTTP 4xx/5xx, not a dropped stream. */
+export const FALLBACK_WINDOW_MS = 3000
+export const BAD_RESULT_MESSAGE = 'Something went wrong building this campaign.'
 export const TIMEOUT_MESSAGE = 'The AI service is taking too long — try again or pick a sample.'
 
 const STAGES: StageName[] = ['understood', 'gate', 'publishers', 'personas', 'creatives', 'config', 'done']
@@ -80,6 +84,8 @@ export function streamCampaign(
 ): () => void {
   let finished = false
   let cancelled = false
+  const openedAt = Date.now()
+  let fallback: AbortController | undefined
   let gotEvent = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -116,8 +122,12 @@ export function streamCampaign(
       if (finished) return
       gotEvent = true
       arm()
-      if (stage === 'done') finish()
-      onEvent({ stage, data: parse(ev) })
+      const data = parse(ev)
+      if (stage === 'done') {
+        if (typeof data.outcome !== 'string') return fail(BAD_RESULT_MESSAGE)
+        finish()
+      }
+      onEvent({ stage, data })
     })
   }
 
@@ -127,23 +137,40 @@ export function streamCampaign(
     if (typeof (ev as MessageEvent).data === 'string') {
       const d = parse(ev)
       fail(String(d.message ?? d.detail ?? FALLBACK))
-    } else if (gotEvent) {
+    } else if (gotEvent || Date.now() - openedAt > FALLBACK_WINDOW_MS) {
       fail('The connection dropped before the campaign finished — please try again.')
     } else {
+      // Likely an HTTP error before streaming: re-ask via POST to read its `detail`.
       finish()
-      runCampaign(req)
+      const ctl = (fallback = new AbortController())
+      let timedOut = false
+      const t = setTimeout(() => {
+        timedOut = true
+        ctl.abort()
+      }, STREAM_TIMEOUT_MS)
+      const emit = (e: StageEvent) => {
+        clearTimeout(t)
+        if (!cancelled) onEvent(e)
+      }
+      runCampaign(req, ctl.signal)
         .then((result) => {
-          if (!cancelled) onEvent({ stage: 'done', data: result as unknown as Record<string, unknown> })
+          const data = result as unknown as Record<string, unknown>
+          if (!result || typeof data.outcome !== 'string')
+            emit({ stage: 'error', data: { message: BAD_RESULT_MESSAGE } })
+          else emit({ stage: 'done', data })
         })
-        .catch((err: unknown) => {
-          if (!cancelled)
-            onEvent({ stage: 'error', data: { message: err instanceof Error ? err.message : FALLBACK } })
-        })
+        .catch((err: unknown) =>
+          emit({
+            stage: 'error',
+            data: { message: timedOut ? TIMEOUT_MESSAGE : err instanceof Error ? err.message : FALLBACK },
+          }),
+        )
     }
   })
 
   return () => {
     cancelled = true
+    fallback?.abort()
     finish()
   }
 }
