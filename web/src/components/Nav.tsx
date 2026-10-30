@@ -1,3 +1,10 @@
+const REPO = 'https://github.com/Wyverns010/placement-studio'
+
+const LINKS: [string, string][] = [
+  ['Prompts', `${REPO}/tree/main/prompts`],
+  ['Evals', `${REPO}/tree/main/evals`],
+]
+
 export default function Nav({ onHome }: { onHome: () => void }) {
   return (
     <nav className="flex items-center justify-between gap-4 border-b border-line py-[18px]">
@@ -15,18 +22,20 @@ export default function Nav({ onHome }: { onHome: () => void }) {
           Placement <span className="font-normal text-muted">Studio</span>
         </span>
       </button>
-      <div className="hidden gap-[26px] text-sm text-[#3b3850] md:flex">
-        <span>How it works</span>
-        <span>Publishers</span>
-        <span>Personas</span>
-        <span>Prompts</span>
+      <div className="hidden gap-[26px] text-sm md:flex">
+        {LINKS.map(([label, href]) => (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#3b3850] no-underline hover:text-violet-dark"
+          >
+            {label}
+          </a>
+        ))}
       </div>
-      <a
-        href="https://github.com/"
-        target="_blank"
-        rel="noreferrer"
-        className="pill pill-sm no-underline"
-      >
+      <a href={REPO} target="_blank" rel="noopener noreferrer" className="pill pill-sm no-underline">
         GitHub
       </a>
     </nav>
