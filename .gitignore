@@ -1,0 +1,8 @@
+.superpowers/
+.DS_Store
+.env
+.venv/
+node_modules/
+web/dist/
+.cache/
+__pycache__/
