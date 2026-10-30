@@ -32,7 +32,7 @@ export default function PersonasTab({
               {cr && (
                 <p className="m-0 mt-2 text-[12.5px] leading-normal text-[#3b3850]">
                   {p.stretch && <b>Stretch: </b>}
-                  {cr.why}
+                  {cr.why.replace(/_/g, ' ')}
                 </p>
               )}
               {tags.length > 0 && (

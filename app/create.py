@@ -73,15 +73,20 @@ def check_facts(creative: Creative, input_text: str, t: Tuning) -> list[str]:
     return violations
 
 
-def _pick_publisher(persona: Persona, publishers: list[PublisherScore], catalog: Catalog) -> PublisherScore | None:
+def _pick_publisher(
+    persona: Persona, publishers: list[PublisherScore], catalog: Catalog, used: set[str] | None = None
+) -> PublisherScore | None:
+    """Best-overlap recommended publisher, preferring ones not yet `used` by another persona."""
     eligible = [p for p in publishers if p.recommended]
     if not eligible:
         return None
+    fresh = [p for p in eligible if p.publisher_id not in (used or set())]
+    pool = fresh or eligible
     aff = set(persona.category_affinities)
-    scored = [(len(catalog.publisher(p.publisher_id).tags & aff), p.fit, p) for p in eligible]
+    scored = [(len(catalog.publisher(p.publisher_id).tags & aff), p.fit, p) for p in pool]
     best = max(scored, key=lambda s: (s[0], s[1]))
     if best[0] == 0:
-        return max(eligible, key=lambda p: p.fit)
+        return max(pool, key=lambda p: p.fit)
     return best[2]
 
 
@@ -148,11 +153,13 @@ def write_creatives(
 ) -> list[Creative]:
     by_id = {p.id: p for p in catalog.personas}
     targets: list[tuple[Persona, PublisherScore]] = []
+    used: set[str] = set()
     for ps in personas:
         persona = by_id.get(ps.persona_id)
-        pub = _pick_publisher(persona, publishers, catalog) if persona else None
+        pub = _pick_publisher(persona, publishers, catalog, used) if persona else None
         if persona and pub:
             targets.append((persona, pub))
+            used.add(pub.publisher_id)
     if not targets:
         return []
     pub_of = {p.id: pub for p, pub in targets}

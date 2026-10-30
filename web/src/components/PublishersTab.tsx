@@ -121,6 +121,11 @@ export default function PublishersTab({
   return (
     <div className="grid gap-[22px] pb-20 min-[900px]:grid-cols-[1.6fr_1fr]">
       <div>
+        {recommended.length === 0 && (
+          <p className="m-0 rounded-2xl border border-dashed border-[#d6cde6] p-4 text-[13px] text-muted">
+            No publisher cleared the fit cut-off for this brief.
+          </p>
+        )}
         {recommended.map((p, i) => (
           <PublisherCard key={p.publisher_id} pub={p} rank={i + 1} config={config} />
         ))}

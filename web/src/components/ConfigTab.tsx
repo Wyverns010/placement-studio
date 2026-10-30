@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CampaignConfig, Creative, PersonaScore, PublisherScore } from '../types'
+import Tabs, { type TabDef } from './Tabs'
 import ConfigFormatted from './ConfigFormatted'
 import ConfigJson from './ConfigJson'
 
@@ -15,28 +16,13 @@ export default function ConfigTab({
   creatives?: Creative[]
 }) {
   const [view, setView] = useState<'formatted' | 'json'>('formatted')
-  const tabs = [
-    ['formatted', 'Formatted'],
-    ['json', 'JSON'],
-  ] as const
+  const tabs: TabDef<'formatted' | 'json'>[] = [
+    { id: 'formatted', label: 'Formatted' },
+    { id: 'json', label: 'JSON' },
+  ]
   return (
     <div className="pb-20">
-      <div role="tablist" aria-label="Config view" className="mb-3.5 inline-flex rounded-full border border-line bg-white p-[3px]">
-        {tabs.map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={view === k}
-            onClick={() => setView(k)}
-            className={`cursor-pointer rounded-full border-0 px-4 py-1.5 text-[13px] font-semibold ${
-              view === k ? 'bg-violet text-white' : 'bg-transparent text-muted'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={tabs} value={view} onChange={setView} label="Config view" variant="segmented">
       {view === 'formatted' ? (
         <ConfigFormatted
           config={config}
@@ -47,6 +33,7 @@ export default function ConfigTab({
       ) : (
         <ConfigJson config={config} />
       )}
+      </Tabs>
     </div>
   )
 }

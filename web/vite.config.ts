@@ -7,7 +7,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    fs: { allow: [resolve(__dirname, '..')] },
+    fs: { allow: [__dirname, resolve(__dirname, '../data')] },
     proxy: { '/api': 'http://localhost:8000' },
   },
   test: {

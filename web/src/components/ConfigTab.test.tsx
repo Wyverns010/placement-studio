@@ -85,7 +85,47 @@ describe('ConfigTab', () => {
   })
 })
 
+describe('ConfigJson copy failure', () => {
+  it('shows a failure message when the clipboard is unavailable', async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    render(<ConfigTab config={config} />)
+    await user.click(screen.getByRole('tab', { name: 'JSON' }))
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    expect(await screen.findByRole('button', { name: /copy failed/i })).toBeInTheDocument()
+  })
+})
+
+describe('Tabs a11y', () => {
+  it('arrow keys move between tabs, with roving tabindex and panel linkage', async () => {
+    const user = userEvent.setup()
+    const r = {
+      input_text: 'x', budget_usd: 1, outcome: 'proceed', message: null, brief: null, gate: null,
+      publishers: [pub('pub_a', 'Pawline', 0.88, true)], personas: [], creatives: [], clarify: [], config,
+    } as CampaignResult
+    render(<Results result={r} onBack={() => {}} />)
+    const list = screen.getByRole('tablist', { name: 'Results sections' })
+    const [t1, t2] = within(list).getAllByRole('tab')
+    expect(t1).toHaveAttribute('tabindex', '0')
+    expect(t2).toHaveAttribute('tabindex', '-1')
+    t1.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(t2).toHaveAttribute('aria-selected', 'true')
+    expect(t2).toHaveFocus()
+    const panel = screen.getByRole('tabpanel')
+    expect(panel).toHaveAttribute('aria-labelledby', t2.id)
+    expect(t2).toHaveAttribute('aria-controls', panel.id)
+    await user.keyboard('{ArrowLeft}')
+    expect(t1).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
 describe('PublishersTab', () => {
+  it('shows an empty state with no recommended publishers', () => {
+    render(<PublishersTab publishers={[pub('x', 'Nope', 0.1, false)]} config={config} />)
+    expect(screen.getByText(/no publisher cleared/i)).toBeInTheDocument()
+  })
+
   const pubs = [
     pub('pub_a', 'Pawline', 0.88, true, { stretch: true }),
     pub('pub_b', 'Ruffco', 0.79, true),
@@ -132,6 +172,8 @@ describe('PersonasTab', () => {
         fact_violations: ['claims "vet approved"'],
       },
     ]
+    // underscores in `why` are shown as spaces (safety net)
+    creatives[0].why = 'Leans on pet_health'
     render(
       <PersonasTab
         personas={[{ persona_id: 'persona_001', name: 'The Wellness Optimizer', fit: 0.58, factors: [], stretch: true }]}
@@ -141,6 +183,7 @@ describe('PersonasTab', () => {
     )
     expect(screen.getByText('Sponsored · on Pawline')).toBeInTheDocument()
     expect(screen.getByText('Stretch:')).toBeInTheDocument()
+    expect(screen.getByText(/Leans on pet health/)).toBeInTheDocument()
     expect(screen.getByText('science-backed claims')).toBeInTheDocument()
     expect(screen.getByText('Check: claims "vet approved"')).toBeInTheDocument()
   })

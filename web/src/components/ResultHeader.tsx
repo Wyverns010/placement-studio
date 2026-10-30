@@ -48,7 +48,6 @@ export default function ResultHeader({
               {c}
             </span>
           ))}
-          {gate && <span className="blk">Model: {gate.impl === 'laya' ? 'Laya' : 'LLM'}</span>}
         </div>
       </div>
       {gate && (
