@@ -12,7 +12,7 @@ publisher:
   unknown_factor: 0.6           # factor value when the brief lacks the needed field
   cutoff: 0.40
   max_recommended: 5
-  weak_fit_min_recommended: 1   # weak_fit only when no publisher clears the cutoff (spec: single-publisher categories like #3, #13 proceed)
+  weak_fit_min_recommended: 1   # weak_fit only when no publisher clears the cutoff (the brief's examples #3, #13: single-publisher categories proceed)
   weak_fit_show: 3
 persona:
   weights: {affinity: 0.5, price: 0.2, age: 0.3}

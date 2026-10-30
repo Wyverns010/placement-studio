@@ -2,13 +2,15 @@
 
 Describe a business in a sentence; get ranked publishers (and why the rest lost), 3–5 persona-tuned ads and a launch-ready campaign config, every number explained. Bad input gets an honest answer, not a campaign.
 
-**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed: instant, and they survive an OpenAI outage. A live run takes about 6–8 s.
+**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed: instant, and they survive an OpenAI outage. A live run takes about 8–10 s.
 
 ```
 cp .env.example .env          # add OPENAI_API_KEY
-docker compose up --build     # http://localhost:8000
-make dev-api; make dev-web    # dev (two terminals)
-uv run pytest -q; cd web && npx vitest run
+docker compose up --build     # one command: http://localhost:8000
+
+uv sync; (cd web && npm install)                # local dev: install once
+make dev-api; make dev-web                      # two terminals
+uv run pytest -q; (cd web && npx vitest run)    # tests
 ```
 
 ## How it works
@@ -17,7 +19,7 @@ uv run pytest -q; cd web && npx vitest run
 text ─▶ Understand (LLM) ─▶ Gate (LLM self-report) ─▶ Match (code) ─▶ Create (LLM) ─▶ Config (code)
 ```
 
-**Numbers from code, words from the LLM.** Understand fills a brief restricted to the catalog's category vocabulary. The gate picks one of five outcomes: proceed, clarify (1–3 questions), out_of_scope, no_signal or weak_fit (closest publishers, test budget). Match scores publishers on four visible factors (category, audience, income, order value), personas on affinity, price and age. Create runs one call per persona in parallel; code rejects any number or claim word absent from the advertiser's text, with one retry. Models: gpt-5.4-mini (understand, clarify), gpt-5.5 (ads), reasoning effort low. Every tunable is in `config/tuning.yaml`; every prompt is in `prompts/` ([index](prompts/README.md)).
+**Numbers from code, words from the LLM.** Understand fills a brief restricted to the catalog's category vocabulary. The gate picks proceed, clarify (1–3 questions), out_of_scope or no_signal; after Match, a proceed with no publisher above the cut-off becomes weak_fit (closest 3, 20% test budget). Match scores publishers on four visible factors (category, audience, income, order value), personas on affinity, price and age. Create runs one call per persona in parallel; code rejects any number or claim word absent from the advertiser's text, with one retry. Models: gpt-5.4-mini (understand, clarify), gpt-5.5 (ads), reasoning effort low. Every tunable is in `config/tuning.yaml`; every prompt is in `prompts/` ([index](prompts/README.md)).
 
 ## Campaign config, and why
 
@@ -36,7 +38,7 @@ text ─▶ Understand (LLM) ─▶ Gate (LLM self-report) ─▶ Match (code) �
 
 120 labelled cases (given, paraphrases, ambiguity ladder, weak fit, out of scope, adversarial) split by group into 84 train / 36 held out ([details](evals/README.md)); `uv run python -m evals.run --split test`.
 
-- Train **84/84**; held out **34/36 = 94.4%**; given examples **15/15**; 0 invariant failures.
+- Train **84/84**; held out **34/36 = 94.4%** (2026-10-31 run); the 15 given examples **15/15**; 0 invariant failures.
 - Noise is about ±1 case per split. Held-out figures are post-hoc: the first run was contaminated (prompt examples copied eval wording) and I rewrote them after seeing test texts, so a fresh batch is the clean check.
 - Laya gate (`GATE_IMPL=laya`), calibrated on train only: **30/36** held out vs 34/36, plus ~2 GB RAM and 0.3–0.5 s per request. LLM gate stays default.
 

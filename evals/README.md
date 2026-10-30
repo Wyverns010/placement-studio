@@ -7,7 +7,7 @@ Understand prompt, plus structural invariants checked on every case.
 
 | Bucket | Cases | Labels |
 |---|---|---|
-| The 15 given examples (`given-*`) | 15 | spec table; #9 accepts proceed or weak_fit |
+| The 15 given examples (`given-*`) | 15 | the brief's expected outcomes; #9 accepts proceed or weak_fit |
 | Paraphrases of the 15 (`para-*`, same `group`) | 15 | same as the original |
 | Clear advertisers, 3 per catalog category, $2.50 to $180 (`clear-*`) | 30 | proceed + 1 must publisher |
 | Ambiguity ladder: 6 businesses x clear / partial / vague / empty (`ladder-*`) | 24 | proceed / proceed / clarify / no_signal |
@@ -16,7 +16,7 @@ Understand prompt, plus structural invariants checked on every case.
 | Sensitive: vape, betting, holsters, CBD (`sens-*`) | 4 | robustness only, any outcome but no_signal |
 | Adversarial: 3 injections, multi-product, typos and emoji, 1,600 chars, Spanish, gibberish, URL, competitor name (`adv-*`) | 12 | see `note` |
 
-Labelling rules: a named product proceeds even without a price or buyer (spec #11); a domain or
+Labelling rules: a named product proceeds even without a price or buyer (the brief's example #11); a domain or
 audience hint with no product clarifies (#5, #8); no business content is no_signal (#15). Borderline
 cases list two acceptable outcomes and say why in `note`. `must_publishers` names one publisher a
 media buyer would insist on; `must_not_publishers` names a clear mismatch. Injection cases forbid
@@ -51,16 +51,17 @@ re-asked after a facts or length violation) and latency p50/p90.
 |---|---|---|---|---|
 | Train baseline (before tuning, 2026-10-30) | 61/84 = 72.6% | 0 | 90% | 100% |
 | **Train, latest run** | **84/84 = 100%** | 0 | 94% | 100% |
-| **Held-out test, latest run** | **34/36 = 94.4%** | **0** | 100% | 100% |
+| **Held-out test, latest run (2026-10-31)** | **34/36 = 94.4%** | **0** | 100% | 100% |
 | **The 15 given examples** | **15/15** (13 train, 2 test) | 0 | | |
 
 **Run-to-run noise: about ±1 case per split.** Understand calls that are not in the disk cache
 (for example after a prompt edit) are re-sampled, and the LLM's brief can change slightly. The
-same Understand prompt and gate thresholds have scored 83/84 and 84/84 on train, and 34/36 and 35/36 held out.
+same Understand prompt and gate thresholds have scored 83/84 and 84/84 on train, and 35/36
+(2026-10-30 re-run) and 34/36 (2026-10-31) held out.
 Read any single LLM figure with that band in mind.
 
-Earlier held-out runs: the 2026-10-30 re-run scored 35/36. The first held-out run, 34/36, was
-contaminated. Several examples in `prompts/understand.md` copied eval wording ("just make a
+Earlier held-out runs: the 2026-10-30 re-run scored 35/36. The first held-out run (2026-10-30,
+before the re-run) also scored 34/36 but was contaminated. Several examples in `prompts/understand.md` copied eval wording ("just make a
 campaign", "Glossier", "$2.50 a can, 12-packs", "we help people feel better", plumber, dentist,
 lawyer and others), so it was superseded. Every example was then replaced with wording that
 appears in no case text, and the rules stayed the same.
@@ -93,7 +94,7 @@ train only (82% to 87% in the offline fit). Held out was then run **once per gat
 | | LLM self-report gate | Laya gate |
 |---|---|---|
 | Train, after own calibration | **84/84 = 100%** | 73/84 = 86.9% |
-| **Held-out test, single run** (LLM noise band about ±1 case) | **34/36 = 94.4%** | 30/36 = 83.3% |
+| **Held-out test, single run, 2026-10-31** (LLM noise band about ±1 case) | **34/36 = 94.4%** | 30/36 = 83.3% |
 | The 15 given examples | 15/15 | 15/15 |
 | Recall, test: proceed / weak_fit / clarify / out_of_scope / no_signal | 17/17, 7/7, 3/4, 3/3, 4/5 | 16/17, 4/7, 4/4, 3/3, 3/5 |
 | Recall, train (same order) | 55/55, 7/7, 7/7, 9/9, 6/6 | 52/55, 6/7, 4/7, 6/9, 5/6 |

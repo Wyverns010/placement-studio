@@ -2,7 +2,7 @@
 
 Sampled with `random.Random(11).sample(cases, 20)` from `evals/cases.jsonl`. *Actual* comes from the
 latest live runs, after the prompt examples were de-contaminated (train re-run and the official
-held-out re-run). Please mark any label you disagree with.
+held-out re-run). Each row shows the hand label next to the outcome the system produced.
 
 | id | split | text | expected | actual | recommended | note |
 |---|---|---|---|---|---|---|
