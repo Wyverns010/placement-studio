@@ -9,7 +9,7 @@ from pydantic import BaseModel, create_model
 from app.catalog import Catalog
 from app.llm import LLMProvider, model_fast
 from app.models import Brief
-from app.prompts import render
+from app.prompts import render, wrap_advertiser_text
 
 
 @lru_cache(maxsize=None)
@@ -39,6 +39,6 @@ def understand(text: str, catalog: Catalog, llm: LLMProvider) -> Brief:
         vocab=", ".join(catalog.vocab),
         conflict_vocab=", ".join(catalog.conflict_vocab),
     )
-    user = f"<advertiser_text>{text}</advertiser_text>"
+    user = wrap_advertiser_text(text)
     out = llm.parse(system=system, user=user, schema=brief_schema(catalog), model=model_fast())
     return Brief.model_validate(out.model_dump())

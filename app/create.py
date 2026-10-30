@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from app.catalog import Catalog, Persona
 from app.llm import LLMProvider, model_creative, model_fast
 from app.models import Brief, ClarifyQuestion, Creative, PersonaScore, PublisherScore
-from app.prompts import render
+from app.prompts import render, wrap_advertiser_text
 from app.tuning import Tuning
 
 
@@ -42,7 +42,12 @@ _NUMBER = re.compile(r"\$?\d[\d,.]*%?")
 
 
 def _numbers(text: str) -> set[str]:
-    return {m.replace(",", "").rstrip(".") for m in _NUMBER.findall(text)}
+    """Digit cores of every number token: $, %, commas and trailing punctuation stripped."""
+    return {m.strip("$%").replace(",", "").rstrip(".,") for m in _NUMBER.findall(text)}
+
+
+def _has_word(word: str, text: str) -> bool:
+    return re.search(r"(?<![\w#])" + re.escape(word) + r"(?![\w])", text, re.IGNORECASE) is not None
 
 
 def check_facts(creative: Creative, input_text: str, t: Tuning) -> list[str]:
@@ -50,14 +55,11 @@ def check_facts(creative: Creative, input_text: str, t: Tuning) -> list[str]:
     violations: list[str] = []
     copy = f"{creative.headline} {creative.body} {creative.cta}"
     known = _numbers(input_text)
-    seen: set[str] = set()
     for n in sorted(_numbers(copy)):
-        if n not in known and n not in seen:
-            seen.add(n)
+        if n not in known:
             violations.append(f"number '{n}' is not in the advertiser's text")
-    lower_in, lower_copy = input_text.lower(), copy.lower()
     for w in t.creative.claim_words:
-        if w.lower() in lower_copy and w.lower() not in lower_in:
+        if _has_word(w, copy) and not _has_word(w, input_text):
             violations.append(f"claim '{w}' is not in the advertiser's text")
     for field, limit in (
         ("headline", t.creative.headline_max_chars),
@@ -104,7 +106,7 @@ def _call(text, brief, targets, catalog, llm, t, feedback: dict[str, list[str]] 
         cta_max=t.creative.cta_max_chars,
         personas="\n\n".join(_persona_block(p, pub, catalog) for p, pub in targets),
     )
-    user = f"<advertiser_text>{text}</advertiser_text>"
+    user = wrap_advertiser_text(text)
     if feedback:
         lines = [
             "Your previous ads broke the rules. Rewrite only the personas below and fix every problem:",
@@ -179,7 +181,7 @@ def clarify_questions(text: str, brief: Brief, llm: LLMProvider) -> list[Clarify
         facts="; ".join(brief.facts) or "none",
         unknowns="\n".join(f"- {u}" for u in brief.unknowns) or "- what the business sells, who buys it, price",
     )
-    user = f"<advertiser_text>{text}</advertiser_text>"
+    user = wrap_advertiser_text(text)
     out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=model_fast())
     qs: list[ClarifyQuestion] = []
     for q in out.questions:
