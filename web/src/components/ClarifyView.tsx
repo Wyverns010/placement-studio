@@ -90,7 +90,7 @@ export default function ClarifyView({
           gate={result.gate}
         >
           {noSignal ? (
-            result.message
+            'Tell us a little about what you sell and we will build from there.'
           ) : result.gate ? (
             <>
               Confidence <b>{result.gate.confidence.toFixed(2)}</b> / {result.gate.threshold.toFixed(2)}. Answer a
@@ -107,7 +107,7 @@ export default function ClarifyView({
             <fieldset key={q.question} className="m-0 mt-5 min-w-0 border-0 p-0">
               <legend className="mb-2 p-0 text-[14px] font-semibold">{q.question}</legend>
               <div className="flex flex-wrap gap-2">
-                {[...q.options, OTHER].map((opt) => {
+                {[...q.options.filter((o) => !/^other\b/i.test(o.trim())), OTHER].map((opt) => {
                   const isOther = opt === OTHER
                   const selected = isOther ? pick?.kind === 'other' : pick?.kind === 'option' && pick.value === opt
                   return (

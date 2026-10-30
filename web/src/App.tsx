@@ -23,7 +23,11 @@ export default function App() {
   const [lastResult, setLastResult] = useState<CampaignResult | null>(null)
   const edited = useRef(false)
   const [rebuildError, setRebuildError] = useState<string | null>(null)
-  const lastInput = useRef({ text: '', budget: DEFAULT_BUDGET })
+  const lastInput = useRef<{ text: string; budget: number; answers: Record<string, string> }>({
+    text: '',
+    budget: DEFAULT_BUDGET,
+    answers: {},
+  })
 
   useEffect(() => {
     let alive = true
@@ -45,7 +49,7 @@ export default function App() {
     async (t: string, b: number) => {
       setError(null)
       setRebuildError(null)
-      lastInput.current = { text: t, budget: b }
+      lastInput.current = { text: t, budget: b, answers: {} }
       setState((s) => ({ ...s, running: true }))
       try {
         const result = await runCampaign({ text: t, budget_usd: b })
@@ -60,11 +64,16 @@ export default function App() {
   )
 
   const rebuild = useCallback(async (answers: Record<string, string>) => {
-    const { text: t, budget: b } = lastInput.current
+    const { text: t, budget: b, answers: prior } = lastInput.current
+    // Keep earlier answers (the backend caps at 5; drop the oldest first).
+    const merged = Object.fromEntries(Object.entries({ ...prior, ...answers }).slice(-5))
     setRebuildError(null)
     setState((s) => ({ ...s, running: true }))
     try {
-      const result = await runCampaign({ text: t, budget_usd: b, answers })
+      const raw = await runCampaign({ text: t, budget_usd: b, answers: merged })
+      lastInput.current = { text: t, budget: b, answers: merged }
+      // The API echoes the text with answers appended; show what the user typed.
+      const result = { ...raw, input_text: t }
       setLastResult(result)
       setState({ view: 'results', result, running: false, partial: {} })
     } catch (e) {

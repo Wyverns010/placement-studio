@@ -65,6 +65,12 @@ describe('ClarifyView', () => {
     expect(onRebuild).toHaveBeenCalledWith({ 'What is the product?': 'A baby sleep gadget' })
   })
 
+  it('drops backend "Other" options so only one Other… chip shows', () => {
+    setup({ clarify: [{ question: 'Q?', options: ['A', 'Other'] }] })
+    expect(screen.queryByRole('button', { name: 'Other' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Other…' })).toHaveLength(1)
+  })
+
   it('empty Other text does not count as an answer', async () => {
     const { user } = setup()
     await user.click(screen.getAllByRole('button', { name: 'Other…' })[0])

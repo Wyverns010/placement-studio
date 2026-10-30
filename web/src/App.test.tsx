@@ -181,6 +181,26 @@ describe('Outcome states', () => {
     expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
   })
 
+  it('keeps the typed text in the header and carries earlier answers into the next rebuild', async () => {
+    const user = userEvent.setup()
+    await toClarify(user)
+    vi.mocked(runCampaign).mockResolvedValueOnce({
+      ...clarify,
+      input_text: `${samples[0].text}. Additional details: - What is the product?: Physical product`,
+      clarify: [{ question: 'Which category?', options: ['Home'] }],
+    })
+    await user.click(screen.getByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    await user.click(await screen.findByRole('button', { name: 'Home' }))
+    expect(screen.getByText(`“${samples[0].text}”`)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    expect(runCampaign).toHaveBeenLastCalledWith({
+      text: samples[0].text,
+      budget_usd: 25000,
+      answers: { 'What is the product?': 'Physical product', 'Which category?': 'Home' },
+    })
+  })
+
   it('a failed rebuild shows a red alert, no spinner, and Try a sample returns to landing', async () => {
     const user = userEvent.setup()
     await toClarify(user)
