@@ -52,8 +52,24 @@ Note: the default creative model is gpt-5.5 again (it was gpt-5.4-mini for a whi
 
 ## Latest numbers (2026-10-31, LLM gate, gpt-5.4-mini for Understand/clarify, gpt-5.5 for creatives, effort low)
 
-EVAL_NUMBERS_PENDING (re-run after the final review wave: weak-fit budget cap, new Understand
-examples, sample-cache fingerprint). Everything below in this section is the previous run.
+**Current run (2026-10-31, on the final branch HEAD).** LLM gate; gpt-5.4-mini for Understand and
+clarify, and also for ad copy during evals to save cost (production ads use gpt-5.5).
+
+| | Accuracy | Invariant failures | Must hit | Must-not avoided | Latency p50 / p90 |
+|---|---|---|---|---|---|
+| **Train** | **85/85 = 100%** | 0 | 96% | 100% | 6.1 s / 9.3 s |
+| **Held-out test** | **35/36 = 97.2%** | 1 | 100% | 100% | |
+| **The 15 given examples** | **15/15** | | | | |
+
+- Held-out miss: `ladder-throws-empty` (expected no_signal, got clarify; see Known misses).
+- Held-out invariant failure: `clear-meal_kits-2`. One ad still contained a number ("3") that is
+  not in the advertiser's text after its retry. It ships flagged on screen (`fact_violations`),
+  not hidden.
+- Honesty notes: this is the third run of the held-out split. The first (34/36) was contaminated;
+  later runs (34 to 35/36) are post-hoc. The Understand prompt's examples were rewritten again
+  today so that none uses eval wording. Run-to-run noise is about ±1 case per split.
+
+Everything below in this section is the previous run, kept for history.
 
 This table predates the creative-model switch. Post-switch train re-run (gpt-5.4-mini for creatives):
 83/84, with 1 transient OpenAI timeout and 2 exact duplicate-headline invariant failures. Those

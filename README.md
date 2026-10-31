@@ -23,7 +23,7 @@ uv run pytest -q; (cd web && npx vitest run)    # tests
 
 Stages are stateless: each request carries back what the last returned, signed by ① (HMAC, `STAGE_SECRET`); ② and ③ refuse changes (403). Live calls are rate-limited; ③ is free.
 
-**Numbers from code, words from the LLM.** Understand fills a brief in the catalog's vocabulary. The gate picks proceed, clarify, out_of_scope or no_signal; a proceed with no publisher above the cut-off becomes weak_fit. Match scores publishers on four visible factors (category, audience, income, order value) and personas on affinity, price and age. Create writes one ad per persona in parallel from a [copywriting playbook](prompts/copywriting_playbook.md); code checks each ad (invented facts, length, generic copy, parroting), retries once, then flags it ([details](prompts/README.md)). gpt-5.4-mini reads briefs, gpt-5.5 writes ads (≈3¢ per campaign). Every tunable is in `config/tuning.yaml`, every prompt in `prompts/`.
+**Numbers from code, words from the LLM.** Understand fills a brief in the catalog's vocabulary. The gate picks proceed, clarify, out_of_scope or no_signal; a proceed with no publisher above the cut-off becomes weak_fit. Match scores publishers on four visible factors (category, audience, income, order value) and personas on affinity, price and age. Create writes one ad per persona in parallel from a [copywriting playbook](prompts/copywriting_playbook.md); code checks each ad (invented facts, length, generic copy, parroting), retries once, then flags it ([details](prompts/README.md)). gpt-5.4-mini reads briefs, gpt-5.5 writes ads (≈3¢ per campaign). Tunables: `config/tuning.yaml`; prompts: `prompts/`.
 
 ## Campaign config, and why
 
@@ -40,11 +40,11 @@ Stages are stateless: each request carries back what the last returned, signed b
 
 ## Evals
 
-121 labelled cases (the 15 given, paraphrases, ambiguity, weak fit, out of scope, adversarial), split by group into 85 train / 36 held out ([details](evals/README.md)). `uv run python -m evals.run --split test` runs all three stages per case and checks invariants.
+121 labelled cases split by group into 85 train / 36 held out ([details](evals/README.md)). `uv run python -m evals.run --split test` runs all three stages per case.
 
-EVAL_NUMBERS_PENDING
-
-Held-out figures are post-hoc (prompt examples once copied eval wording; I rewrote them after seeing test texts), so a fresh batch is the clean check. A Laya encoder gate scored lower held out and needs ~2 GB RAM, so the LLM gate stays.
+- Train **85/85**; held out **35/36 = 97.2%**; the 15 given examples **15/15** (2026-10-31; evals write ads with gpt-5.4-mini to save cost).
+- 1 invariant failure held out: an ad kept an unsourced "3" after retry (flagged, not hidden).
+- Caveats: 3rd held-out run, post-hoc (examples once copied eval wording; rewritten again today); noise ±1 case. A Laya gate scored lower.
 
 ## Hard vs easy
 
