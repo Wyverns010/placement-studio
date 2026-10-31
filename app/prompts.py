@@ -19,12 +19,20 @@ def render(name: str, /, *, prompts_dir: Path = _DEFAULT_DIR, **slots) -> str:
     return text.format_map(slots)
 
 
-_TAG = re.compile(r"<(/?)advertiser_text", re.IGNORECASE)
+def _wrap(tag: str, text: str) -> str:
+    """Wrap untrusted text in <tag> tags, neutralising any opening or closing tag inside it."""
+    inner = re.sub(r"<(/?)" + tag, lambda m: "\u2039" + m.group(1) + tag, text, flags=re.IGNORECASE)
+    return f"<{tag}>{inner}</{tag}>"
 
 
 def wrap_advertiser_text(text: str) -> str:
-    """Wrap untrusted text in <advertiser_text> tags, neutralising any tag breakout inside it."""
-    return "<advertiser_text>" + _TAG.sub(lambda m: "\u2039" + m.group(1) + "advertiser_text", text) + "</advertiser_text>"
+    """Wrap the advertiser's untrusted text in <advertiser_text> tags."""
+    return _wrap("advertiser_text", text)
+
+
+def wrap_user_note(text: str) -> str:
+    """Wrap a regenerate note (untrusted, treated as data) in <user_note> tags."""
+    return _wrap("user_note", text)
 
 
 def feedback(key: str, /, *, prompts_dir: Path = _DEFAULT_DIR, **slots) -> str:

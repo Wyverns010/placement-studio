@@ -19,7 +19,7 @@ from app.catalog import Catalog, load_catalog
 from app.gate import ConfidenceGate, get_gate
 from app.llm import LLMProvider, get_provider
 from app.models import CampaignResult, StageEvent
-from app.pipeline import PipelineError, collect, result_events, run_pipeline
+from app.pipeline import PipelineError, collect, result_events, run_stage1
 from app.ratelimit import RateLimiter
 from app.tuning import Tuning, load_tuning
 
@@ -127,7 +127,7 @@ async def campaign(req: CampaignRequest, request: Request,
     _check_rate(request, limiter)
     try:
         return await run_in_threadpool(
-            lambda: collect(run_pipeline(text, budget, llm=llm, gate=gate, catalog=catalog, t=t)))
+            lambda: collect(run_stage1(text, budget, llm=llm, gate=gate, catalog=catalog, t=t)))
     except PipelineError as e:
         return JSONResponse({"detail": str(e)}, status_code=502)
 
@@ -164,7 +164,7 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
                     await asyncio.sleep(REPLAY_DELAY_S)
                 yield encode(e)
             return
-        it = run_pipeline(full_text, budget, llm=llm, gate=gate, catalog=catalog, t=t)
+        it = run_stage1(full_text, budget, llm=llm, gate=gate, catalog=catalog, t=t)
         async for e in iterate_in_threadpool(it):
             yield encode(e)
 

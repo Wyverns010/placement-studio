@@ -27,6 +27,18 @@ def check(result: CampaignResult, t: Tuning) -> list[str]:
             CampaignConfig.model_validate(cfg.model_dump())
         except Exception as e:  # noqa: BLE001
             out.append(f"config does not validate: {str(e)[:120]}")
+        b = cfg.budget
+        if b.get("source") not in ("recommended", "user"):
+            out.append(f"budget source {b.get('source')!r}, expected recommended|user")
+        rec = b.get("recommended_usd")
+        if not (isinstance(rec, (int, float)) and t.budget.min_usd <= rec <= t.budget.max_usd):
+            out.append(f"budget recommended_usd {rec!r} outside the budget bounds")
+        elif b.get("source") == "recommended" and b.get("monthly_usd") != rec:
+            out.append("budget source is recommended but monthly_usd != recommended_usd")
+        if b.get("pacing") not in ("front_loaded", "even", "accelerated"):
+            out.append(f"budget pacing {b.get('pacing')!r} unknown")
+        if cfg.frequency_cap.get("impressions", 0) < t.frequency.min_impressions:
+            out.append(f"frequency cap {cfg.frequency_cap} below the minimum")
 
     if o in BUILT:
         if not 3 <= len(result.personas) <= 5:

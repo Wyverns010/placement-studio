@@ -8,7 +8,7 @@ from app.create import NO_SIGNAL_QUESTIONS, ClarifyBatch, CreativeBatch
 from app.gate import get_gate
 from app.llm import FakeProvider, LLMError
 from app.models import ClarifyQuestion
-from app.pipeline import PipelineError, collect, run_pipeline
+from app.pipeline import PipelineError, collect, make_config, make_creatives, run_full, run_stage1
 from app.understand import brief_schema
 from tests.conftest import CAT, T
 
@@ -40,25 +40,70 @@ def fake(**brief_over) -> FakeProvider:
                          "ClarifyBatch": CLARIFY})
 
 
-def run(llm, text="We sell dog food", budget=25000):
-    return list(run_pipeline(text, budget, llm=llm, gate=get_gate("llm", tuning=T),
-                             catalog=CAT, t=T))
+def run(llm, text="We sell dog food", budget=None):
+    return list(run_stage1(text, budget, llm=llm, gate=get_gate("llm", tuning=T),
+                           catalog=CAT, t=T))
+
+
+def full(llm, text="We sell dog food", budget=None):
+    return run_full(text, budget, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T)
 
 
 def stages(evs):
     return [e.stage for e in evs]
 
 
-def test_proceed_event_order():
-    evs = run(fake())
-    assert stages(evs) == ["understood", "gate", "publishers", "personas", "creatives", "config", "done"]
+def test_stage1_stops_after_match():
+    llm = fake()
+    evs = run(llm)
+    assert stages(evs) == ["understood", "gate", "publishers", "personas", "done"]
     r = collect(iter(evs))
-    assert r.outcome == "proceed" and r.config is not None and r.message is None
+    assert r.outcome == "proceed" and r.message is None
+    assert r.creatives == [] and r.config is None and r.budget_usd is None
     assert len(r.publishers) == 20 and any(p.recommended for p in r.publishers)
-    assert 3 <= len(r.personas) <= 5 and r.creatives
+    assert 3 <= len(r.personas) <= 5
     pub = evs[2].data
     assert len(pub["top"]) == 5 and pub["recommended"]
-    assert evs[4].data == {"count": len(r.creatives)}
+    assert "CreativeBatch" not in [c["schema"] for c in llm.calls]
+
+
+def test_stage1_echoes_budget():
+    assert collect(iter(run(fake(), budget=1000))).budget_usd == 1000
+
+
+def test_run_full_chains_creatives_and_config_at_recommended_budget():
+    r = full(fake())
+    assert r.outcome == "proceed" and len(r.creatives) == len(r.personas)
+    assert r.config.budget["source"] == "recommended"
+    assert r.config.budget["monthly_usd"] == r.config.budget["recommended_usd"]
+    assert {li.creative_id for li in r.config.line_items} <= {c.creative_id for c in r.creatives}
+
+
+def test_run_full_user_budget_wins():
+    r = full(fake(), budget=7000)
+    assert r.budget_usd == 7000 and r.config.budget["monthly_usd"] == 7000
+    assert r.config.budget["source"] == "user"
+
+
+def test_stages_compose_like_run_full():
+    llm = fake()
+    s1 = collect(iter(run(llm)))
+    creatives = make_creatives(s1.input_text, s1.brief, s1.publishers, s1.personas,
+                               llm=llm, catalog=CAT, t=T)
+    cfg = make_config(s1.brief, s1.gate, s1.publishers, s1.personas, creatives, None, catalog=CAT, t=T)
+    r = full(fake())
+    assert [c.model_dump() for c in creatives] == [c.model_dump() for c in r.creatives]
+    assert cfg == r.config
+    # creatives go only on recommended publishers, distinct where possible
+    rec = {p.publisher_id for p in s1.publishers if p.recommended}
+    assert {c.publisher_id for c in creatives} <= rec
+
+
+def test_run_full_leaves_non_built_outcomes_alone():
+    llm = fake(self_confidence=0.3)
+    r = full(llm)
+    assert r.outcome == "clarify" and r.creatives == [] and r.config is None
+    assert "CreativeBatch" not in [c["schema"] for c in llm.calls]
 
 
 def test_clarify_has_no_config():
@@ -86,11 +131,13 @@ def test_weak_fit_outcome_from_proceed_gate():
     evs = run(fake(categories=[], adjacent_categories=[], product="widgets"))
     assert evs[1].data["outcome"] == "proceed"
     r = collect(iter(evs))
-    assert r.outcome == "weak_fit" and r.config is not None
+    assert r.outcome == "weak_fit" and r.config is None
     rec = [p for p in r.publishers if p.recommended]
     assert len(rec) == T.publisher.weak_fit_show and all(p.stretch for p in rec)
     assert "widgets" in r.message and str(len(rec)) in r.message
-    assert r.config.budget["test_budget"]
+    cfg = make_config(r.brief, r.gate, r.publishers, r.personas, [], None, catalog=CAT, t=T)
+    assert cfg.budget["test_budget"] and cfg.budget["pacing"] == "front_loaded"
+    assert full(fake(categories=[], adjacent_categories=[], product="widgets")).config.budget["test_budget"]
 
 
 def test_out_of_scope_all_excluded():
@@ -127,7 +174,13 @@ def test_llm_failure_emits_error_event():
 
 
 def test_unexpected_failure_emits_generic_error_last():
-    llm = FakeProvider({"BriefSchema": brief_obj(), "CreativeBatch": RuntimeError("sk-boom")})
+    llm = FakeProvider({"BriefSchema": RuntimeError("sk-boom")})
     evs = run(llm)
     assert stages(evs)[-1] == "error" and "sk-boom" not in evs[-1].data["message"]
     assert evs[-1].data["message"] == "Something went wrong building this campaign."
+
+
+def test_run_full_raises_on_creative_failure():
+    llm = FakeProvider({"BriefSchema": brief_obj(), "CreativeBatch": LLMError("x")})
+    with pytest.raises(LLMError):
+        full(llm)

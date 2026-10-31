@@ -97,8 +97,9 @@ class CampaignConfig(BaseModel):
 
 
 class CampaignResult(BaseModel):
+    """Stage 1 fills everything but creatives and config; run_full fills those too."""
     input_text: str
-    budget_usd: float
+    budget_usd: float | None = None  # the user's budget, if any, echoed for stage 3
     outcome: Outcome
     message: str | None
     brief: Brief | None
@@ -111,7 +112,5 @@ class CampaignResult(BaseModel):
 
 
 class StageEvent(BaseModel):
-    stage: Literal[
-        "understood", "gate", "publishers", "personas", "creatives", "config", "done", "error"
-    ]
+    stage: Literal["understood", "gate", "publishers", "personas", "done", "error"]
     data: dict

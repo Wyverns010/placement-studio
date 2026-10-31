@@ -8,9 +8,9 @@ from typing import NamedTuple
 from pydantic import BaseModel
 
 from app.catalog import Catalog, Persona
-from app.llm import LLMProvider, model_creative, model_fast
+from app.llm import LLMError, LLMProvider, model_creative, model_fast
 from app.models import Brief, ClarifyQuestion, Creative, PersonaScore, PublisherScore
-from app.prompts import feedback, render, wrap_advertiser_text
+from app.prompts import feedback, render, wrap_advertiser_text, wrap_user_note
 from app.tuning import Tuning
 
 
@@ -39,12 +39,13 @@ NO_SIGNAL_QUESTIONS: list[ClarifyQuestion] = [
     ClarifyQuestion(question="Roughly what does it cost?", options=["Under $30", "$30–100", "$100+"]),
 ]
 
-HEADLINE_KINDS = {"headline_duplicate", "headline_product"}
+HEADLINE_KINDS = {"headline_duplicate", "headline_product", "headline_unchanged"}
 
 
 class Problem(NamedTuple):
     """One thing code rejected in an ad; `kind` drives retry behaviour, `message` is the text."""
-    kind: str  # fact_number | fact_claim | length | generic_copy | headline_duplicate | headline_product | missing
+    kind: str  # fact_number | fact_claim | length | generic_copy | headline_duplicate |
+    # headline_product | headline_unchanged | missing
     message: str
 
 
@@ -207,9 +208,16 @@ def _playbook(t: Tuning) -> str:
                   cta_max=t.creative.cta_max_chars).strip()
 
 
+def _flat(s: str, limit: int) -> str:
+    """Client-echoed ad text for a prompt: one line, no double quotes, at most `limit` chars."""
+    return " ".join(s.replace('"', "").split())[:limit]
+
+
 def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Problem] | None = None,
-              other_headlines: list[str] | None = None):
-    """One LLM call for one persona. Returns its CreativeItem, or None if it came back without one."""
+              other_headlines: list[str] | None = None,
+              rewrite: tuple[Creative, str | None] | None = None):
+    """One LLM call for one persona. Returns its CreativeItem, or None if it came back without one.
+    `rewrite` = (current ad, optional note) asks for a fresh take on an existing ad."""
     persona, pub = target
     system = render(
         "creative",
@@ -229,10 +237,17 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Pro
         or feedback("no_others"),
     )
     user = wrap_advertiser_text(text)
+    if rewrite:
+        cur, note = rewrite
+        c = t.creative
+        user += feedback("rewrite_current", headline=_flat(cur.headline, c.headline_max_chars),
+                         body=_flat(cur.body, c.body_max_chars), cta=_flat(cur.cta, c.cta_max_chars))
+        if note:
+            user += feedback("rewrite_note", note=wrap_user_note(note))
     if violations:
         user += feedback("retry_preamble", problems="; ".join(v.message for v in violations))
         if other_headlines and any(v.kind in HEADLINE_KINDS for v in violations):
-            clean = [" ".join(h.replace('"', "").split()) for h in other_headlines]
+            clean = [_flat(h, t.creative.headline_max_chars) for h in other_headlines]
             user += feedback("other_headlines", headlines=" | ".join(f'"{h}"' for h in clean))
     out = llm.parse(system=system, user=user, schema=CreativeBatch, model=model_creative())
     return next((it for it in out.items if it.persona_id == persona.id), None)
@@ -309,6 +324,67 @@ def write_creatives(
         result.update({pid: build(it) for pid, it in retried.items()})
         check_all()  # re-check headlines against the final set
     return ordered()
+
+
+def rewrite_creative(
+    text: str,
+    brief: Brief,
+    personas: list[PersonaScore],
+    publishers: list[PublisherScore],
+    creatives: list[Creative],
+    persona_id: str,
+    note: str | None,
+    catalog: Catalog,
+    llm: LLMProvider,
+    t: Tuning,
+) -> Creative:
+    """Rewrite one persona's ad on the same publisher, with the same checks and single retry as
+    write_creatives, plus: the headline must differ from the current one and from the others'.
+    Raises KeyError for an unknown persona/creative, LLMError if no ad comes back twice."""
+    by_id = {p.id: p for p in catalog.personas}
+    current = next(c for c in creatives if c.persona_id == persona_id)
+    persona = by_id[persona_id]
+    pub = next((p for p in publishers if p.publisher_id == current.publisher_id), None)
+    if pub is None:
+        p = catalog.publisher(current.publisher_id)
+        pub = PublisherScore(publisher_id=p.id, name=p.name, fit=0.0, factors=[], recommended=True,
+                             stretch=False, reason="")
+    others = [(by_id[c.persona_id], pub) for c in creatives
+              if c.persona_id != persona_id and c.persona_id in by_id]
+    names = {c.persona_id: by_id[c.persona_id].name for c in creatives if c.persona_id in by_id}
+    other_heads = [(c.headline, c.persona_id) for c in creatives if c.persona_id != persona_id]
+    sim = t.creative.headline_similarity
+
+    def build(it: CreativeItem) -> Creative:
+        return current.model_copy(update={"headline": it.headline, "body": it.body, "cta": it.cta,
+                                          "why": it.why, "fact_violations": []})
+
+    def problems(c: Creative) -> list[Problem]:
+        out = ad_problems(c, text, t)
+        if headlines_similar(c.headline, current.headline, sim):
+            out.append(Problem("headline_unchanged", feedback("headline_unchanged")))
+        if normalise_headline(c.headline) == normalise_headline(brief.product or ""):
+            out.append(Problem("headline_product", feedback("headline_product")))
+        dup = next((pid for h, pid in other_heads if headlines_similar(h, c.headline, sim)), None)
+        if dup:
+            out.append(Problem("headline_duplicate",
+                               feedback("headline_duplicate", name=names.get(dup, dup))))
+        return out
+
+    target = (persona, pub)
+    heads = [h for h, _ in other_heads]
+    it = _call_one(text, brief, target, others, catalog, llm, t, rewrite=(current, note))
+    probs = problems(build(it)) if it else [Problem("missing", feedback("missing"))]
+    if probs:
+        retried = _call_one(text, brief, target, others, catalog, llm, t, probs, heads,
+                            rewrite=(current, note))
+        it = retried or it
+        if it is None:
+            raise LLMError("no creative returned for the rewrite")
+        probs = problems(build(it))
+    out = build(it)
+    out.fact_violations = [p.message for p in probs]
+    return out
 
 
 _CATEGORY_WORDS = {

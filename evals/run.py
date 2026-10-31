@@ -17,7 +17,7 @@ from pathlib import Path
 from app.catalog import load_catalog
 from app.gate import get_gate
 from app.match import is_weak_fit, score_publishers
-from app.pipeline import collect, run_pipeline
+from app.pipeline import run_full
 from app.tuning import load_tuning
 from evals.invariants import check
 
@@ -84,8 +84,8 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
     timed = _TimedGate(gate)
     start = time.perf_counter()
     try:
-        r = collect(run_pipeline(text, case.get("budget_usd", 25000), llm=counter, gate=timed,
-                                 catalog=catalog, t=t))
+        # all three stages at the recommended budget (cases' legacy budget_usd is ignored)
+        r = run_full(text, None, llm=counter, gate=timed, catalog=catalog, t=t)
         rec["outcome"] = r.outcome
         if r.gate:
             rec["gate_impl"] = r.gate.impl

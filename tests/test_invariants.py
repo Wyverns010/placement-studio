@@ -8,7 +8,7 @@ import yaml
 from app.gate import get_gate
 from app.llm import FakeProvider
 from app.models import CampaignResult
-from app.pipeline import collect, run_pipeline
+from app.pipeline import run_full
 from evals import calibrate
 from evals.invariants import check
 from evals.run import load_cases, run_cases, split_for, summarize
@@ -19,8 +19,7 @@ SEED = Path("tests/fixtures/seed_cases.jsonl")
 
 
 def result_for(llm, text="We sell dog food") -> CampaignResult:
-    evs = run_pipeline(text, 25000, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T)
-    return collect(evs)
+    return run_full(text, None, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T)
 
 
 def test_invariants_pass_on_valid_proceed():
@@ -276,3 +275,13 @@ def test_invariants_flag_duplicate_headlines():
     dup[1] = dup[1].model_copy(update={"headline": "same thing"})
     bad = r.model_copy(update={"creatives": dup + r.creatives[2:]})
     assert any("headline" in f and "duplicate" in f for f in check(bad, T))
+
+
+def test_invariants_flag_bad_budget_and_frequency():
+    r = result_for(fake())
+    for update, word in [({"source": "guess"}, "source"), ({"recommended_usd": 1}, "recommended_usd"),
+                         ({"pacing": "fast"}, "pacing")]:
+        cfg = r.config.model_copy(update={"budget": {**r.config.budget, **update}})
+        assert any(word in f for f in check(r.model_copy(update={"config": cfg}), T)), word
+    cfg = r.config.model_copy(update={"frequency_cap": {"impressions": 0, "per_days": 7}})
+    assert any("frequency" in f for f in check(r.model_copy(update={"config": cfg}), T))

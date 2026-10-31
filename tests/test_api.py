@@ -68,8 +68,7 @@ def test_post_campaign_and_answers_appended(client, llm):
 def test_stream_events(client):
     r = client.get("/api/campaign/stream", params={"text": "dog food", "answers": '{"Q": "A"}'})
     ev = sse(r)
-    assert [e for e, _ in ev] == ["understood", "gate", "publishers", "personas", "creatives",
-                                  "config", "done"]
+    assert [e for e, _ in ev] == ["understood", "gate", "publishers", "personas", "done"]
     assert "- Q: A" in ev[-1][1]["input_text"]
 
 
@@ -150,9 +149,9 @@ def test_validation_errors_do_not_consume_limit(client):
 
 
 def test_cached_sample_skips_pipeline_and_limit(client, llm, tmp_path, monkeypatch):
-    from app.pipeline import collect, run_pipeline
+    from app.pipeline import collect, run_stage1
     text = "We sell dog food"
-    res = collect(run_pipeline(text, 25000, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T))
+    res = collect(run_stage1(text, 25000, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T))
     path = tmp_path / "samples.json"
     path.write_text(json.dumps({"k": res.model_dump()}))
     monkeypatch.setattr(samples_mod.cached_result, "__kwdefaults__",
@@ -164,7 +163,7 @@ def test_cached_sample_skips_pipeline_and_limit(client, llm, tmp_path, monkeypat
         assert r.status_code == 200
     assert len(llm.calls) == calls
     ev = sse(client.get("/api/campaign/stream", params={"text": text}))
-    assert [e for e, _ in ev][-1] == "done" and len(ev) == 7
+    assert [e for e, _ in ev][-1] == "done" and len(ev) == 5
     # a non-default budget or answers bypass the cache
     client.post("/api/campaign", json={"text": text, "budget_usd": 1000})
     assert len(llm.calls) > calls
@@ -189,10 +188,10 @@ def test_answers_capped(client):
 
 
 def test_clarify_replay_mirrors_live():
-    from app.pipeline import result_events, run_pipeline, collect
+    from app.pipeline import result_events, run_stage1, collect
     from tests.test_pipeline import fake
     llm = fake(self_confidence=0.3)
-    live = list(run_pipeline("dog food", 25000, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T))
+    live = list(run_stage1("dog food", 25000, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T))
     replay = result_events(collect(iter(live)))
     assert [(e.stage, e.data) for e in replay[:4]] == [(e.stage, e.data) for e in live[:4]]
 

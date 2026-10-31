@@ -22,7 +22,7 @@ load_dotenv(ROOT / ".env")
 from app.catalog import load_catalog  # noqa: E402
 from app.gate import get_gate  # noqa: E402
 from app.llm import get_provider  # noqa: E402
-from app.pipeline import collect, run_pipeline  # noqa: E402
+from app.pipeline import run_full  # noqa: E402
 from app.samples import CACHE, load_samples, norm  # noqa: E402
 from app.tuning import load_tuning  # noqa: E402
 
@@ -42,7 +42,7 @@ def main() -> int:
 
     def run(s: dict):
         text = s["text"][: t.input.max_chars]  # same truncation as the API
-        return collect(run_pipeline(text, budget, llm=llm, gate=gate, catalog=catalog, t=t))
+        return run_full(text, budget, llm=llm, gate=gate, catalog=catalog, t=t)
 
     with ThreadPoolExecutor(max_workers=5) as ex:
         results = list(ex.map(run, samples))
