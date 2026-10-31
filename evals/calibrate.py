@@ -129,9 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     if not recs:
         print(f"no usable records for split {a.split!r} in {a.runs}", file=sys.stderr)
         return 1
-    current = t.gate
-    if a.gate == "laya" and t.gate.laya:
-        current = t.gate.model_copy(update=t.gate.laya.model_dump())
+    current = t.gate.for_impl(a.gate)
     before = accuracy(recs, current)
     best, after = fit(records, current, split=a.split, grids=LAYA_GRIDS if a.gate == "laya" else GRIDS)
     print(f"gate={a.gate} split={a.split} n={len(recs)}")

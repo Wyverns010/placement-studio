@@ -103,6 +103,10 @@ class GateTuning(BaseModel):
     category_disagreement_factor: float
     laya: LayaThresholds | None = None  # absent -> the Laya gate uses the values above
 
+    def for_impl(self, impl: str) -> GateTuning:
+        """The thresholds a gate implementation reads: gate.laya overrides for Laya when set."""
+        return self.model_copy(update=self.laya.model_dump()) if impl == "laya" and self.laya else self
+
 
 class CreativeTuning(BaseModel):
     headline_max_chars: int

@@ -102,17 +102,8 @@ class CachedProvider:
         self.cache_dir = Path(cache_dir)
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
-        key = hashlib.sha256(
-            json.dumps(
-                [
-                    model,
-                    system,
-                    user,
-                    schema.__name__,
-                    json.dumps(schema.model_json_schema(), sort_keys=True),
-                ]
-            ).encode()
-        ).hexdigest()
+        schema_json = json.dumps(schema.model_json_schema(), sort_keys=True)
+        key = hashlib.sha256(json.dumps([model, system, user, schema.__name__, schema_json]).encode()).hexdigest()
         path = self.cache_dir / f"{key}.json"
         try:
             return schema.model_validate_json(path.read_text(encoding="utf-8"))

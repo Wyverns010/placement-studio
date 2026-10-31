@@ -35,22 +35,13 @@ class RateLimiter:
                 self._global.popleft()
             q = self._hits[key]
             if len(q) >= self.limit:
-                if not q:
-                    del self._hits[key]
-                return "client"
-            if self.global_limit is not None and len(self._global) >= self.global_limit:
-                if not q:
-                    del self._hits[key]
-                return "global"
-            q.append(now)
-            self._global.append(now)
-            return None
-
-    def allow(self, key: str) -> bool:
-        """Record a hit and return True if under both caps; False (not recorded) otherwise."""
-        return self.check(key) is None
-
-    def reset(self) -> None:
-        with self._lock:
-            self._hits.clear()
-            self._global.clear()
+                refused = "client"
+            elif self.global_limit is not None and len(self._global) >= self.global_limit:
+                refused = "global"
+            else:
+                q.append(now)
+                self._global.append(now)
+                return None
+            if not q:  # don't leave an empty bucket behind for a refused new client
+                del self._hits[key]
+            return refused

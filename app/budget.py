@@ -63,7 +63,7 @@ def allocate(recommended: list[PublisherScore], catalog: Catalog, monthly_usd: f
 
 def target_cpa(brief: Brief, recommended: list[PublisherScore], catalog: Catalog, t: Tuning) -> float:
     """cpa_fraction x order value (x LTV multiplier for subscriptions), whole dollars."""
-    order_value = brief.price_usd or _weighted_aov(recommended, catalog)
+    order_value = order_value_used(brief, recommended, catalog)
     mult = t.bid.subscription_ltv_multiplier if brief.business_model == "subscription" else 1
     return float(round(t.bid.cpa_fraction_of_order_value * order_value * mult))
 

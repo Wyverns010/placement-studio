@@ -60,9 +60,8 @@ def tag_primaries(catalog: Catalog) -> dict[str, set[str]]:
 
 class LayaGate:
     def __init__(self, tuning: Tuning, agent=None, catalog: Catalog | None = None):
-        g = tuning.gate
-        self.t = g.model_copy(update=g.laya.model_dump()) if g.laya else g
-        self.factor = g.category_disagreement_factor
+        self.t = tuning.gate.for_impl("laya")
+        self.factor = tuning.gate.category_disagreement_factor
         self.agent = agent if agent is not None else get_agent()
         self.questions = load_questions()
         self._primaries = tag_primaries(catalog or load_catalog())

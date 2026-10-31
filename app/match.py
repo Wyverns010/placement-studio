@@ -63,15 +63,11 @@ def _audience(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
     bounds = age_bounds(b, t)
     age = _age_overlap(bounds, p.age_min, p.age_max, u)
     split = p.audience.gender_split
-    if b.gender_skew == "female":
-        gender = split.get("female", 0.0)
-    elif b.gender_skew == "male":
-        gender = split.get("male", 0.0)
-    else:
-        gender = u
+    known_gender = b.gender_skew in ("female", "male")
+    gender = split.get(b.gender_skew, 0.0) if known_gender else u
     aw = t.publisher.audience_weights
     score = aw.age * age + aw.gender * gender
-    unknown = bounds is None and b.gender_skew not in ("female", "male")
+    unknown = bounds is None and not known_gender
     top = "female" if split.get("female", 0) >= split.get("male", 0) else "male"
     share = round(split.get(top, 0.0) * 100)
     who = "women" if top == "female" else "men"
@@ -172,10 +168,8 @@ def _persona_price(b: Brief, p: Persona, t: Tuning) -> Factor:
 def _persona_age(b: Brief, p: Persona, t: Tuning) -> Factor:
     bounds = age_bounds(b, t)
     score = _age_overlap(bounds, p.age_min, p.age_max, t.publisher.unknown_factor)
-    if bounds is None:
-        note = "Brief ages unknown"
-    else:
-        note = f"Ages {p.age_min}\u2013{p.age_max} vs {bounds[0]}\u2013{bounds[1]}"
+    note = ("Brief ages unknown" if bounds is None
+            else f"Ages {p.age_min}\u2013{p.age_max} vs {bounds[0]}\u2013{bounds[1]}")
     return Factor(name="age", score=score, note=note)
 
 

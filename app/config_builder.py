@@ -28,10 +28,6 @@ def _campaign_id(brief: Brief, publishers: list[PublisherScore], personas: list[
     return f"cmp_{_slug(brief.product or 'campaign')[:ID_SLUG_LEN]}_{digest}"
 
 
-def _dedup(xs: list[str]) -> list[str]:
-    return list(dict.fromkeys(xs))
-
-
 def _assign_creatives(items: list[LineItem], personas: list[PersonaScore],
                       creatives: list[Creative]) -> list[LineItem]:
     if not creatives:
@@ -69,7 +65,7 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     else:
         age_range = [None, None]
     gender = brief.gender_skew if brief.gender_skew in ("female", "male") else "all"
-    interests = _dedup(brief.categories + brief.adjacent_categories)
+    interests = list(dict.fromkeys(brief.categories + brief.adjacent_categories))  # dedup, keep order
     cpa_limit = round(cpa * bid.guardrail_cpa_multiple, 2)
 
     ltv = f" × {bid.subscription_ltv_multiplier:.1f} subscription LTV" if subscription else ""
