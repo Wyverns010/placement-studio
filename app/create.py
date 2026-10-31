@@ -312,6 +312,17 @@ def _norm(q: str) -> str:
     return " ".join(q.lower().replace("?", " ").split())
 
 
+# What a clarify question is about, by its words: the same topic is never asked twice.
+_TOPICS = {"audience": ("who ", "whom", "audience", "age", "customer"),
+           "price": ("price", "cost", "spend", "how much", "$"),
+           "product": ("what kind", "what type", "product", "category", "what do you sell", "service")}
+
+
+def _topic(q: str) -> str | None:
+    n = f" {_norm(q)} "
+    return next((k for k, words in _TOPICS.items() if any(w in n for w in words)), None)
+
+
 def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
                       t: Tuning) -> list[ClarifyQuestion]:
     answered = answered_questions(text)
@@ -327,8 +338,10 @@ def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalo
     out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=model_fast())
     qs: list[ClarifyQuestion] = []
     asked = {_norm(q) for q in answered}
+    asked_topics = {_topic(q) for q in answered} - {None}
     for q in out.questions:
-        if _norm(q.question) in asked:  # the prompt says never re-ask; this catches a verbatim repeat
+        # the prompt says never re-ask; this catches a repeat in the same or other words
+        if _norm(q.question) in asked or _topic(q.question) in asked_topics:
             continue
         opts = q.options[: t.clarify.max_options]
         if len(opts) >= t.clarify.min_options:

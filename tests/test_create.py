@@ -621,6 +621,8 @@ def test_clarify_never_reasks_an_answered_question():
     out = ClarifyBatch(questions=[
         ClarifyQuestion(question="What kind of product is it?", options=["Beauty", "Apparel"]),
         ClarifyQuestion(question="Roughly what does it cost?", options=["Under $30", "$30+"]),
+        ClarifyQuestion(question="Who is it mainly for?", options=["Adults", "Kids"]),
+        ClarifyQuestion(question="Is it a product or service?", options=["Product", "Service"]),
     ])
     llm = FakeProvider({"ClarifyBatch": out})
     text = ("We help people feel better.\n\nAdditional details:\n"
