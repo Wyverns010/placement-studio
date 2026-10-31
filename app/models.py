@@ -49,6 +49,7 @@ class PublisherScore(BaseModel):
     recommended: bool
     stretch: bool
     reason: str  # about 8 words max
+    path: list[str] = []  # match.impl graph: strongest graph paths in plain words ("a → b → c")
 
 
 class PersonaScore(BaseModel):
@@ -57,6 +58,7 @@ class PersonaScore(BaseModel):
     fit: float
     factors: list[Factor]
     stretch: bool
+    path: list[str] = []  # match.impl graph: strongest graph paths in plain words
 
 
 class Creative(BaseModel):

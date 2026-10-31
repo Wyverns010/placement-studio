@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -43,6 +44,37 @@ class PublisherTuning(BaseModel):
     max_recommended: int
     weak_fit_min_recommended: int
     weak_fit_show: int
+
+
+class MatchTuning(BaseModel):
+    impl: Literal["formula", "graph"] = "formula"
+
+
+class GraphEdges(BaseModel):
+    primary: float
+    subcategory: float
+    attribute: float
+    parent: float
+    affinity: float
+    audience: float
+
+
+class GraphSeed(BaseModel):
+    category: float
+    adjacent: float
+
+
+class GraphTuning(BaseModel):
+    edges: GraphEdges
+    audience_min: float
+    seed: GraphSeed
+    through: dict[str, float]  # node kind (term | persona | publisher) -> pass-through multiplier
+    max_hops: int
+    min_path_weight: float
+    paths_combined: int
+    corroboration: float
+    penalty_below: float
+    paths_shown: int
 
 
 class PersonaWeights(BaseModel):
@@ -210,6 +242,8 @@ class AgentsTuning(BaseModel):
 
 class Tuning(BaseModel):
     publisher: PublisherTuning
+    match: MatchTuning = MatchTuning()
+    graph: GraphTuning
     persona: PersonaTuning
     budget: BudgetTuning
     bid: BidTuning

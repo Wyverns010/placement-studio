@@ -114,9 +114,16 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
     pt = t.publisher
     w = pt.weights
     weights = {"category": w.category, "audience": w.audience, "income": w.income, "aov": w.aov}
-    rows: list[tuple[float, Publisher, list[Factor], list[bool]]] = []
+    rows: list[tuple[float, Publisher, list[Factor], list[bool], list[str]]] = []
+    graph = None
+    if t.match.impl == "graph":  # category factor = shopper-graph proximity (app/graph.py)
+        from app.graph import publisher_category
+        graph = publisher_category(brief, catalog, t)
     for p in catalog.publishers:
-        cat, level = _category(brief, p, t, catalog)
+        if graph:
+            cat, level, path = graph[p.id]
+        else:
+            (cat, level), path = _category(brief, p, t, catalog), []
         aud, aud_unk = _audience(brief, p, t)
         inc, inc_unk = _income(brief, p, t)
         aov, aov_unk = _aov(brief, p, t)
@@ -126,11 +133,11 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
             fit *= pt.no_category_penalty
         if not aov_unk:
             fit *= pt.aov_gate_floor + (1 - pt.aov_gate_floor) * aov.score
-        rows.append((fit, p, factors, [False, aud_unk, inc_unk, aov_unk]))
+        rows.append((fit, p, factors, [False, aud_unk, inc_unk, aov_unk], path))
     rows.sort(key=lambda r: (-r[0], r[1].id))
     out: list[PublisherScore] = []
     rank = 0
-    for fit, p, factors, unk in rows:
+    for fit, p, factors, unk, path in rows:
         if p.id in exclude:
             recommended, reason = False, EXCLUDED_REASON
         else:
@@ -139,7 +146,7 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
             rank += 1
         out.append(PublisherScore(
             publisher_id=p.id, name=p.name, fit=round(fit, 3), factors=factors,
-            recommended=recommended, stretch=False, reason=reason,
+            recommended=recommended, stretch=False, reason=reason, path=path,
         ))
     return out
 
@@ -194,10 +201,12 @@ def _persona_age(b: Brief, p: Persona, t: Tuning) -> Factor:
     return Factor(name="age", score=score, note=note)
 
 
-def _persona_raw(b: Brief, p: Persona, t: Tuning) -> tuple[float, list[Factor]]:
-    """Unclamped fit and its factors (a 4th `conflict` factor only when a penalty applies)."""
+def _persona_raw(b: Brief, p: Persona, t: Tuning, aff: Factor | None = None) -> tuple[float, list[Factor]]:
+    """Unclamped fit and its factors (a 4th `conflict` factor only when a penalty applies).
+    `aff` replaces the affinity factor (match.impl graph)."""
     w = t.persona.weights
-    aff, price, age = _affinity(b, p, t), _persona_price(b, p, t), _persona_age(b, p, t)
+    aff = aff or _affinity(b, p, t)
+    price, age = _persona_price(b, p, t), _persona_age(b, p, t)
     factors = [aff, price, age]
     raw = w.affinity * aff.score + w.price * price.score + w.age * age.score
     hit = sorted({c.lower() for c in b.conflicts} & {d.lower() for d in p.disinterested_in})
@@ -209,13 +218,19 @@ def _persona_raw(b: Brief, p: Persona, t: Tuning) -> tuple[float, list[Factor]]:
 
 
 def score_personas(brief: Brief, catalog: Catalog, t: Tuning) -> list[PersonaScore]:
+    graph = None
+    if t.match.impl == "graph":  # affinity factor = shopper-graph proximity (app/graph.py)
+        from app.graph import persona_affinity
+        graph = persona_affinity(brief, catalog, t)
     rows = []
     for p in catalog.personas:
-        raw, factors = _persona_raw(brief, p, t)
-        rows.append((max(0.0, min(1.0, raw)), p, factors))
+        aff, path = graph[p.id] if graph else (None, [])
+        raw, factors = _persona_raw(brief, p, t, aff)
+        rows.append((max(0.0, min(1.0, raw)), p, factors, path))
     rows.sort(key=lambda r: (-r[0], r[1].id))
-    return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False)
-            for fit, p, f in rows]
+    return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False,
+                         path=path)
+            for fit, p, f, path in rows]
 
 
 def select_personas(scores: list[PersonaScore], t: Tuning) -> list[PersonaScore]:
