@@ -27,6 +27,10 @@ def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Fact
                for q in catalog.publishers if term in q.subcategories}
     if p.category in parents:
         return Factor(name="category", score=cs.same_category, note=f"Same category: {_label(p.category)}"), "same_category"
+    # a persona-affinity term that tuning maps to this publisher's category (home_decor -> home)
+    via = [term for term in b.categories if t.publisher.affinity_parents.get(term) == p.category]
+    if via:
+        return Factor(name="category", score=cs.same_category, note=f"Same category via {_label(via[0])}"), "same_category"
     adj = sorted((p.tags & set(b.adjacent_categories)) - attrs)
     if adj:
         return Factor(name="category", score=cs.adjacent, note=f"Adjacent: {_label(adj[0])}"), "adjacent"

@@ -10,6 +10,23 @@ publisher:
   no_category_penalty: 0.5      # fit *= this when category level is attribute or none
   aov_gate_floor: 0.4           # when price known: fit *= floor + (1-floor)*aov_factor
   unknown_factor: 0.6           # factor value when the brief lacks the needed field
+  # persona-affinity terms that are no publisher's category/subcategory -> the publisher category
+  # they belong to; a brief category matching only this way scores same_category. Ambiguous terms
+  # (fitness, wellness, recovery, travel, small_batch, family/kids products, subscription_*) stay out.
+  affinity_parents:
+    home_decor: home
+    home_goods: home
+    classic_apparel: apparel
+    fashion: apparel
+    sustainable_apparel: apparel
+    premium_basics: apparel
+    clean_beauty: beauty
+    organic_grocery: groceries
+    premium_grocery: groceries
+    gourmet_food: groceries
+    pet_health: pet
+    quick_commerce: instant_delivery
+    fitness_services: wellness_services
   cutoff: 0.40
   max_recommended: 5
   weak_fit_min_recommended: 1   # weak_fit only when no publisher clears the cutoff (the brief's examples #3, #13: single-publisher categories proceed)

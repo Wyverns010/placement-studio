@@ -164,3 +164,40 @@ def test_subscription_term_never_yields_same_category():
     s = score_publishers(brief(categories=["subscription"]), CAT, T)
     assert all(f.score <= T.publisher.category_scores.attribute
                for p in s for f in p.factors[:1])
+
+
+# ---- persona-affinity terms mapped to their publisher category (tuning.publisher.affinity_parents) ----
+
+def _candles(**over):
+    base = dict(product="hand-poured candles", categories=["home_decor"], adjacent_categories=["gifting"],
+                price_tier="premium", gender_skew="balanced")
+    base.update(over)
+    return brief(**base)
+
+
+def test_affinity_parents_map_interest_terms_to_publisher_categories():
+    m = T.publisher.affinity_parents
+    assert m["home_decor"] == "home" and m["home_goods"] == "home"
+    assert set(m) <= set(CAT.interest_terms())
+    assert set(m.values()) <= set(CAT.vocab_groups())
+
+
+def test_candles_with_only_an_interest_term_still_reach_home_publishers():
+    scores = {s.name: s for s in score_publishers(_candles(), CAT, T)}
+    for name in ("Northbed", "Hearthstone Goods"):
+        s = scores[name]
+        assert s.recommended and s.fit >= T.publisher.cutoff, (name, s.fit)
+        cat = next(f for f in s.factors if f.name == "category")
+        assert cat.score == T.publisher.category_scores.same_category
+        assert cat.note == "Same category via home decor"
+    assert not is_weak_fit(list(scores.values()), T)
+
+
+def test_affinity_map_does_not_change_briefs_with_publisher_terms():
+    t = T.model_copy(deep=True)
+    t.publisher.affinity_parents = {}
+    for b in (brief(product="protein bars", categories=["pantry"], adjacent_categories=["fitness", "wellness"],
+                    price_tier="mid"),
+              brief(product="dog food", categories=["pet_food"], adjacent_categories=["pet_health"]),
+              _candles(categories=["home", "gifting"])):
+        assert score_publishers(b, CAT, T) == score_publishers(b, CAT, t)

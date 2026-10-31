@@ -86,6 +86,7 @@ def test_understand_prompt_renders_grouped_vocab_and_parent_rule():
     system = fake.calls[0]["system"]
     assert pet_line in system and "pet_health" in system
     assert "only for products for animals" in system
+    assert "include that publisher category (the term left of the colon)" in system
     assert "{" not in system
 
 
