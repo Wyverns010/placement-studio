@@ -1,8 +1,8 @@
 # Placement Studio
 
-Describe a business in a sentence; get ranked publishers (and why the rest lost), 3–5 persona-tuned ads and a launch-ready campaign config, every number explained. Bad input gets an honest answer, not a campaign.
+Describe a business in a sentence; get ranked publishers (and why the rest lost), then 3–5 persona-tuned ads you can regenerate and approve, then a launch-ready campaign config with a recommended budget, every number explained. Bad input gets an honest answer, not a campaign.
 
-**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed: instant, and they survive an OpenAI outage. A live run takes about 7–9 s.
+**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed stage by stage: instant, and they survive an OpenAI outage.
 
 ```
 cp .env.example .env          # add OPENAI_API_KEY
@@ -16,27 +16,31 @@ uv run pytest -q; (cd web && npx vitest run)    # tests
 ## How it works
 
 ```
-text ─▶ Understand (LLM) ─▶ Gate (LLM self-report) ─▶ Match (code) ─▶ Create (LLM) ─▶ Config (code)
+① text ─▶ Understand (LLM) ─▶ Gate ─▶ Match (code)     POST /api/campaign, GET /api/campaign/stream
+② Create (LLM): one ad per persona; Regenerate one     POST /api/creatives, /api/creatives/regenerate
+③ Config (code) at the recommended or your budget      POST /api/config
 ```
 
-**Numbers from code, words from the LLM.** Understand fills a brief restricted to the catalog's category vocabulary. The gate picks proceed, clarify (1–3 questions), out_of_scope or no_signal; after Match, a proceed with no publisher above the cut-off becomes weak_fit (closest 3, 20% test budget). Match scores publishers on four visible factors (category, audience, income, order value), personas on affinity, price and age. Create runs one call per persona in parallel; code rejects any number or claim word absent from the advertiser's text, with one retry. Models: gpt-5.4-mini for everything (≈7–9 s per live run, fractions of a cent); set OPENAI_MODEL_CREATIVE=gpt-5.5 for richer copy. The 15 precomputed samples were generated with gpt-5.5. Reasoning effort low. Every tunable is in `config/tuning.yaml`; every prompt is in `prompts/` ([index](prompts/README.md)).
+Three stages the user steps through, stateless: each request carries back what the last one returned and the server re-validates it (request models in `app/api.py`). Stages ① and ② count against the rate limit (live calls only); ③ is free.
+
+**Numbers from code, words from the LLM.** Understand fills a brief restricted to the catalog's category vocabulary. The gate picks proceed, clarify (1–3 questions), out_of_scope or no_signal; after Match, a proceed with no publisher above the cut-off becomes weak_fit (closest 3, a test budget). Match scores publishers on four visible factors (category, audience, income, order value), personas on affinity, price and age. Create runs one call per persona in parallel, following a written [copywriting playbook](prompts/copywriting_playbook.md) (persona motivation first, one true detail, the publisher's context); code rejects invented numbers or claim words, over-long fields, and generic copy (age ranges, "for women", "under $N", filler) unless the advertiser wrote it, with one retry. Regenerate rewrites one ad, optionally steered by a note that is passed as data. Models: gpt-5.4-mini for everything (fractions of a cent per run); set OPENAI_MODEL_CREATIVE=gpt-5.5 for richer copy. Reasoning effort low. Every tunable is in `config/tuning.yaml`; every prompt is in `prompts/` ([index](prompts/README.md)).
 
 ## Campaign config, and why
 
 | Field | Why a real system needs it |
 |---|---|
 | `objective`, `conversion_event` | Purchase vs subscription_start decides what the bidder optimises |
-| `budget` (+ `unallocated_usd`, `test_budget`) | Capped at each publisher's reach; leftover shown, not dumped; weak fit gets a 20% test |
+| `budget` (`monthly_usd`, `recommended_usd`, `source`, `pacing`, `unallocated_usd`, `test_budget`) | Recommended = Σ over publishers of min(reach cap, target CPA × 50 conversions: enough to optimise a CPA bid), rounded to $500 and clamped; weak fit recommends 20% of that as a test. Your budget wins (`source: user`). Pacing: weak fit `front_loaded`; premium/luxury `even`; value/mid `accelerated` only below the recommendation |
 | `bid_strategy` | Target CPA = 35% × order value (× 2 for subscriptions): tied to unit economics |
 | `targeting` | Ages, gender, US, interests, personas: who the ads were written for |
-| `line_items` | Publisher, budget share (by fit, 10% floor) and the creative it serves |
-| `frequency_cap` | 3 per 7 days; don't burn the audience |
+| `line_items` | Publisher, budget share (by fit, 10% floor, capped at reach) and the creative it serves |
+| `frequency_cap` | By price tier: value 5/7 days, mid 4/7, premium 3/14, luxury 2/21, unknown 3/7; +1 for a subscription, −1 for a weak-fit test |
 | `guardrails` | Pause at 1.5× target CPA after 2,000 impressions: a bad launch stays cheap |
 | `rationales`, `decision_trace` | One line per field plus gate and fit scores: any choice is auditable |
 
 ## Evals
 
-120 labelled cases (given, paraphrases, ambiguity ladder, weak fit, out of scope, adversarial) split by group into 84 train / 36 held out ([details](evals/README.md)); `uv run python -m evals.run --split test`.
+120 labelled cases (given, paraphrases, ambiguity ladder, weak fit, out of scope, adversarial) split by group into 84 train / 36 held out ([details](evals/README.md)); `uv run python -m evals.run --split test` runs all three stages per case (`run_full`) and checks invariants on the full chain.
 
 - Train **84/84**; held out **34/36 = 94.4%** (2026-10-31 run); the 15 given examples **15/15**; 0 invariant failures.
 - Noise is about ±1 case per split. Held-out figures are post-hoc: the first run was contaminated (prompt examples copied eval wording) and I rewrote them after seeing test texts, so a fresh batch is the clean check.
@@ -53,10 +57,10 @@ Easy: calling an LLM, rendering a UI. Hard:
 
 ## What I cut, and why
 
-Image creatives, auth and saved campaigns, campaign editing, real auction/CPM modelling (a flat $12 CPM caps reach), an ad-policy engine. None changes how the core decisions get made; each is real work.
+Image creatives, auth and saved campaigns, editing config fields beyond the budget, real auction/CPM modelling (a flat $12 CPM caps reach), an ad-policy engine. None changes how the core decisions get made; each is real work.
 
 ## With another week
 
-A fresh eval batch as the clean check; learn weights and gate calibration from conversion data; an ad-policy layer; finer live-streaming stages and UI for the gate's signals.
+A fresh eval batch as the clean check; learn weights, gate calibration and conversions-per-line-item from conversion data; an ad-policy layer; UI for the gate's signals.
 
 **At scale:** LLMs for low-volume, ambiguous work (understanding advertisers, copy); small calibrated Laya-style models for high-volume typed decisions (per-impression matching, policy screening, catalog tagging): the LLM teaches, the small model serves. 20 → 10k publishers needs an embedding prefilter before scoring, plus caching, async workers, observability and cost per campaign.

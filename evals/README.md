@@ -41,9 +41,11 @@ uv run python -m evals.calibrate --gate laya --split train   # writes gate.laya 
 Each run also writes `last_run_<gate>_<split>.json`. `calibrate --gate laya` refuses records from
 the other gate.
 
-LLM calls are cached in `.cache/llm`, so re-runs are free; `--no-cache` forces live calls. The runner
+LLM calls are cached in `.cache/llm`, so re-runs are free; `--no-cache` forces live calls. Each case
+runs all three stages through `app.pipeline.run_full` (stage 1, creatives, config at the recommended
+budget; the cases' legacy `budget_usd` is ignored), so invariants cover the full chain. The runner
 truncates input to `input.max_chars` like the API, and reports the creative retry rate (personas
-re-asked after a facts or length violation) and latency p50/p90.
+re-asked after a facts, length or generic-copy violation) and latency p50/p90.
 
 Note: the default creative model is now gpt-5.4-mini (was gpt-5.5); eval accuracy depends on the Understand model, which is unchanged.
 
