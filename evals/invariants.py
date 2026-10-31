@@ -59,8 +59,14 @@ def check(result: CampaignResult, t: Tuning) -> list[str]:
             out.append(f"creative {c.creative_id}: duplicate headline {c.headline!r}")
         seen.append(c.headline)
 
-    if o == "weak_fit" and not (cfg and cfg.budget.get("test_budget")):
+    if (o == "weak_fit" and cfg and cfg.budget.get("source") == "recommended"
+            and not cfg.budget.get("test_budget")):
         out.append("weak_fit: config.budget.test_budget not set")
+    if cfg is not None:
+        placed = {c for li in cfg.line_items for c in [li.creative_id, *li.extra_creative_ids]}
+        for c in result.creatives:
+            if c.creative_id not in placed:
+                out.append(f"creative {c.creative_id} is not in any line item")
 
     for c in result.creatives:
         v = check_facts(c, result.input_text, t)

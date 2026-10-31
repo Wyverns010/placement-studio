@@ -79,7 +79,8 @@ class LineItem(BaseModel):
     publisher_id: str
     share: float
     budget_usd: float
-    creative_id: str | None
+    creative_id: str | None  # the primary ad on this publisher
+    extra_creative_ids: list[str] = []  # other approved ads written for it, served in rotation
 
 
 class CampaignConfig(BaseModel):

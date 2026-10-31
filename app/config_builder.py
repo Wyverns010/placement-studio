@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 
 from app.budget import allocate, frequency_cap, order_value_used, pacing, recommended_budget
@@ -38,8 +39,9 @@ def _assign_creatives(items: list[LineItem], personas: list[PersonaScore],
     fallback = next((c for c in ordered if c.persona_id == best_persona), ordered[0])
     out = []
     for li in items:
-        own = next((c for c in ordered if c.publisher_id == li.publisher_id), fallback)
-        out.append(li.model_copy(update={"creative_id": own.creative_id}))
+        own = [c.creative_id for c in ordered if c.publisher_id == li.publisher_id]
+        out.append(li.model_copy(update={"creative_id": own[0] if own else fallback.creative_id,
+                                         "extra_creative_ids": own[1:]}))
     return out
 
 
@@ -71,7 +73,7 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
         age_range = [None, None]
     gender = brief.gender_skew if brief.gender_skew in ("female", "male") else "all"
     interests = list(dict.fromkeys(brief.categories + brief.adjacent_categories))  # dedup, keep order
-    cpa_limit = round(cpa * bid.guardrail_cpa_multiple, 2)
+    cpa_limit = float(math.floor(cpa * bid.guardrail_cpa_multiple + 0.5))  # whole dollars, half up
 
     ltv = f" × {bid.subscription_ltv_multiplier:.1f} subscription LTV" if subscription else ""
     src = "your price" if brief.price_usd else "fit-weighted publisher AOV"
@@ -88,14 +90,14 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
         "guardrails": f"Pause if CPA exceeds ${cpa_limit:,.0f} ({bid.guardrail_cpa_multiple:g}× target) "
                       f"after {bid.guardrail_min_impressions:,} impressions",
         "line_items": f"{len(items)} publishers, budget share proportional to fit with a "
-                      f"{t.budget.min_share:.0%} floor",
+                      f"{t.budget.min_share:.0%} floor" + _rotation_note(items, publishers),
     }
     return CampaignConfig(
         campaign_id=_campaign_id(brief, publishers, personas, monthly_usd),
         objective="conversions",
         conversion_event="subscription_start" if subscription else "purchase",
         budget={"monthly_usd": round(monthly_usd, 2), "recommended_usd": rec.usd, "source": source,
-                "pacing": pace, "unallocated_usd": unallocated, "test_budget": weak_fit},
+                "pacing": pace, "unallocated_usd": unallocated, "test_budget": weak_fit and source == "recommended"},
         bid_strategy={"type": "target_cpa", "target_usd": cpa},
         targeting={"age_range": age_range, "gender": gender, "geo": GEO,
                    "interests": interests, "personas": [p.persona_id for p in personas]},
@@ -112,6 +114,13 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     )
 
 
+def _rotation_note(items: list[LineItem], publishers: list[PublisherScore]) -> str:
+    names = {p.publisher_id: p.name for p in publishers}
+    rot = [f"{1 + len(li.extra_creative_ids)} ads rotate on {names.get(li.publisher_id, li.publisher_id)}"
+           for li in items if li.extra_creative_ids]
+    return "; " + ", ".join(rot) + " (each written for that publisher)" if rot else ""
+
+
 def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, weak_fit: bool,
                       n_pubs: int, t: Tuning) -> str:
     b = t.budget
@@ -124,7 +133,10 @@ def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, 
         why += f", then {b.weak_fit_test_fraction:.0%} of ${rec.full_usd:,.0f} as a test because fit is weak"
         if rec.full_usd * b.weak_fit_test_fraction < b.min_usd:
             why += f" (raised to the ${b.min_usd:,.0f} minimum)"
-    if source == "user":
+    if source == "user" and weak_fit:
+        why += (f". You chose ${monthly_usd:,.0f}; we'd suggest a ${rec.usd:,.0f} test because nothing "
+                "in the catalog is a strong match")
+    elif source == "user":
         why += f". You set ${monthly_usd:,.0f}/mo, which is used instead"
     why += f". Split by fit, capped at each publisher's reach at ${b.assumed_cpm_usd:g} CPM"
     if unallocated:

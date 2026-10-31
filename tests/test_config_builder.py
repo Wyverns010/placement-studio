@@ -38,7 +38,9 @@ def test_weak_fit_recommends_test_budget_and_user_override_wins():
     assert "20%" in cfg.rationales["budget"] and "weak" in cfg.rationales["budget"]
     user, _, _ = _build(weak_fit=True, monthly=25000)
     assert user.budget["monthly_usd"] == 25000 and user.budget["source"] == "user"
-    assert user.budget["test_budget"] is True and user.budget["recommended_usd"] == rec.usd
+    assert user.budget["test_budget"] is False and user.budget["recommended_usd"] == rec.usd
+    assert (f"You chose $25,000; we'd suggest a ${rec.usd:,.0f} test because nothing in the catalog "
+            "is a strong match") in user.rationales["budget"]
 
 
 def test_normal_budget_not_test():
@@ -122,3 +124,30 @@ def test_weak_fit_rationale_names_the_minimum_floor():
     assert "raised to the $500 minimum" in cfg.rationales["budget"]
     plain, _, _ = _build(weak_fit=True, monthly=None)
     assert "minimum" not in plain.rationales["budget"]
+
+
+def test_every_creative_is_in_rotation_on_its_own_publisher():
+    pubs, personas, _ = _inputs()
+    # more personas than publishers: two ads written for the first publisher
+    creatives = [Creative(creative_id=f"cr_{p.persona_id}", persona_id=p.persona_id,
+                          publisher_id=pubs[min(i, 1) % len(pubs)].publisher_id,
+                          headline="h", body="b", cta="c", why="w") for i, p in enumerate(personas)]
+    cfg = build_config(brief=B, gate=GATE, publishers=pubs, personas=personas, creatives=creatives,
+                       monthly_usd=None, weak_fit=False, catalog=CAT, t=T)
+    placed = {c for li in cfg.line_items for c in [li.creative_id, *li.extra_creative_ids]}
+    assert placed == {c.creative_id for c in creatives}
+    for li in cfg.line_items:
+        own = [c.creative_id for c in creatives if c.publisher_id == li.publisher_id]
+        if own:
+            assert [li.creative_id, *li.extra_creative_ids] == own
+    assert "rotate" in cfg.rationales["line_items"]
+    single, _, _ = _build()
+    assert all(li.extra_creative_ids == [] for li in single.line_items)
+    assert "rotate" not in single.rationales["line_items"]
+
+
+def test_guardrail_limit_is_one_rounded_value():
+    b = B.model_copy(update={"price_usd": 60, "business_model": "one_off"})  # CPA $21 x 1.5 = 31.5
+    cfg, _, _ = _build(b=b)
+    assert cfg.guardrails["cpa_limit_usd"] == 32
+    assert "exceeds $32 " in cfg.rationales["guardrails"]

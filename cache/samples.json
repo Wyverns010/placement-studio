@@ -743,18 +743,21 @@
      {
       "budget_usd": 2000.0,
       "creative_id": "cr_persona_002",
+      "extra_creative_ids": [],
       "publisher_id": "pub_007",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 2000.0,
       "creative_id": "cr_persona_004",
+      "extra_creative_ids": [],
       "publisher_id": "pub_009",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 2000.0,
       "creative_id": "cr_persona_001",
+      "extra_creative_ids": [],
       "publisher_id": "pub_018",
       "share": 0.3333333333333333
      }
@@ -1598,7 +1601,7 @@
      "per_days": 14
     },
     "guardrails": {
-     "cpa_limit_usd": 52.5,
+     "cpa_limit_usd": 53.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -1606,30 +1609,35 @@
      {
       "budget_usd": 1809.55,
       "creative_id": "cr_persona_006",
+      "extra_creative_ids": [],
       "publisher_id": "pub_005",
       "share": 0.20106100795755968
      },
      {
       "budget_usd": 1807.16,
       "creative_id": "cr_persona_003",
+      "extra_creative_ids": [],
       "publisher_id": "pub_004",
       "share": 0.20079575596816976
      },
      {
       "budget_usd": 1802.39,
       "creative_id": "cr_persona_009",
+      "extra_creative_ids": [],
       "publisher_id": "pub_016",
       "share": 0.2002652519893899
      },
      {
       "budget_usd": 1795.23,
       "creative_id": "cr_persona_009",
+      "extra_creative_ids": [],
       "publisher_id": "pub_012",
       "share": 0.19946949602122016
      },
      {
       "budget_usd": 1785.68,
       "creative_id": "cr_persona_009",
+      "extra_creative_ids": [],
       "publisher_id": "pub_002",
       "share": 0.1984084880636605
      }
@@ -1639,7 +1647,7 @@
      "bid_strategy": "35% of $100 order value (fit-weighted publisher AOV) = $35 target CPA",
      "budget": "Recommended $9,000/mo: $35 target CPA × 50 conversions per line item (enough to optimise the bid) across 5 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
-     "guardrails": "Pause if CPA exceeds $52 (1.5× target) after 2,000 impressions",
+     "guardrails": "Pause if CPA exceeds $53 (1.5× target) after 2,000 impressions",
      "line_items": "5 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
@@ -3112,7 +3120,7 @@
      "per_days": 14
     },
     "guardrails": {
-     "cpa_limit_usd": 94.5,
+     "cpa_limit_usd": 95.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -3120,12 +3128,16 @@
      {
       "budget_usd": 3407.63,
       "creative_id": "cr_persona_010",
+      "extra_creative_ids": [
+       "cr_persona_009"
+      ],
       "publisher_id": "pub_011",
       "share": 0.5242510699001426
      },
      {
       "budget_usd": 3092.37,
       "creative_id": "cr_persona_004",
+      "extra_creative_ids": [],
       "publisher_id": "pub_014",
       "share": 0.47574893009985736
      }
@@ -3135,8 +3147,8 @@
      "bid_strategy": "35% of $180 order value (fit-weighted publisher AOV) = $63 target CPA",
      "budget": "Recommended $6,500/mo: $63 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
-     "guardrails": "Pause if CPA exceeds $94 (1.5× target) after 2,000 impressions",
-     "line_items": "2 publishers, budget share proportional to fit with a 10% floor",
+     "guardrails": "Pause if CPA exceeds $95 (1.5× target) after 2,000 impressions",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Northbed (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
      "targeting": "3 personas, interests bedding, home_textiles, home, premium_basics, sustainable, ages 22-60, gender all, US"
@@ -3969,18 +3981,21 @@
      {
       "budget_usd": 4206.77,
       "creative_id": "cr_persona_003",
+      "extra_creative_ids": [],
       "publisher_id": "pub_005",
       "share": 0.3338709677419355
      },
      {
       "budget_usd": 4206.77,
       "creative_id": "cr_persona_001",
+      "extra_creative_ids": [],
       "publisher_id": "pub_004",
       "share": 0.3338709677419355
      },
      {
       "budget_usd": 4186.45,
       "creative_id": "cr_persona_005",
+      "extra_creative_ids": [],
       "publisher_id": "pub_016",
       "share": 0.332258064516129
      }
@@ -4812,7 +4827,7 @@
      "per_days": 7
     },
     "guardrails": {
-     "cpa_limit_usd": 46.5,
+     "cpa_limit_usd": 47.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -4820,12 +4835,17 @@
      {
       "budget_usd": 1686.91,
       "creative_id": "cr_persona_002",
+      "extra_creative_ids": [
+       "cr_persona_008",
+       "cr_persona_001"
+      ],
       "publisher_id": "pub_001",
       "share": 0.5623028391167192
      },
      {
       "budget_usd": 1313.09,
       "creative_id": "cr_persona_006",
+      "extra_creative_ids": [],
       "publisher_id": "pub_011",
       "share": 0.4376971608832808
      }
@@ -4835,8 +4855,8 @@
      "bid_strategy": "35% of $88 order value (fit-weighted publisher AOV) = $31 target CPA",
      "budget": "Recommended $3,000/mo: $31 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 7 days (unknown price tier: 3 per 7 days)",
-     "guardrails": "Pause if CPA exceeds $46 (1.5× target) after 2,000 impressions",
-     "line_items": "2 publishers, budget share proportional to fit with a 10% floor",
+     "guardrails": "Pause if CPA exceeds $47 (1.5× target) after 2,000 impressions",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Swiftcart (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $3,000 meets the $3,000 recommendation",
      "targeting": "4 personas, interests household, refillable_products, sustainable, non_toxic, clean_beauty, bath, ages 25-55, gender all, US"
@@ -5694,7 +5714,7 @@
      "per_days": 14
     },
     "guardrails": {
-     "cpa_limit_usd": 94.5,
+     "cpa_limit_usd": 95.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -5702,12 +5722,16 @@
      {
       "budget_usd": 3250.0,
       "creative_id": "cr_persona_003",
+      "extra_creative_ids": [
+       "cr_persona_009"
+      ],
       "publisher_id": "pub_011",
       "share": 0.5
      },
      {
       "budget_usd": 3250.0,
       "creative_id": "cr_persona_004",
+      "extra_creative_ids": [],
       "publisher_id": "pub_014",
       "share": 0.5
      }
@@ -5717,8 +5741,8 @@
      "bid_strategy": "35% of $181 order value (fit-weighted publisher AOV) = $63 target CPA",
      "budget": "Recommended $6,500/mo: $63 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
-     "guardrails": "Pause if CPA exceeds $94 (1.5× target) after 2,000 impressions",
-     "line_items": "2 publishers, budget share proportional to fit with a 10% floor",
+     "guardrails": "Pause if CPA exceeds $95 (1.5× target) after 2,000 impressions",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Northbed (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
      "targeting": "3 personas, interests home, gifting, small_batch, natural, sustainable, bath, ages 19-50, gender all, US"
@@ -6544,7 +6568,7 @@
      "per_days": 14
     },
     "guardrails": {
-     "cpa_limit_usd": 340.5,
+     "cpa_limit_usd": 341.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -6552,18 +6576,23 @@
      {
       "budget_usd": 2266.67,
       "creative_id": "cr_persona_009",
+      "extra_creative_ids": [
+       "cr_persona_005"
+      ],
       "publisher_id": "pub_002",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 2266.67,
       "creative_id": "cr_persona_010",
+      "extra_creative_ids": [],
       "publisher_id": "pub_004",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 2266.67,
       "creative_id": "cr_persona_008",
+      "extra_creative_ids": [],
       "publisher_id": "pub_005",
       "share": 0.3333333333333333
      }
@@ -6573,8 +6602,8 @@
      "bid_strategy": "35% of $650 order value (your price) = $227 target CPA",
      "budget": "Recommended $6,800/mo: $227 target CPA × 50 conversions per line item (enough to optimise the bid) across 3 publishers, rounded to $500 within $500–$5,000,000, then 20% of $34,000 as a test because fit is weak. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 2 impressions per person every 14 days (premium price tier: 3 per 14 days, −1 for a weak-fit test)",
-     "guardrails": "Pause if CPA exceeds $340 (1.5× target) after 2,000 impressions",
-     "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
+     "guardrails": "Pause if CPA exceeds $341 (1.5× target) after 2,000 impressions",
+     "line_items": "3 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Movewell (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Front-loaded: a small weak-fit test should learn fast",
      "targeting": "4 personas, interests apparel, activewear, recovery, travel, ages 22-68, gender all, US"
@@ -8137,7 +8166,7 @@
      "per_days": 7
     },
     "guardrails": {
-     "cpa_limit_usd": 22.5,
+     "cpa_limit_usd": 23.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -8145,6 +8174,10 @@
      {
       "budget_usd": 1000.0,
       "creative_id": "cr_persona_003",
+      "extra_creative_ids": [
+       "cr_persona_009",
+       "cr_persona_001"
+      ],
       "publisher_id": "pub_020",
       "share": 1.0
      }
@@ -8154,8 +8187,8 @@
      "bid_strategy": "35% of $42 order value (fit-weighted publisher AOV) = $15 target CPA",
      "budget": "Recommended $1,000/mo: $15 target CPA × 50 conversions per line item (enough to optimise the bid) across 1 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 7 days (unknown price tier: 3 per 7 days)",
-     "guardrails": "Pause if CPA exceeds $22 (1.5× target) after 2,000 impressions",
-     "line_items": "1 publishers, budget share proportional to fit with a 10% floor",
+     "guardrails": "Pause if CPA exceeds $23 (1.5× target) after 2,000 impressions",
+     "line_items": "1 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Pop & Sip (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $1,000 meets the $1,000 recommendation",
      "targeting": "3 personas, interests beverages, functional_beverages, soda_alternative, wellness, gifting, ages 19-42, gender all, US"
@@ -8978,7 +9011,7 @@
      "per_days": 14
     },
     "guardrails": {
-     "cpa_limit_usd": 61.5,
+     "cpa_limit_usd": 62.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -8986,18 +9019,21 @@
      {
       "budget_usd": 2218.31,
       "creative_id": "cr_persona_004",
+      "extra_creative_ids": [],
       "publisher_id": "pub_007",
       "share": 0.36971830985915494
      },
      {
       "budget_usd": 1991.95,
       "creative_id": "cr_persona_002",
+      "extra_creative_ids": [],
       "publisher_id": "pub_009",
       "share": 0.3319919517102616
      },
      {
       "budget_usd": 1789.74,
       "creative_id": "cr_persona_009",
+      "extra_creative_ids": [],
       "publisher_id": "pub_018",
       "share": 0.2982897384305835
      }
@@ -9840,30 +9876,35 @@
      {
       "budget_usd": 1145.2,
       "creative_id": "cr_persona_001",
+      "extra_creative_ids": [],
       "publisher_id": "pub_018",
       "share": 0.22903951172502407
      },
      {
       "budget_usd": 1035.98,
       "creative_id": "cr_persona_009",
+      "extra_creative_ids": [],
       "publisher_id": "pub_007",
       "share": 0.20719563122389978
      },
      {
       "budget_usd": 1035.98,
       "creative_id": "cr_persona_001",
+      "extra_creative_ids": [],
       "publisher_id": "pub_009",
       "share": 0.20719563122389978
      },
      {
       "budget_usd": 891.42,
       "creative_id": "cr_persona_008",
+      "extra_creative_ids": [],
       "publisher_id": "pub_001",
       "share": 0.1782846129135882
      },
      {
       "budget_usd": 891.42,
       "creative_id": "cr_persona_001",
+      "extra_creative_ids": [],
       "publisher_id": "pub_008",
       "share": 0.1782846129135882
      }
@@ -10694,7 +10735,7 @@
      "per_days": 7
     },
     "guardrails": {
-     "cpa_limit_usd": 19.5,
+     "cpa_limit_usd": 20.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
@@ -10702,6 +10743,10 @@
      {
       "budget_usd": 500.0,
       "creative_id": "cr_persona_009",
+      "extra_creative_ids": [
+       "cr_persona_001",
+       "cr_persona_008"
+      ],
       "publisher_id": "pub_012",
       "share": 1.0
      }
@@ -10712,7 +10757,7 @@
      "budget": "Recommended $500/mo: $13 target CPA × 50 conversions per line item (enough to optimise the bid) across 1 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 5 impressions per person every 7 days (value price tier: 5 per 7 days)",
      "guardrails": "Pause if CPA exceeds $20 (1.5× target) after 2,000 impressions",
-     "line_items": "1 publishers, budget share proportional to fit with a 10% floor",
+     "line_items": "1 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Daily Form (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $500 meets the $500 recommendation",
      "targeting": "3 personas, interests supplements, fitness, wellness, recovery, ages 22-55, gender all, US"

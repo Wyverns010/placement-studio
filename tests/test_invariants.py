@@ -285,3 +285,10 @@ def test_invariants_flag_bad_budget_and_frequency():
         assert any(word in f for f in check(r.model_copy(update={"config": cfg}), T)), word
     cfg = r.config.model_copy(update={"frequency_cap": {"impressions": 0, "per_days": 7}})
     assert any("frequency" in f for f in check(r.model_copy(update={"config": cfg}), T))
+
+
+def test_invariants_flag_creative_missing_from_line_items():
+    r = result_for(fake())
+    items = [li.model_copy(update={"creative_id": None, "extra_creative_ids": []}) for li in r.config.line_items]
+    bad = r.model_copy(update={"config": r.config.model_copy(update={"line_items": items})})
+    assert any("not in any line item" in f for f in check(bad, T))
