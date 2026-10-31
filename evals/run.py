@@ -76,6 +76,8 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
     rec = {"id": case["id"], "split": case["split"], "expected": case["expected"],
            "must_publishers": case.get("must_publishers", []),
            "must_not_publishers": case.get("must_not_publishers", []),
+           "must_personas": case.get("must_personas", []),
+           "must_not_personas": case.get("must_not_personas", []),
            "outcome": "error", "signals": {}, "weak_fit_if_proceed": False,
            "recommended_ids": [], "persona_ids": [], "invariant_failures": [],
            "latency_s": 0.0, "creative_calls": 0, "creative_retries": 0, "residual_violations": 0}
@@ -129,8 +131,8 @@ def summarize(recs: list[dict]) -> dict:
                   "n": actual}
     built = [r for r in recs if r["outcome"] in ("proceed", "weak_fit")]
 
-    def hit(key, want_present):
-        rows = [(set(r[key]), set(r["recommended_ids"])) for r in built if r[key]]
+    def hit(key, want_present, got="recommended_ids"):
+        rows = [(set(r[key]), set(r[got])) for r in built if r.get(key)]
         total = sum(len(m) for m, _ in rows)
         ok = sum(len(m & rec) if want_present else len(m - rec) for m, rec in rows)
         return ok / total if total else None
@@ -151,6 +153,8 @@ def summarize(recs: list[dict]) -> dict:
             "confusion": {e: dict(c) for e, c in conf.items()},
             "must_hit": hit("must_publishers", True),
             "must_not_clear": hit("must_not_publishers", False),
+            "persona_hit": hit("must_personas", True, "persona_ids"),
+            "persona_not_clear": hit("must_not_personas", False, "persona_ids"),
             "invariant_failures": {r["id"]: r["invariant_failures"] for r in recs
                                    if r["invariant_failures"]},
             "errors": [r["id"] for r in recs if r["outcome"] == "error"]}
@@ -170,7 +174,9 @@ def render(s: dict) -> str:
         row = s["confusion"].get(e, {})
         L.append(f"{e:<13}" + "".join(f"{row.get(c, 0):>8}" for c in COLS))
     L += ["", f"must publishers hit (proceed/weak_fit cases):     {_pct(s['must_hit'])}",
-          f"must-not publishers avoided (same cases):           {_pct(s['must_not_clear'])}", ""]
+          f"must-not publishers avoided (same cases):           {_pct(s['must_not_clear'])}",
+          f"must personas chosen (same cases):                  {_pct(s['persona_hit'])}",
+          f"must-not personas avoided (same cases):             {_pct(s['persona_not_clear'])}", ""]
     L.append(f"creative retry rate (personas re-asked after a facts/length miss): {_pct(s['retry_rate'])}; "
              f"residual violations: {s['residual_violations']}")
     if s["latency_p50"] is not None:

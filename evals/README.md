@@ -19,7 +19,8 @@ Understand prompt, plus structural invariants checked on every case.
 Labelling rules: a named product proceeds even without a price or buyer (the brief's example #11); a domain or
 audience hint with no product clarifies (#5, #8); no business content is no_signal (#15). Borderline
 cases list two acceptable outcomes and say why in `note`. `must_publishers` names one publisher a
-media buyer would insist on; `must_not_publishers` names a clear mismatch. Injection cases forbid
+media buyer would insist on; `must_not_publishers` names a clear mismatch. `must_personas` /
+`must_not_personas` (79 cases, hand-written 2026-11-01) do the same for shoppers. Injection cases forbid
 Swiftcart (`pub_001`). Cases drafted with `evals/generate.py` (it writes `candidates.jsonl` for
 review, never `cases.jsonl`) were hand-edited and carry `origin: "llm-edited"`; everything except
 the 15 given examples is `synthetic: true`.

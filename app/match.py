@@ -171,13 +171,39 @@ def mark_stretch(scores: list[PublisherScore], t: Tuning,
 # ---- personas ----
 
 
-def _affinity(b: Brief, p: Persona, t: Tuning) -> Factor:
+def term_parents(catalog: Catalog, t: Tuning) -> dict[str, set[str]]:
+    """Category term -> the publisher categories it sits under (catalog groups + affinity_parents)."""
+    attrs = set(t.publisher.attribute_tags)
+    out: dict[str, set[str]] = {}
+    for cat, subs in catalog.vocab_groups().items():
+        for s in subs:
+            if s not in attrs and s != cat:
+                out.setdefault(s, set()).add(cat)
+    for term, parent in t.publisher.affinity_parents.items():
+        out.setdefault(term, set()).add(parent)
+    return out
+
+
+def _affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> Factor:
     sc = t.persona.affinity_scores
     attrs = set(t.publisher.attribute_tags)
     aff = set(p.category_affinities) - attrs
-    direct = sorted(aff & set(b.categories))
+    cats = set(b.categories) - attrs
+    direct = sorted(aff & cats)
     if direct:
         return Factor(name="affinity", score=sc.direct, note=f"Affinity: {direct[0]}")
+    family = sorted((a, c) for a in aff for c in cats
+                    if c in parents.get(a, ()) or a in parents.get(c, ()))
+    if family:
+        a, c = family[0]
+        return Factor(name="affinity", score=sc.family, note=f"Affinity: {a} (under {c})")
+    mode = sorted(set(t.persona.attribute_affinities.get(p.id, [])) & set(b.categories))
+    if mode:
+        return Factor(name="affinity", score=sc.family, note=f"Shops for: {mode[0]}")
+    sib = sorted((a, c) for a in aff for c in cats if parents.get(a, set()) & parents.get(c, set()))
+    if sib:
+        a, c = sib[0]
+        return Factor(name="affinity", score=sc.sibling, note=f"Related: {a} ~ {c}")
     adj = sorted(aff & set(b.adjacent_categories))
     if adj:
         return Factor(name="affinity", score=sc.adjacent, note=f"Adjacent affinity: {adj[0]}")
@@ -201,14 +227,21 @@ def _persona_age(b: Brief, p: Persona, t: Tuning) -> Factor:
     return Factor(name="age", score=score, note=note)
 
 
-def _persona_raw(b: Brief, p: Persona, t: Tuning, aff: Factor | None = None) -> tuple[float, list[Factor]]:
+def _persona_raw(b: Brief, p: Persona, t: Tuning, aff: Factor | None = None,
+                 parents: dict[str, set[str]] | None = None) -> tuple[float, list[Factor]]:
     """Unclamped fit and its factors (a 4th `conflict` factor only when a penalty applies).
     `aff` replaces the affinity factor (match.impl graph)."""
     w = t.persona.weights
-    aff = aff or _affinity(b, p, t)
+    aff = aff or _affinity(b, p, t, parents or {})
     price, age = _persona_price(b, p, t), _persona_age(b, p, t)
     factors = [aff, price, age]
     raw = w.affinity * aff.score + w.price * price.score + w.age * age.score
+    if aff.score <= 0 and t.persona.niche_penalty:
+        cats = {c for a in p.category_affinities for c in (parents or {}).get(a, set())}
+        if len(cats) == 1:
+            factors.append(Factor(name="niche", score=-t.persona.niche_penalty,
+                                  note=f"Only shops {_label(next(iter(cats)))}"))
+            raw -= t.persona.niche_penalty
     hit = sorted({c.lower() for c in b.conflicts} & {d.lower() for d in p.disinterested_in})
     if hit:
         pen = t.persona.conflict_penalty
@@ -222,10 +255,11 @@ def score_personas(brief: Brief, catalog: Catalog, t: Tuning) -> list[PersonaSco
     if t.match.impl == "graph":  # affinity factor = shopper-graph proximity (app/graph.py)
         from app.graph import persona_affinity
         graph = persona_affinity(brief, catalog, t)
+    parents = term_parents(catalog, t)
     rows = []
     for p in catalog.personas:
         aff, path = graph[p.id] if graph else (None, [])
-        raw, factors = _persona_raw(brief, p, t, aff)
+        raw, factors = _persona_raw(brief, p, t, aff, parents)
         rows.append((max(0.0, min(1.0, raw)), p, factors, path))
     rows.sort(key=lambda r: (-r[0], r[1].id))
     return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False,
@@ -234,10 +268,13 @@ def score_personas(brief: Brief, catalog: Catalog, t: Tuning) -> list[PersonaSco
 
 
 def select_personas(scores: list[PersonaScore], t: Tuning) -> list[PersonaScore]:
-    """Scores must be sorted best-first. Qualifiers (>= cutoff, up to max), else stretch-fill up to min."""
+    """Scores must be sorted best-first. Qualifiers (>= cutoff, up to max), else stretch-fill up to min,
+    personas with some category affinity first (price and age alone don't make a shopper plausible)."""
     pt = t.persona
     chosen = [s.model_copy(update={"stretch": False}) for s in scores if s.fit >= pt.cutoff][: pt.max]
     if len(chosen) < pt.min:
-        rest = [s for s in scores if s.fit < pt.cutoff][: pt.min - len(chosen)]
+        def no_affinity(s: PersonaScore) -> bool:
+            return all(f.score <= 0 for f in s.factors if f.name == "affinity")
+        rest = sorted((s for s in scores if s.fit < pt.cutoff), key=no_affinity)[: pt.min - len(chosen)]
         chosen += [s.model_copy(update={"stretch": True}) for s in rest]
     return chosen

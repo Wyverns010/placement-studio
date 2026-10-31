@@ -86,6 +86,8 @@ class PersonaWeights(BaseModel):
 class AffinityScores(BaseModel):
     direct: float
     adjacent: float
+    family: float = 0.0   # a parent or child of the brief's term (supplements under wellness_dtc)
+    sibling: float = 0.0  # both terms sit under the same parent category (home_goods, home_decor)
 
 
 class PersonaTuning(BaseModel):
@@ -97,6 +99,8 @@ class PersonaTuning(BaseModel):
     cutoff: float
     min: int
     max: int
+    niche_penalty: float = 0.0  # a one-category shopper (pet owners) with no affinity to this brief
+    attribute_affinities: dict[str, list[str]] = {}  # persona id -> brief attribute tags it shops by
 
 
 class BudgetTuning(BaseModel):

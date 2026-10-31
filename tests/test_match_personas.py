@@ -37,7 +37,7 @@ def test_factor_names_and_fit_bounds():
 
 
 def test_always_three_to_five_with_stretch_fill():
-    scores = score_personas(brief(categories=["beauty"], price_tier="luxury"), CAT, T)
+    scores = score_personas(brief(categories=["pet_food"], price_tier="luxury"), CAT, T)
     sel = select_personas(scores, T)
     assert 3 <= len(sel) <= 5
     for s in sel:
@@ -128,3 +128,43 @@ def test_one_sided_age_is_filled_from_tuning():
         assert note.endswith(f"vs 50–{T.audience.age_ceiling}")
     s = score_personas(brief(**DOG, age_max=30), CAT, T)
     assert _factor(s[0], "age").note.endswith(f"vs {T.audience.age_floor}–30")
+
+
+def test_family_affinity_links_a_term_to_its_parent_category():
+    # workout supplements read as wellness_dtc: supplements sits under it in the catalog
+    s = _by_id(score_personas(brief(categories=["wellness_dtc"], price_tier="value"), CAT, T), "persona_009")
+    f = _factor(s, "affinity")
+    assert f.score == T.persona.affinity_scores.family and f.note == "Affinity: supplements (under wellness_dtc)"
+
+
+def test_sibling_affinity_scores_below_family():
+    sc = T.persona.affinity_scores
+    assert sc.direct > sc.family > sc.sibling > 0
+    # candles read as home: home_decor and home_goods both sit under home
+    s = _by_id(score_personas(brief(categories=["home"]), CAT, T), "persona_005")
+    assert _factor(s, "affinity").score == sc.family
+
+
+def test_gifting_brief_reaches_the_gifter():
+    s = _by_id(score_personas(brief(categories=["gifting"]), CAT, T), "persona_010")
+    f = _factor(s, "affinity")
+    assert f.score == T.persona.affinity_scores.family and f.note == "Shops for: gifting"
+
+
+def test_niche_persona_is_penalised_only_without_affinity():
+    golf = _by_id(score_personas(brief(categories=[], price_tier="premium"), CAT, T), "persona_004")
+    assert _factor(golf, "niche").score == -T.persona.niche_penalty
+    dog = _by_id(score_personas(brief(**DOG), CAT, T), "persona_004")
+    assert all(f.name != "niche" for f in dog.factors)
+
+
+def test_stretch_fill_prefers_personas_with_some_affinity():
+    from app.models import Factor, PersonaScore
+
+    def ps(pid, fit, aff):
+        return PersonaScore(persona_id=pid, name=pid, fit=fit, stretch=False,
+                            factors=[Factor(name="affinity", score=aff, note="")])
+    scores = [ps("a", 0.6, 1.0), ps("b", 0.40, 0.0), ps("c", 0.38, 0.0), ps("d", 0.30, 0.35)]
+    sel = select_personas(scores, T)
+    assert [s.persona_id for s in sel] == ["a", "d", "b"]  # d has an affinity, so it beats a higher-fit b
+    assert [s.stretch for s in sel] == [False, True, True]

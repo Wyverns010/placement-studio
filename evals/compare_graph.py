@@ -45,7 +45,9 @@ def run_case(case: dict, impl: str, *, t, catalog, llm) -> dict:
     text = case["text"].strip()[: t.input.max_chars]
     rec = {"id": case["id"], "split": case["split"], "bucket": case["bucket"],
            "expected": case["expected"], "must_publishers": case.get("must_publishers", []),
-           "must_not_publishers": case.get("must_not_publishers", []), "outcome": "error",
+           "must_not_publishers": case.get("must_not_publishers", []),
+           "must_personas": case.get("must_personas", []),
+           "must_not_personas": case.get("must_not_personas", []), "outcome": "error",
            "recommended_ids": [], "persona_ids": [], "invariant_failures": [], "paths": {},
            "reasons": {}, "fits": {}}
     try:

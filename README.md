@@ -46,7 +46,8 @@ Stages are stateless: each request carries back what the last returned, signed b
 
 - Code pipeline: train **85/85**; held out **35/36 = 97.2%**; the 15 given examples **15/15** (2026-10-31; ads by gpt-5.4-mini).
 - [Agents vs code](evals/AGENT_COMPARISON.md): ① and ③ agent only when steered; ② see the doc.
-- [Graph vs formula](evals/GRAPH_COMPARISON.md): ties on every label; formula stays.
+- Personas (79 hand-labelled cases, 2026-11-01): right shoppers chosen train **92%** / held out **86%**; wrong ones avoided **98%** / **100%** (was 84% / 74%).
+- [Graph vs formula](evals/GRAPH_COMPARISON.md): ties on publishers, trades wins on personas; formula stays.
 - 1 invariant failure held out: an unsourced "3" kept after retry (flagged, not hidden).
 - Caveats: 3rd held-out run, post-hoc; noise ±1 case.
 

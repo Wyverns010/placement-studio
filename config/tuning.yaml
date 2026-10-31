@@ -49,13 +49,17 @@ graph:                          # match.impl: graph only. Values chosen on the t
   paths_shown: 2                # paths explained per recommended publisher / persona
 persona:
   weights: {affinity: 0.5, price: 0.2, age: 0.3}
-  affinity_scores: {direct: 1.0, adjacent: 0.5}
+  affinity_scores: {direct: 1.0, family: 0.7, adjacent: 0.5, sibling: 0.35}  # family: parent/child term, sibling: same parent
   price_ideal: {value: 2, mid: 1, premium: 0.5, luxury: 0}   # brief price tier -> ideal persona price_rank
   price_scale: 2                # price factor = 1 - |ideal - price_rank| / scale
   conflict_penalty: 0.35
+  niche_penalty: 0.2            # one-category persona (Pet Parent) with no affinity to the brief
   cutoff: 0.45
   min: 3
   max: 5
+  attribute_affinities:          # personas whose data describes them by a mode, not a category
+    persona_010: [gifting]        # The Gifter: "any shopper within 30 days of a gifting holiday"
+    persona_006: [sustainable]    # The Sustainability Buyer
 budget:
   min_usd: 500
   max_usd: 5000000

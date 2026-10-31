@@ -1,5 +1,5 @@
 {
- "fingerprint": "bbf97cb456823e74f6d583c5e98cda5c14a76527c578036dcf9d73e168fcc5da",
+ "fingerprint": "24bca37b9cd03d8ab6a772ee37b52aab425cc7186330329cb5eb6a072266653e",
  "format": 2,
  "samples": {
   "A new kind of thing for moms.": {
@@ -726,18 +726,11 @@
   },
   "A subscription box for new cat owners. First three months of their cat's life. Toys, food samples, a little booklet about what to expect.": {
    "agent_notes": [
-    "The Pet Parent ad: the critic reviewed it once.",
-    "The Wellness Optimizer ad: the critic reviewed it once.",
-    "The Busy Parent ad: the critic reviewed it once."
+    "The Busy Parent ad: the critic reviewed it once.",
+    "The Pet Parent ad: the critic reviewed it twice.",
+    "The Wellness Optimizer ad: the critic reviewed it once."
    ],
    "agent_trace": [
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Help your new cat feel like family\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
     {
      "agent": "critic",
      "args_summary": "{\"headline\":\"Make new-cat days easier\"}",
@@ -747,30 +740,51 @@
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Make early cat care feel planned\"}",
+     "args_summary": "{\"headline\":\"Feel ready for each early kitten step\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Start your new cat’s life feeling ready\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Help your new cat feel like family\"}",
-     "ms": 4167,
-     "result_summary": "{\"accept\":true,\"notes\":[]}",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
      "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Make new-cat days easier\"}",
-     "ms": 3336,
+     "ms": 3601,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Make early cat care feel planned\"}",
-     "ms": 3535,
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Feel ready for each early kitten step\"}",
+     "ms": 4368,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Start your new cat’s life feeling ready\"}",
+     "ms": 4992,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the feeling this pet parent wants, but make the benefit more about caring for their cat than the box itself.\",\"Add one real…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Help your new cat feel at home\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Help your new cat feel at home\"}",
+     "ms": 4291,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The headline fits the emotional angle, but the body needs one real proof point from the brief. Add a concrete benefit tied to the off…",
      "tool": "review_draft"
     }
    ],
@@ -787,7 +801,7 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_subscription-box-for-new-cat-own_c1bac0",
+    "campaign_id": "cmp_subscription-box-for-new-cat-own_0090c1",
     "conversion_event": "subscription_start",
     "decision_trace": {
      "gate_confidence": 0.98,
@@ -795,8 +809,8 @@
      "gate_threshold": 0.7,
      "persona_fits": {
       "persona_001": 0.3,
-      "persona_002": 0.3,
-      "persona_004": 0.55
+      "persona_002": 0.65,
+      "persona_004": 0.65
      },
      "publisher_fits": {
       "pub_007": 0.78,
@@ -817,21 +831,21 @@
     "line_items": [
      {
       "budget_usd": 2000.0,
-      "creative_id": "cr_persona_004",
+      "creative_id": "cr_persona_002",
       "extra_creative_ids": [],
       "publisher_id": "pub_007",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 2000.0,
-      "creative_id": "cr_persona_001",
+      "creative_id": "cr_persona_004",
       "extra_creative_ids": [],
       "publisher_id": "pub_009",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 2000.0,
-      "creative_id": "cr_persona_002",
+      "creative_id": "cr_persona_001",
       "extra_creative_ids": [],
       "publisher_id": "pub_018",
       "share": 0.3333333333333333
@@ -863,42 +877,42 @@
       "subscription_boxes"
      ],
      "personas": [
+      "persona_002",
       "persona_004",
-      "persona_001",
-      "persona_002"
+      "persona_001"
      ]
     }
    },
    "creatives": [
     {
-     "body": "In the early months, each box brings toys, food samples, and a short guide to what may come next.",
-     "creative_id": "cr_persona_004",
-     "cta": "Add a starter box",
-     "fact_violations": [],
-     "headline": "Help your new cat feel like family",
-     "persona_id": "persona_004",
-     "publisher_id": "pub_007",
-     "why": "Leans on pet supplies, subscription boxes, and emotional connection."
-    },
-    {
-     "body": "A starter box for your cat’s first three months, with toys, food samples, and a small guide to what to expect.",
-     "creative_id": "cr_persona_001",
-     "cta": "Add a starter cat box",
-     "fact_violations": [],
-     "headline": "Make early cat care feel planned",
-     "persona_id": "persona_001",
-     "publisher_id": "pub_009",
-     "why": "Leans on wellness planning and transparent details for outcome-focused shoppers."
-    },
-    {
-     "body": "Get a box for your cat’s first three months, with toys, food samples, and a small guide to what’s ahead.",
+     "body": "Get a box for your cat’s first three months, with toys, food samples, and a short guide to what comes next.",
      "creative_id": "cr_persona_002",
-     "cta": "Add cat basics to your cart",
+     "cta": "Add kitten help to cart",
      "fact_violations": [],
      "headline": "Make new-cat days easier",
      "persona_id": "persona_002",
+     "publisher_id": "pub_007",
+     "why": "Leans on convenience, subscriptions, pet food, time-saving, and family-friendly needs."
+    },
+    {
+     "body": "Start with a subscription box that sends toys, food samples, and a small what-to-expect guide during your cat’s earliest months.",
+     "creative_id": "cr_persona_004",
+     "cta": "Add a starter box to cart",
+     "fact_violations": [],
+     "headline": "Help your new cat feel at home",
+     "persona_id": "persona_004",
+     "publisher_id": "pub_009",
+     "why": "Leans on pet supplies and subscription boxes with emotional connection."
+    },
+    {
+     "body": "A starter box for new cat owners, with toys, food samples, and a small guide to what may come in the first three months.",
+     "creative_id": "cr_persona_001",
+     "cta": "Add kitten prep to cart",
+     "fact_violations": [],
+     "headline": "Feel ready for each early kitten step",
+     "persona_id": "persona_001",
      "publisher_id": "pub_018",
-     "why": "Leans on subscriptions, pet food, convenience, and time-saving for a busy household."
+     "why": "Leans on wellness planning and outcome-focused guidance."
     }
    ],
    "mode": "agent",
@@ -960,8 +974,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: subscription_boxes",
-        "score": 0.5
+        "note": "Affinity: pet_food (under pet)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -974,7 +988,31 @@
         "score": 0.6
        }
       ],
-      "fit": 0.55,
+      "fit": 0.65,
+      "name": "The Busy Parent",
+      "path": [],
+      "persona_id": "persona_002",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: pet_food (under pet)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Price tier unknown",
+        "score": 0.6
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.65,
       "name": "The Pet Parent",
       "path": [],
       "persona_id": "persona_004",
@@ -1002,30 +1040,6 @@
       "name": "The Wellness Optimizer",
       "path": [],
       "persona_id": "persona_001",
-      "stretch": true
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
-       },
-       {
-        "name": "price",
-        "note": "Price tier unknown",
-        "score": 0.6
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.3,
-      "name": "The Busy Parent",
-      "path": [],
-      "persona_id": "persona_002",
       "stretch": true
      }
     ],
@@ -1655,65 +1669,109 @@
   },
   "A sustainable activewear brand for women. Made from recycled ocean plastic. Price point sits between Lululemon and Girlfriend Collective.": {
    "agent_notes": [
-    "The Fitness Enthusiast ad: the critic reviewed it once.",
-    "The Sustainability Buyer ad: the critic reviewed it twice.",
-    "The Gen Z Aesthete ad: the critic reviewed it once."
+    "The Fitness Enthusiast ad: the critic reviewed it twice.",
+    "The Sustainability Buyer ad: the critic reviewed it once.",
+    "The Gifter ad: the critic reviewed it once.",
+    "The Value-Conscious Shopper ad: the critic reviewed it twice.",
+    "The Wellness Optimizer ad: the critic reviewed it once."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Choose activewear with a clearer footprint\"}",
+     "args_summary": "{\"headline\":\"Wear activewear with a clearer conscience\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Wear a fit with a point of view\"}",
+     "args_summary": "{\"headline\":\"Gear that keeps up with your workouts\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Workout gear that matches your pace\"}",
+     "args_summary": "{\"headline\":\"Give activewear with a thoughtful story\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Compare the fit, keep the value\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Know what your leggings are made from\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Choose activewear with a clearer footprint…",
-     "ms": 4354,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Make the CTA more concrete and shopping-specific for this page, such as a cart-focused prompt instead of a vague phrase.\",\"The body r…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Workout gear that matches your pace\"}",
-     "ms": 4090,
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Wear activewear with a clearer conscience\"}",
+     "ms": 3952,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Wear a fit with a point of view\"}",
-     "ms": 4697,
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Give activewear with a thoughtful story\"}",
+     "ms": 3486,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Compare the fit, keep the value\"}",
+     "ms": 4047,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The body adds a price comparison to two other brands, which isn’t supported by the brief. Replace it with a true proof point from the…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Gear that keeps up with your workouts\"}",
+     "ms": 4534,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the performance payoff first. The current headline is broad; make it about how the gear supports hard training, then use th…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Know what your leggings are made from\"}",
+     "ms": 4095,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Choose activewear with a clearer footprint\"}",
+     "args_summary": "{\"headline\":\"Make your activewear buy feel smarter\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Refresh your hard-working workout drawer\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Choose activewear with a clearer footprint…",
-     "ms": 4477,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Make the call to action more specific than a generic cart prompt; tie it to choosing this piece while browsing apparel on the page.\",…",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Make your activewear buy feel smarter\"}",
+     "ms": 4451,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s value need in plainer words; ‘Make your activewear buy feel smarter’ is a bit vague. Try leading with the sav…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Refresh your hard-working workout drawer\"}",
+     "ms": 3909,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the benefit the fitness-minded shopper cares about, not the drawer or wardrobe. Lead with what this helps them do in traini…",
      "tool": "review_draft"
     }
    ],
@@ -1730,16 +1788,18 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_women-s-activewear_0b6135",
+    "campaign_id": "cmp_women-s-activewear_b71020",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.97,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_003": 0.53,
+      "persona_001": 0.505,
       "persona_006": 0.83,
-      "persona_009": 0.88
+      "persona_008": 0.58,
+      "persona_009": 0.88,
+      "persona_010": 0.68
      },
      "publisher_fits": {
       "pub_002": 0.748,
@@ -1769,14 +1829,14 @@
      },
      {
       "budget_usd": 1807.16,
-      "creative_id": "cr_persona_003",
+      "creative_id": "cr_persona_010",
       "extra_creative_ids": [],
       "publisher_id": "pub_004",
       "share": 0.20079575596816976
      },
      {
       "budget_usd": 1802.39,
-      "creative_id": "cr_persona_009",
+      "creative_id": "cr_persona_008",
       "extra_creative_ids": [],
       "publisher_id": "pub_016",
       "share": 0.2002652519893899
@@ -1790,7 +1850,7 @@
      },
      {
       "budget_usd": 1785.68,
-      "creative_id": "cr_persona_009",
+      "creative_id": "cr_persona_001",
       "extra_creative_ids": [],
       "publisher_id": "pub_002",
       "share": 0.1984084880636605
@@ -1802,15 +1862,15 @@
      "budget": "Recommended $9,000/mo: $35 target CPA × 50 conversions per line item (enough to optimise the bid) across 5 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
      "guardrails": "Pause if CPA exceeds $53 (1.5× target) after 2,000 impressions",
-     "line_items": "5 publishers, budget share proportional to fit with a 10% floor; Stride & Stem reuses the Fitness Enthusiast ad written for Daily Form, Movewell reuses the Fitness Enthusiast ad written for Daily Form",
+     "line_items": "5 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
-     "targeting": "3 personas, interests activewear, sustainable_apparel, women, fashion, ages 19-45, gender female, US"
+     "targeting": "5 personas, interests activewear, sustainable_apparel, women, fashion, ages 22-60, gender female, US"
     },
     "targeting": {
      "age_range": [
-      19,
-      45
+      22,
+      60
      ],
      "gender": "female",
      "geo": [
@@ -1825,40 +1885,62 @@
      "personas": [
       "persona_009",
       "persona_006",
-      "persona_003"
+      "persona_010",
+      "persona_008",
+      "persona_001"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Activewear for frequent training, made with fabric from recycled ocean plastic.",
+     "body": "This activewear is made using recycled ocean plastic, giving your gym rotation a more considered base for every session.",
      "creative_id": "cr_persona_009",
-     "cta": "Browse workout-ready pieces",
+     "cta": "Find your next workout set",
      "fact_violations": [],
-     "headline": "Workout gear that matches your pace",
+     "headline": "Train in gear with a cleaner material story",
      "persona_id": "persona_009",
      "publisher_id": "pub_012",
-     "why": "Leans on activewear affinity and performance-minded gear preference."
+     "why": "Leans on activewear affinity and training gear preference."
     },
     {
-     "body": "Made with recycled ocean plastic, this women’s activewear gives sustainability-minded shoppers a concrete material detail to weigh.",
+     "body": "Choose pieces made with recycled ocean plastic, from a sustainable activewear brand built for mindful wardrobes.",
      "creative_id": "cr_persona_006",
-     "cta": "Choose this apparel pick",
+     "cta": "Browse mindful activewear",
      "fact_violations": [],
-     "headline": "Know more about what you wear",
+     "headline": "Wear activewear with a clearer conscience",
      "persona_id": "persona_006",
      "publisher_id": "pub_005",
-     "why": "Leans on sustainable apparel affinity and specific sustainability claims."
+     "why": "Leans on sustainable apparel affinity and specific sustainability proof."
     },
     {
-     "body": "Activewear with a cleaner backstory: pieces are made using recycled plastic pulled from the ocean.",
-     "creative_id": "cr_persona_003",
-     "cta": "Browse the new set",
+     "body": "Made using recycled ocean plastic, these women’s pieces bring a considered touch to an apparel gift.",
+     "creative_id": "cr_persona_010",
+     "cta": "Choose her activewear gift",
      "fact_violations": [],
-     "headline": "Wear a fit with a point of view",
-     "persona_id": "persona_003",
+     "headline": "Give activewear with a thoughtful story",
+     "persona_id": "persona_010",
      "publisher_id": "pub_004",
-     "why": "Leans on fashion affinity, visual style, and values-aligned messaging."
+     "why": "Leans on apparel affinity and giftable, premium-feeling messaging."
+    },
+    {
+     "body": "Built with recycled ocean plastic, it adds a sustainability reason to your comparison—not just color and fit.",
+     "creative_id": "cr_persona_008",
+     "cta": "Review activewear options",
+     "fact_violations": [],
+     "headline": "Get more from your activewear budget",
+     "persona_id": "persona_008",
+     "publisher_id": "pub_016",
+     "why": "Leans on apparel affinity and clear value props for comparison shoppers."
+    },
+    {
+     "body": "Workout pieces with a clearer origin: this women’s activewear uses recycled plastic recovered from the ocean.",
+     "creative_id": "cr_persona_001",
+     "cta": "Add cleaner gear to your kit",
+     "fact_violations": [],
+     "headline": "Know what your leggings are made from",
+     "persona_id": "persona_001",
+     "publisher_id": "pub_002",
+     "why": "Leans on fitness and wellness affinities with ingredient transparency."
     }
    ],
    "mode": "agent",
@@ -1967,13 +2049,13 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: fashion",
-        "score": 0.5
+        "note": "Affinity: apparel (under activewear)",
+        "score": 0.7
        },
        {
         "name": "price",
-        "note": "Medium-high price sensitivity vs premium",
-        "score": 0.5
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
        },
        {
         "name": "age",
@@ -1981,10 +2063,58 @@
         "score": 0.6
        }
       ],
-      "fit": 0.53,
-      "name": "The Gen Z Aesthete",
+      "fit": 0.68,
+      "name": "The Gifter",
       "path": [],
-      "persona_id": "persona_003",
+      "persona_id": "persona_010",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: apparel (under activewear)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "High price sensitivity vs premium",
+        "score": 0.25
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.58,
+      "name": "The Value-Conscious Shopper",
+      "path": [],
+      "persona_id": "persona_008",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Related: supplements ~ women",
+        "score": 0.35
+       },
+       {
+        "name": "price",
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.505,
+      "name": "The Wellness Optimizer",
+      "path": [],
+      "persona_id": "persona_001",
       "stretch": false
      }
     ],
@@ -3291,65 +3421,80 @@
   },
   "Bedding. Linen. Actually-breathable stuff made in Portugal. Our customers are mostly people who got tired of the Brooklinen/Parachute aesthetic and want something a little more grown-up.": {
    "agent_notes": [
-    "The Affluent Classic ad: the critic reviewed it once.",
+    "The Affluent Classic ad: the critic reviewed it twice.",
     "The Sustainability Buyer ad: the critic reviewed it once.",
-    "The Gifter ad: the critic reviewed it twice."
+    "The Gifter ad: the critic reviewed it once.",
+    "The Gen Z Aesthete ad: the critic reviewed it once."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Give bedding that feels grown-up\"}",
+     "args_summary": "{\"headline\":\"Bedding with a quieter point of view\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"A calmer bed, made to feel grown-up\"}",
+     "args_summary": "{\"headline\":\"Make your bed look more grown-up\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Know where your sheets come from\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A gift that makes the bedroom feel grown-up\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A calmer bed, made to feel grown-up\"}",
-     "ms": 3467,
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Make your bed look more grown-up\"}",
+     "ms": 3532,
+     "result_summary": "{\"accept\":true,\"notes\":[\"\"]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Bedding with a quieter point of view\"}",
+     "ms": 4121,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s payoff, not the product angle. Lead with the feeling of calm, lasting quality she wants from her home.\",\"Make…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Know where your sheets come from\"}",
+     "ms": 3347,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"A gift that makes the bedroom feel grown-u…",
+     "ms": 3852,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Know where your bedding is made\"}",
+     "args_summary": "{\"headline\":\"A calmer bedroom, grown-up by design\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Give bedding that feels grown-up\"}",
-     "ms": 5033,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Make the call to action more gift-focused and immediate, so it feels like someone on a home page is choosing a present right now.\",\"T…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Know where your bedding is made\"}",
-     "ms": 3371,
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A calmer bedroom, grown-up by design\"}",
+     "ms": 3720,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Bring a more grown-up gift to bed\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Bring a more grown-up gift to bed\"}",
-     "ms": 5196,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Start with the gift payoff first — make the headline feel more like an impressive present, not a product description.\",\"Lead the body…",
      "tool": "review_draft"
     }
    ],
@@ -3366,16 +3511,17 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_bedding-and-linen_2b78d9",
+    "campaign_id": "cmp_bedding-and-linen_965c22",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.96,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_005": 0.58,
-      "persona_006": 0.58,
-      "persona_010": 0.58
+      "persona_003": 0.455,
+      "persona_005": 0.505,
+      "persona_006": 0.505,
+      "persona_010": 0.505
      },
      "publisher_fits": {
       "pub_011": 0.735,
@@ -3397,7 +3543,8 @@
       "budget_usd": 3407.63,
       "creative_id": "cr_persona_005",
       "extra_creative_ids": [
-       "cr_persona_010"
+       "cr_persona_010",
+       "cr_persona_003"
       ],
       "publisher_id": "pub_011",
       "share": 0.5242510699001426
@@ -3416,14 +3563,14 @@
      "budget": "Recommended $6,500/mo: $63 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
      "guardrails": "Pause if CPA exceeds $95 (1.5× target) after 2,000 impressions",
-     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Northbed (each written for that publisher)",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Northbed (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
-     "targeting": "3 personas, interests bedding, home_textiles, home_goods, ages 25-68, gender all, US"
+     "targeting": "4 personas, interests bedding, home_textiles, home_goods, ages 19-68, gender all, US"
     },
     "targeting": {
      "age_range": [
-      25,
+      19,
       68
      ],
      "gender": "all",
@@ -3438,40 +3585,51 @@
      "personas": [
       "persona_005",
       "persona_006",
-      "persona_010"
+      "persona_010",
+      "persona_003"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Choose breathable bedding and linen made in Portugal, with an understated look beyond the usual direct-to-consumer style.",
+     "body": "Made in Portugal, this linen and bedding brings a breathable feel to a home with a quieter sense of style.",
      "creative_id": "cr_persona_005",
-     "cta": "Choose your linen set",
+     "cta": "Select bedding for your room",
      "fact_violations": [],
-     "headline": "A calmer bed, made to feel grown-up",
+     "headline": "A calmer bedroom, grown-up by design",
      "persona_id": "persona_005",
      "publisher_id": "pub_011",
-     "why": "Leans on home goods affinity with craftsmanship and understated quality."
+     "why": "Leans on home goods, craftsmanship, and understated quality."
     },
     {
-     "body": "Bedding and linen made in Portugal, with a breathable feel and a more grown-up look for a home you’re still shaping.",
+     "body": "Bedding and linen made in Portugal, with breathable materials and a more grown-up look for the home you’re building.",
      "creative_id": "cr_persona_006",
-     "cta": "Choose Portugal-made bedding",
+     "cta": "Choose bedding for home",
      "fact_violations": [],
-     "headline": "Know where your bedding is made",
+     "headline": "Know where your sheets come from",
      "persona_id": "persona_006",
      "publisher_id": "pub_014",
-     "why": "Leans on home goods affinity and supply chain transparency preference."
+     "why": "Leans on home goods affinity and supply chain transparency."
     },
     {
-     "body": "For a home gift that feels grown-up: breathable bedding and linen made in Portugal, with a quieter look than the usual online sheets.",
+     "body": "Give bedding with a more refined look, made in Portugal from linen that lets air move.",
      "creative_id": "cr_persona_010",
-     "cta": "Choose their bedding gift",
+     "cta": "Pick their bedding gift",
      "fact_violations": [],
-     "headline": "A bedding gift that looks considered",
+     "headline": "A gift that makes the bedroom feel grown-up",
      "persona_id": "persona_010",
      "publisher_id": "pub_011",
      "why": "Leans on home goods affinity and giftable, premium presentation messaging."
+    },
+    {
+     "body": "Linen and bedding with a calmer point of view, made in Portugal for a room that feels styled without trying too hard.",
+     "creative_id": "cr_persona_003",
+     "cta": "Add the grown-up layer",
+     "fact_violations": [],
+     "headline": "Make your bed look more grown-up",
+     "persona_id": "persona_003",
+     "publisher_id": "pub_011",
+     "why": "Leans on home decor affinity, aesthetic-forward preference, and playful identity expression."
     }
    ],
    "mode": "agent",
@@ -3532,8 +3690,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: home_goods",
-        "score": 0.5
+        "note": "Related: home_goods ~ bedding",
+        "score": 0.35
        },
        {
         "name": "price",
@@ -3546,7 +3704,7 @@
         "score": 0.6
        }
       ],
-      "fit": 0.58,
+      "fit": 0.505,
       "name": "The Affluent Classic",
       "path": [],
       "persona_id": "persona_005",
@@ -3556,8 +3714,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: home_goods",
-        "score": 0.5
+        "note": "Related: home_goods ~ bedding",
+        "score": 0.35
        },
        {
         "name": "price",
@@ -3570,7 +3728,7 @@
         "score": 0.6
        }
       ],
-      "fit": 0.58,
+      "fit": 0.505,
       "name": "The Sustainability Buyer",
       "path": [],
       "persona_id": "persona_006",
@@ -3580,8 +3738,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: home_goods",
-        "score": 0.5
+        "note": "Related: home_goods ~ bedding",
+        "score": 0.35
        },
        {
         "name": "price",
@@ -3594,10 +3752,34 @@
         "score": 0.6
        }
       ],
-      "fit": 0.58,
+      "fit": 0.505,
       "name": "The Gifter",
       "path": [],
       "persona_id": "persona_010",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Related: home_decor ~ bedding",
+        "score": 0.35
+       },
+       {
+        "name": "price",
+        "note": "Medium-high price sensitivity vs premium",
+        "score": 0.5
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.455,
+      "name": "The Gen Z Aesthete",
+      "path": [],
+      "persona_id": "persona_003",
       "stretch": false
      }
     ],
@@ -4227,79 +4409,79 @@
   },
   "Custom-fit leather handbags, Italian-made, handcrafted in Florence. Minimum order ships in 6 weeks. Average price point $1,200.": {
    "agent_notes": [
-    "The Gen Z Aesthete ad: the critic reviewed it once.",
+    "The Gen Z Aesthete ad: the critic reviewed it twice.",
     "The Wellness Optimizer ad: the critic reviewed it twice.",
-    "The Affluent Classic ad: the critic reviewed it twice."
+    "The Affluent Classic ad: the critic reviewed it once."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Carry a bag that feels like your signature\"}",
+     "args_summary": "{\"headline\":\"A handbag chosen for years, not seasons\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"A bag as considered as your routine\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Carry a piece made to last\"}",
+     "args_summary": "{\"headline\":\"Choose a bag with clear intent\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Carry a bag that feels like your signature…",
-     "ms": 3613,
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A handbag chosen for years, not seasons\"}",
+     "ms": 3036,
+     "result_summary": "{\"accept\":true,\"notes\":[\"\"]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Carry a bag that feels unmistakably yours\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Choose a bag with clear intent\"}",
+     "ms": 4239,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the payoff she cares about, not the bag itself. Lead with the benefit of a more intentional, streamlined carry.\",\"The proof…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Carry a bag that feels unmistakably yours\"}",
+     "ms": 6406,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The opening works for identity and style, but the close needs a more specific on-page action for an apparel shopping moment. Make the…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Streamline what you carry\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Streamline what you carry\"}",
+     "ms": 3794,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"A bag as considered as your routine\"}",
-     "ms": 4511,
-     "result_summary": "{\"accept\":false,\"notes\":[\"The headline is a little abstract. Lead with the benefit this shopper cares about more clearly, such as a bag that feels as thoughtfu…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Carry a piece made to last\"}",
-     "ms": 4705,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Make the call to action more direct and shopping-focused; ‘Style it with workwear’ feels a bit indirect for this placement. Try a cle…",
-     "tool": "review_draft"
-    },
-    {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Choose a handbag with intention\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Choose a bag you’ll keep\"}",
+     "args_summary": "{\"headline\":\"Carry a bag that feels unmistakably yours\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Choose a handbag with intention\"}",
-     "ms": 7271,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the benefit to her: make the headline about choosing a bag with purpose and confidence, not a generic instruction.\",\"The pr…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Choose a bag you’ll keep\"}",
-     "ms": 5674,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Make the CTA more direct and fitting for an apparel page; this one feels a bit abstract. Try a plain invitation to pick the bag from …",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Carry a bag that feels unmistakably yours\"}",
+     "ms": 4360,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     }
    ],
@@ -4398,34 +4580,34 @@
    },
    "creatives": [
     {
-     "body": "Custom-fit leather, made by hand in Florence, brings a personal note to your Marlowe & Co. wardrobe find.",
+     "body": "Made to fit you, each leather handbag is handcrafted in Florence for a look that feels personal beside your favorite outfit.",
      "creative_id": "cr_persona_003",
-     "cta": "Match it to your look",
+     "cta": "Pick your bag for this look",
      "fact_violations": [],
-     "headline": "Carry a bag that feels like your signature",
+     "headline": "Carry a bag that feels unmistakably yours",
      "persona_id": "persona_003",
      "publisher_id": "pub_004",
-     "why": "Leans on fashion affinity, aesthetic-forward style, and identity-expressive appeal."
+     "why": "Leans on fashion affinity, aesthetic-forward style, and identity expression."
     },
     {
-     "body": "Custom-fit leather handbag, handcrafted in Florence, with minimum orders shipping in 6 weeks.",
+     "body": "A custom-fit leather handbag, crafted by hand in Florence, helps you choose a considered piece for your daily wardrobe system.",
      "creative_id": "cr_persona_001",
-     "cta": "Start your bag order",
+     "cta": "Choose your handbag fit",
      "fact_violations": [],
-     "headline": "Carry a bag chosen with confidence",
+     "headline": "Streamline what you carry",
      "persona_id": "persona_001",
      "publisher_id": "pub_005",
-     "why": "Leans on wellness-style intentional choices and transparent, outcome-focused proof."
+     "why": "Leans on wellness optimization and outcome-focused preference with a practical wardrobe system."
     },
     {
-     "body": "Your leather handbag is fitted to order and crafted by hand in Florence.",
+     "body": "Made in Italy and handcrafted in Florence, each custom-fit leather handbag is a lasting wardrobe piece to plan around.",
      "creative_id": "cr_persona_005",
-     "cta": "Pick your leather bag",
+     "cta": "Choose your next staple",
      "fact_violations": [],
-     "headline": "Choose a bag you’ll keep",
+     "headline": "A handbag chosen for years, not seasons",
      "persona_id": "persona_005",
      "publisher_id": "pub_016",
-     "why": "Leans on classic apparel affinity, craftsmanship, heritage, and understated quality."
+     "why": "Leans on classic apparel affinity with craftsmanship and understated quality."
     }
    ],
    "mode": "agent",
@@ -5180,51 +5362,94 @@
   },
   "Refillable, concentrated cleaning products. Skip the single-use plastic bottles. Works as well as the big brands. We want to show up where people who already care about sustainability are checking out.": {
    "agent_notes": [
-    "The Sustainability Buyer ad: the critic reviewed it once.",
-    "The Wellness Optimizer ad: the critic reviewed it once.",
-    "The Busy Parent ad: the critic reviewed it once."
+    "The Gen Z Aesthete ad: the critic reviewed it once.",
+    "The Affluent Classic ad: the critic reviewed it once.",
+    "The Sustainability Buyer ad: the critic reviewed it twice.",
+    "The Gifter ad: the critic reviewed it twice."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Restock cleaning without the clutter\"}",
+     "args_summary": "{\"headline\":\"Cleaning made to stay in your home\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Clean your home with less throwaway plastic\"}",
+     "args_summary": "{\"headline\":\"Make your clean routine shelf-worthy\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Tune up your home-cleaning routine\"}",
+     "args_summary": "{\"headline\":\"Clean home, fewer throwaway bottles\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A useful gift for a well-kept home\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Restock cleaning without the clutter\"}",
-     "ms": 3932,
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Make your clean routine shelf-worthy\"}",
+     "ms": 3814,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Tune up your home-cleaning routine\"}",
-     "ms": 4569,
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Cleaning made to stay in your home\"}",
+     "ms": 4837,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Clean your home with less throwaway plasti…",
-     "ms": 6412,
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Clean home, fewer throwaway bottles\"}",
+     "ms": 4425,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Make the call to action more specific to a home-goods shopper on this page; \\\"Add refills to your home\\\" is broad. Try a CTA that spe…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"A useful gift for a well-kept home\"}",
+     "ms": 4356,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The body adds unsupported product claims about refillable concentrates, plastic bottles, and performance versus major brands. Replace…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Clean home, fewer throwaway bottles\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A thoughtful home gift they’ll actually use\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Clean home, fewer throwaway bottles\"}",
+     "ms": 4207,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"A thoughtful home gift they’ll actually us…",
+     "ms": 4367,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The hook is gift-forward, but the proof is mostly about the cleaning formula. For this persona, bring in the impressive, giftable sid…",
      "tool": "review_draft"
     }
    ],
@@ -5241,16 +5466,17 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_refillable-cleaning-products_99e1e8",
+    "campaign_id": "cmp_refillable-cleaning-products_3911be",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.98,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_001": 0.3,
-      "persona_002": 0.3,
-      "persona_006": 0.55
+      "persona_003": 0.65,
+      "persona_005": 0.65,
+      "persona_006": 0.65,
+      "persona_010": 0.65
      },
      "publisher_fits": {
       "pub_011": 0.78,
@@ -5270,16 +5496,17 @@
     "line_items": [
      {
       "budget_usd": 3250.0,
-      "creative_id": "cr_persona_006",
+      "creative_id": "cr_persona_003",
       "extra_creative_ids": [
-       "cr_persona_002"
+       "cr_persona_006",
+       "cr_persona_010"
       ],
       "publisher_id": "pub_011",
       "share": 0.5
      },
      {
       "budget_usd": 3250.0,
-      "creative_id": "cr_persona_001",
+      "creative_id": "cr_persona_005",
       "extra_creative_ids": [],
       "publisher_id": "pub_014",
       "share": 0.5
@@ -5291,15 +5518,15 @@
      "budget": "Recommended $6,500/mo: $63 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 7 days (unknown price tier: 3 per 7 days)",
      "guardrails": "Pause if CPA exceeds $95 (1.5× target) after 2,000 impressions",
-     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Northbed (each written for that publisher)",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Northbed (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $6,500 meets the $6,500 recommendation",
-     "targeting": "3 personas, interests home, non_toxic, refillable_products, sustainable, ages 25-45, gender all, US"
+     "targeting": "4 personas, interests home, non_toxic, refillable_products, sustainable, ages 19-68, gender all, US"
     },
     "targeting": {
      "age_range": [
-      25,
-      45
+      19,
+      68
      ],
      "gender": "all",
      "geo": [
@@ -5312,42 +5539,53 @@
       "sustainable"
      ],
      "personas": [
+      "persona_003",
+      "persona_005",
       "persona_006",
-      "persona_001",
-      "persona_002"
+      "persona_010"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Refillable concentrates help you avoid single-use bottles, while cleaning on par with major brands.",
-     "creative_id": "cr_persona_006",
-     "cta": "Add a refill to your home",
+     "body": "Refill concentrated cleaners at home and cut out throwaway plastic bottles, with cleaning power made to match the big brands.",
+     "creative_id": "cr_persona_003",
+     "cta": "Add to your home edit",
      "fact_violations": [],
-     "headline": "Clean your home with less throwaway plastic",
+     "headline": "Make your clean routine shelf-worthy",
+     "persona_id": "persona_003",
+     "publisher_id": "pub_011",
+     "why": "Leans on home decor affinity, aesthetic-forward values, and playful brand-fit motivation."
+    },
+    {
+     "body": "Refillable concentrates help you avoid throwaway plastic bottles, while cleaning on par with familiar big brands.",
+     "creative_id": "cr_persona_005",
+     "cta": "Add to your home order",
+     "fact_violations": [],
+     "headline": "Cleaning made to stay in your home",
+     "persona_id": "persona_005",
+     "publisher_id": "pub_014",
+     "why": "Leans on home goods affinity with understated, quality-focused longevity."
+    },
+    {
+     "body": "Concentrated refills help you avoid buying another plastic bottle, while cleaning on the level you expect from major brands.",
+     "creative_id": "cr_persona_006",
+     "cta": "Choose cleaning refills",
+     "fact_violations": [],
+     "headline": "Clean home, fewer throwaway bottles",
      "persona_id": "persona_006",
      "publisher_id": "pub_011",
-     "why": "Leans on refillable products affinity and specific sustainability claims."
+     "why": "Leans on refillable products affinity and specific sustainability claims preference."
     },
     {
-     "body": "Concentrated refills help you avoid throwaway plastic bottles while cleaning on par with leading brands.",
-     "creative_id": "cr_persona_001",
-     "cta": "Add refills to your kitchen",
+     "body": "Refillable, concentrated cleaners let them pass on throwaway plastic bottles and get performance made to match leading brands.",
+     "creative_id": "cr_persona_010",
+     "cta": "Pick a useful home gift",
      "fact_violations": [],
-     "headline": "Tune up your home-cleaning routine",
-     "persona_id": "persona_001",
-     "publisher_id": "pub_014",
-     "why": "Leans on wellness optimization, sustainability, and outcome-focused proof."
-    },
-    {
-     "body": "Concentrated refills help you keep home cleanup ready while skipping single-use plastic bottles.",
-     "creative_id": "cr_persona_002",
-     "cta": "Add refills to your home order",
-     "fact_violations": [],
-     "headline": "Restock cleaning without the clutter",
-     "persona_id": "persona_002",
+     "headline": "A thoughtful home gift they’ll actually use",
+     "persona_id": "persona_010",
      "publisher_id": "pub_011",
-     "why": "Leans on household convenience and time-saving for a busy family routine."
+     "why": "Leans on home goods affinity and giftable messaging for practical giving."
     }
    ],
    "mode": "agent",
@@ -5411,8 +5649,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: refillable_products",
-        "score": 0.5
+        "note": "Affinity: home_decor (under home)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -5425,7 +5663,55 @@
         "score": 0.6
        }
       ],
-      "fit": 0.55,
+      "fit": 0.65,
+      "name": "The Gen Z Aesthete",
+      "path": [],
+      "persona_id": "persona_003",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: home_goods (under home)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Price tier unknown",
+        "score": 0.6
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.65,
+      "name": "The Affluent Classic",
+      "path": [],
+      "persona_id": "persona_005",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: home_goods (under home)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Price tier unknown",
+        "score": 0.6
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.65,
       "name": "The Sustainability Buyer",
       "path": [],
       "persona_id": "persona_006",
@@ -5435,8 +5721,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
+        "note": "Affinity: home_goods (under home)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -5449,35 +5735,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.3,
-      "name": "The Wellness Optimizer",
+      "fit": 0.65,
+      "name": "The Gifter",
       "path": [],
-      "persona_id": "persona_001",
-      "stretch": true
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
-       },
-       {
-        "name": "price",
-        "note": "Price tier unknown",
-        "score": 0.6
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.3,
-      "name": "The Busy Parent",
-      "path": [],
-      "persona_id": "persona_002",
-      "stretch": true
+      "persona_id": "persona_010",
+      "stretch": false
      }
     ],
     "publishers": [
@@ -6106,50 +6368,79 @@
   },
   "Small-batch candles poured by hand in Vermont. Natural soy wax, no synthetic fragrances. Mostly bought as gifts.": {
    "agent_notes": [
-    "The Gen Z Aesthete ad: the critic reviewed it once.",
-    "The Pet Parent ad: the critic reviewed it once.",
-    "The Fitness Enthusiast ad: the critic reviewed it once."
+    "The Affluent Classic ad: the critic reviewed it once.",
+    "The Sustainability Buyer ad: the critic reviewed it twice.",
+    "The Gifter ad: the critic reviewed it once.",
+    "The Gen Z Aesthete ad: the critic reviewed it once."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"A thoughtful glow for your whole home\"}",
+     "args_summary": "{\"headline\":\"Make your space feel like your feed\"}",
+     "ms": 1,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A quieter finishing touch for home\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Make recovery time feel intentional\"}",
+     "args_summary": "{\"headline\":\"Bring a thoughtful glow to their home\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Give their space a softer signature\"}",
+     "args_summary": "{\"headline\":\"A candle gift with clearer ingredients\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Make recovery time feel intentional\"}",
-     "ms": 3944,
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Bring a thoughtful glow to their home\"}",
+     "ms": 3571,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Give their space a softer signature\"}",
-     "ms": 3703,
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Make your space feel like your feed\"}",
+     "ms": 3810,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"A thoughtful glow for your whole home\"}",
-     "ms": 4584,
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A quieter finishing touch for home\"}",
+     "ms": 3843,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"A candle gift with clearer ingredients\"}",
+     "ms": 4030,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The CTA is still broad. Make it feel like a real next step for a kitchen/home shopper here, such as choosing the candle for a gift or…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Soy wax, no synthetic fragrance\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Soy wax, no synthetic fragrance\"}",
+     "ms": 3099,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     }
@@ -6167,16 +6458,17 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_candles_7789d5",
+    "campaign_id": "cmp_candles_9213a7",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.98,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_003": 0.53,
-      "persona_004": 0.38,
-      "persona_009": 0.38
+      "persona_003": 0.63,
+      "persona_005": 0.68,
+      "persona_006": 0.68,
+      "persona_010": 0.68
      },
      "publisher_fits": {
       "pub_011": 0.802,
@@ -6196,16 +6488,17 @@
     "line_items": [
      {
       "budget_usd": 3250.0,
-      "creative_id": "cr_persona_003",
+      "creative_id": "cr_persona_005",
       "extra_creative_ids": [
-       "cr_persona_009"
+       "cr_persona_010",
+       "cr_persona_003"
       ],
       "publisher_id": "pub_011",
       "share": 0.5
      },
      {
       "budget_usd": 3250.0,
-      "creative_id": "cr_persona_004",
+      "creative_id": "cr_persona_006",
       "extra_creative_ids": [],
       "publisher_id": "pub_014",
       "share": 0.5
@@ -6217,15 +6510,15 @@
      "budget": "Recommended $6,500/mo: $63 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
      "guardrails": "Pause if CPA exceeds $95 (1.5× target) after 2,000 impressions",
-     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Northbed (each written for that publisher)",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Northbed (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
-     "targeting": "3 personas, interests home, gifting, small_batch, ages 19-50, gender all, US"
+     "targeting": "4 personas, interests home, gifting, small_batch, ages 19-68, gender all, US"
     },
     "targeting": {
      "age_range": [
       19,
-      50
+      68
      ],
      "gender": "all",
      "geo": [
@@ -6237,42 +6530,53 @@
       "small_batch"
      ],
      "personas": [
-      "persona_003",
-      "persona_004",
-      "persona_009"
+      "persona_005",
+      "persona_006",
+      "persona_010",
+      "persona_003"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Each candle is hand-poured in Vermont with natural soy wax and no synthetic fragrances—an easy add-on when your cart needs a thoughtful gift.",
-     "creative_id": "cr_persona_003",
-     "cta": "Add a gift to your cart",
+     "body": "Made in small batches and poured by hand in Vermont, these natural soy candles bring understated warmth to a considered room.",
+     "creative_id": "cr_persona_005",
+     "cta": "Add one to your home order",
      "fact_violations": [],
-     "headline": "Give their space a softer signature",
+     "headline": "A quieter finishing touch for home",
+     "persona_id": "persona_005",
+     "publisher_id": "pub_011",
+     "why": "Leans on home goods affinity with craftsmanship and understated quality."
+    },
+    {
+     "body": "A small-run candle made in Vermont for shoppers who check what goes into a gift before bringing it home.",
+     "creative_id": "cr_persona_006",
+     "cta": "Choose it for a home gift",
+     "fact_violations": [],
+     "headline": "Soy wax, no synthetic fragrance",
+     "persona_id": "persona_006",
+     "publisher_id": "pub_014",
+     "why": "Leans on home goods affinity and specific sustainability proof."
+    },
+    {
+     "body": "A candle feels personal, and this one has a simple story: small batches, poured by hand in Vermont with natural soy wax.",
+     "creative_id": "cr_persona_010",
+     "cta": "Choose a candle gift",
+     "fact_violations": [],
+     "headline": "Bring a thoughtful glow to their home",
+     "persona_id": "persona_010",
+     "publisher_id": "pub_011",
+     "why": "Leans on home goods affinity and giftable messaging."
+    },
+    {
+     "body": "A small-batch candle, hand-poured in Vermont with natural soy wax and no synthetic scents.",
+     "creative_id": "cr_persona_003",
+     "cta": "Add a candle to the room",
+     "fact_violations": [],
+     "headline": "Make your space feel like your feed",
      "persona_id": "persona_003",
      "publisher_id": "pub_011",
-     "why": "Leans on home decor, small batch, aesthetic-forward, values-aligned gifting."
-    },
-    {
-     "body": "Made with natural soy wax and without synthetic scents, these Vermont hand-poured candles make a considerate gift for scent-aware homes.",
-     "creative_id": "cr_persona_004",
-     "cta": "Add a mindful home gift",
-     "fact_violations": [],
-     "headline": "A thoughtful glow for your whole home",
-     "persona_id": "persona_004",
-     "publisher_id": "pub_014",
-     "why": "Leans on pet supplies affinity, ingredient transparency, and emotional connection."
-    },
-    {
-     "body": "After the workout, set a calmer mood with a Vermont-made candle poured in small batches using natural soy wax and no synthetic fragrance.",
-     "creative_id": "cr_persona_009",
-     "cta": "Add to your recovery corner",
-     "fact_violations": [],
-     "headline": "Make recovery time feel intentional",
-     "persona_id": "persona_009",
-     "publisher_id": "pub_011",
-     "why": "Leans on recovery affinity and performance-minded routines with a concrete ingredient proof."
+     "why": "Leans on home decor, small batch, aesthetic-forward, playful values."
     }
    ],
    "mode": "agent",
@@ -6333,8 +6637,80 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: small_batch",
-        "score": 0.5
+        "note": "Affinity: home_goods (under home)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.68,
+      "name": "The Affluent Classic",
+      "path": [],
+      "persona_id": "persona_005",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: home_goods (under home)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Medium price sensitivity vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.68,
+      "name": "The Sustainability Buyer",
+      "path": [],
+      "persona_id": "persona_006",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: home_goods (under home)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.68,
+      "name": "The Gifter",
+      "path": [],
+      "persona_id": "persona_010",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: home_decor (under home)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -6347,59 +6723,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.53,
+      "fit": 0.63,
       "name": "The Gen Z Aesthete",
       "path": [],
       "persona_id": "persona_003",
       "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
-       },
-       {
-        "name": "price",
-        "note": "Low-medium price sensitivity vs premium",
-        "score": 1.0
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.38,
-      "name": "The Pet Parent",
-      "path": [],
-      "persona_id": "persona_004",
-      "stretch": true
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
-       },
-       {
-        "name": "price",
-        "note": "Low-medium price sensitivity vs premium",
-        "score": 1.0
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.38,
-      "name": "The Fitness Enthusiast",
-      "path": [],
-      "persona_id": "persona_009",
-      "stretch": true
      }
     ],
     "publishers": [
@@ -7028,151 +7356,109 @@
   },
   "Technical outerwear for serious backcountry skiers. Our shells are what patrollers wear. Starts at $650, goes up from there.": {
    "agent_notes": [
-    "The Fitness Enthusiast ad: the critic reviewed it twice.",
+    "The Fitness Enthusiast ad: the critic reviewed it once.",
     "The Gifter ad: the critic reviewed it twice.",
-    "The Value-Conscious Shopper ad: the critic reviewed it twice.",
-    "The Wellness Optimizer ad: the critic reviewed it twice.",
-    "The Affluent Classic ad: the critic reviewed it twice."
+    "The Value-Conscious Shopper ad: the critic reviewed it once.",
+    "The Affluent Classic ad: the critic reviewed it once.",
+    "The Sustainability Buyer ad: the critic reviewed it twice."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Gear that keeps up off the groomers\"}",
-     "ms": 1,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Choose gear with staying power\"}",
+     "args_summary": "{\"headline\":\"Know what your shell budget gets\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Buy the shell you can justify\"}",
+     "args_summary": "{\"headline\":\"Train-hard standards for your ski days\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Give a serious skier something substantial\"}",
+     "args_summary": "{\"headline\":\"Choose gear with proof, not buzzwords\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Choose gear with a proof point\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Gear that keeps up off the groomers\"}",
-     "ms": 4382,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the fitness/performance payoff first, not the skiing setting. Make the headline about how the gear helps them train or move…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Buy the shell you can justify\"}",
-     "ms": 3862,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s payoff, not the product itself. Right now the headline sounds like a product pitch; lead with the reason a ca…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Choose gear with staying power\"}",
-     "ms": 4996,
-     "result_summary": "{\"accept\":false,\"notes\":[\"The CTA feels awkward and not quite tied to the Movewell shopping moment. Make it sound like a natural next step on the page, such as…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Give a serious skier something substantial…",
-     "ms": 4832,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the gift angle more clearly. This starts with the skier instead of the shopper’s need for an impressive present.\",\"Add a cl…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Choose gear with a proof point\"}",
-     "ms": 4236,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the benefit she wants, not a product-style phrase. The headline should say what the shell does for her, like reliable perfo…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Choose gear with staying power\"}",
+     "args_summary": "{\"headline\":\"Give a shell they’ll brag about\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Bring performance standards outside\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Know what your money gets\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"An impressive gift for serious snow days\"}",
+     "args_summary": "{\"headline\":\"Choose outerwear with staying power\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Choose gear with staying power\"}",
-     "ms": 3785,
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Know what your shell budget gets\"}",
+     "ms": 3280,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Bring performance standards outside\"}",
-     "ms": 4012,
-     "result_summary": "{\"accept\":true,\"notes\":[\"The draft fits the persona and publisher well: it leads with the benefit, uses a concrete proof point, and ends with a specific action…",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Train-hard standards for your ski days\"}",
+     "ms": 4143,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Choose gear with proof, not buzzwords\"}",
+     "ms": 4963,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the sustainability proof this buyer is looking for, not just general product proof. Add a concrete supply-chain or certific…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Choose outerwear with staying power\"}",
+     "ms": 3886,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Give a shell they’ll brag about\"}",
+     "ms": 5073,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the gift motive, not the recipient’s hobby. Make the headline about giving something impressive or gift-ready.\",\"Add a conc…",
      "tool": "review_draft"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Feel sure about your shell choice\"}",
+     "args_summary": "{\"headline\":\"Give a serious skier something impressive\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"No green gloss—just clear gear facts\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"An impressive gift for serious snow days\"}",
-     "ms": 4314,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the gifting angle more clearly; right now it reads like a ski-performance ad, not something chosen to impress as a gift.\",\"…",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Give a serious skier something impressive\"}",
+     "ms": 5598,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The body makes an unsupported claim about ski patrollers and mountain-ready credibility. Replace it with one real proof point from th…",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Know what your money gets\"}",
-     "ms": 5671,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s payoff more directly: lead with getting strong shell performance for the money, rather than starting with the…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Feel sure about your shell choice\"}",
-     "ms": 3565,
-     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"No green gloss—just clear gear facts\"}",
+     "ms": 5797,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the sustainability need more directly; make the first line about clear environmental or supply-chain proof, not just generi…",
      "tool": "review_draft"
     }
    ],
@@ -7189,15 +7475,15 @@
      "test_budget": true,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_technical-outerwear-shells_78d025",
+    "campaign_id": "cmp_technical-outerwear-shells_b61f25",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.97,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_001": 0.58,
-      "persona_005": 0.58,
+      "persona_005": 0.68,
+      "persona_006": 0.68,
       "persona_008": 0.73,
       "persona_009": 0.88,
       "persona_010": 0.83
@@ -7223,8 +7509,8 @@
       "budget_usd": 1000.0,
       "creative_id": "cr_persona_009",
       "extra_creative_ids": [
-       "cr_persona_001",
-       "cr_persona_005"
+       "cr_persona_005",
+       "cr_persona_006"
       ],
       "publisher_id": "pub_002",
       "share": 0.3333333333333333
@@ -7274,61 +7560,61 @@
       "persona_009",
       "persona_010",
       "persona_008",
-      "persona_001",
-      "persona_005"
+      "persona_005",
+      "persona_006"
      ]
     }
    },
    "creatives": [
     {
-     "body": "When your day moves beyond the gym, choose technical shells trusted by ski patrollers and made for serious backcountry skiing.",
+     "body": "Built for committed backcountry skiers, these technical shells are the kind worn by mountain patrol teams.",
      "creative_id": "cr_persona_009",
-     "cta": "Browse outerwear shells",
+     "cta": "Add a shell to your kit",
      "fact_violations": [],
-     "headline": "Bring performance standards outside",
+     "headline": "Train-hard standards for your ski days",
      "persona_id": "persona_009",
      "publisher_id": "pub_002",
-     "why": "Leans on activewear affinity and performance apparel preference."
+     "why": "Leans on activewear affinity and performance preference with patrol proof."
     },
     {
-     "body": "For the skier on your list: technical outerwear worn by patrollers and made for serious backcountry days. Pricing starts at $650.",
+     "body": "For a backcountry skier, choose a technical shell like the ones ski patrollers wear. Prices start at $650.",
      "creative_id": "cr_persona_010",
-     "cta": "Find their gift shell",
+     "cta": "Pick a premium ski gift",
      "fact_violations": [],
-     "headline": "Gift a shell with real ski cred",
+     "headline": "Give a serious skier something impressive",
      "persona_id": "persona_010",
      "publisher_id": "pub_004",
      "why": "Leans on apparel affinity and giftable, premium presentation messaging."
     },
     {
-     "body": "Starting at $650, these technical shells are made for backcountry skiing and worn by ski patrollers.",
+     "body": "These technical outerwear shells start at $650 and are worn by ski patrollers in serious backcountry conditions.",
      "creative_id": "cr_persona_008",
      "cta": "Compare shell options",
      "fact_violations": [],
-     "headline": "Get serious shell value",
+     "headline": "Know what your shell budget gets",
      "persona_id": "persona_008",
      "publisher_id": "pub_005",
-     "why": "Apparel affinity with clear value and comparison shopping cues."
+     "why": "Uses apparel affinity with clear value and comparison-minded proof."
     },
     {
-     "body": "When every piece of kit has to earn its place, start with technical shells—the kind ski patrollers wear for serious backcountry skiing.",
-     "creative_id": "cr_persona_001",
-     "cta": "Compare technical shells",
-     "fact_violations": [],
-     "headline": "Feel sure about your shell choice",
-     "persona_id": "persona_001",
-     "publisher_id": "pub_002",
-     "why": "Leans on fitness affinity and science-backed proof preferences."
-    },
-    {
-     "body": "Technical shells made for serious backcountry skiing, trusted by ski patrol teams. Pricing begins at $650.",
+     "body": "Built as technical shells for serious backcountry skiers—the kind worn by ski patrollers. Entry price starts at $650.",
      "creative_id": "cr_persona_005",
-     "cta": "Browse technical shells",
+     "cta": "Consider your shell upgrade",
      "fact_violations": [],
-     "headline": "Choose gear with staying power",
+     "headline": "Choose outerwear with staying power",
      "persona_id": "persona_005",
      "publisher_id": "pub_002",
-     "why": "Leans on classic apparel affinity with craftsmanship and quality-focused restraint."
+     "why": "Leans on classic apparel, craftsmanship, and understated quality."
+    },
+    {
+     "body": "For serious backcountry skiers, these technical shells match what ski patrollers wear. They start at $650, with no vague eco claims added.",
+     "creative_id": "cr_persona_006",
+     "cta": "Check the shell details",
+     "fact_violations": [],
+     "headline": "No green gloss—just clear gear facts",
+     "persona_id": "persona_006",
+     "publisher_id": "pub_002",
+     "why": "Sustainable apparel mindset; uses transparency and avoids vague eco claims."
     }
    ],
    "mode": "agent",
@@ -7461,8 +7747,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: fitness",
-        "score": 0.5
+        "note": "Affinity: classic_apparel (under apparel)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -7475,22 +7761,22 @@
         "score": 0.6
        }
       ],
-      "fit": 0.58,
-      "name": "The Wellness Optimizer",
+      "fit": 0.68,
+      "name": "The Affluent Classic",
       "path": [],
-      "persona_id": "persona_001",
+      "persona_id": "persona_005",
       "stretch": false
      },
      {
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: travel",
-        "score": 0.5
+        "note": "Affinity: sustainable_apparel (under apparel)",
+        "score": 0.7
        },
        {
         "name": "price",
-        "note": "Low price sensitivity vs premium",
+        "note": "Medium price sensitivity vs premium",
         "score": 0.75
        },
        {
@@ -7499,10 +7785,10 @@
         "score": 0.6
        }
       ],
-      "fit": 0.58,
-      "name": "The Affluent Classic",
+      "fit": 0.68,
+      "name": "The Sustainability Buyer",
       "path": [],
-      "persona_id": "persona_005",
+      "persona_id": "persona_006",
       "stretch": false
      }
     ],
@@ -8874,7 +9160,14 @@
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Keep your next-day rhythm\"}",
+     "args_summary": "{\"headline\":\"Sip for tomorrow’s routine\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A more considered sip\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
@@ -8888,57 +9181,50 @@
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Sip for tomorrow’s routine\"}",
+     "args_summary": "{\"headline\":\"Keep tomorrow’s workout on track\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Keep your next-day rhythm\"}",
-     "ms": 3548,
-     "result_summary": "{\"accept\":true,\"notes\":[]}",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"A refined sip for tomorrow morning\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Sip the vibe, skip tomorrow’s regret\"}",
-     "ms": 4209,
-     "result_summary": "{\"accept\":true,\"notes\":[]}",
-     "tool": "review_draft"
     },
     {
      "agent": "copywriter",
      "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Sip for tomorrow’s routine\"}",
-     "ms": 4536,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the payoff the persona cares about: a clearer, better-feeling next day or a smarter drink choice, instead of a vague routin…",
+     "ms": 3723,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the payoff more directly: this starts with “tomorrow’s routine” instead of the benefit she wants, like a cleaner wind-down …",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A refined sip for tomorrow morning\"}",
-     "ms": 3802,
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A more considered sip\"}",
+     "ms": 3825,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Sip the vibe, skip tomorrow’s regret\"}",
+     "ms": 3555,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Keep tomorrow’s workout on track\"}",
+     "ms": 3688,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Feel good after last call\"}",
+     "args_summary": "{\"headline\":\"Wind down without next-day regret\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Feel good after last call\"}",
-     "ms": 4014,
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Wind down without next-day regret\"}",
+     "ms": 4242,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     }
@@ -9032,41 +9318,41 @@
    },
    "creatives": [
     {
-     "body": "A sparkling, alcohol-free drink made with adaptogens for a cocktail-style moment that still feels like you.",
+     "body": "A bubbly zero-proof drink with adaptogens, made for cocktail energy without the hangover aftermath.",
      "creative_id": "cr_persona_003",
      "cta": "Add a can to your sip list",
      "fact_violations": [],
      "headline": "Sip the vibe, skip tomorrow’s regret",
      "persona_id": "persona_003",
      "publisher_id": "pub_020",
-     "why": "Leans on functional beverages, playful novelty, and aesthetic-forward identity."
+     "why": "Leans on functional drinks, playful novelty, and aesthetic-forward identity."
     },
     {
-     "body": "A bubbly, zero-alcohol sip with adaptogens for nights when you want the cocktail feel without the hangover.",
+     "body": "Swap your usual cocktail for a bubbly, alcohol-free drink made with adaptogens, so your night out does not have to come with a hangover.",
      "creative_id": "cr_persona_009",
-     "cta": "Add to your drink cart",
+     "cta": "Add a can to your sip list",
      "fact_violations": [],
-     "headline": "Keep your next-day rhythm",
+     "headline": "Keep tomorrow’s workout on track",
      "persona_id": "persona_009",
      "publisher_id": "pub_020",
-     "why": "Leans on functional beverages and performance-minded recovery."
+     "why": "Leans on functional beverages and performance-minded routine consistency."
     },
     {
-     "body": "Choose a sparkling, alcohol-free cocktail alternative made with adaptogens for a night that fits your wellness routine.",
+     "body": "This sparkling alcohol-free drink includes adaptogens for a cocktail-style sip that fits your feel-good routine.",
      "creative_id": "cr_persona_001",
-     "cta": "Add it to this sip order",
+     "cta": "Pick your sober sip",
      "fact_violations": [],
-     "headline": "Feel good after last call",
+     "headline": "Wind down without next-day regret",
      "persona_id": "persona_001",
      "publisher_id": "pub_020",
-     "why": "Leans on wellness affinity, ingredient transparency, and outcome-focused messaging."
+     "why": "Leans on wellness affinity and ingredient transparency for an outcome-focused shopper."
     },
     {
-     "body": "Enjoy a sparkling, alcohol-free pour with adaptogens, made for unwinding without the next-day hangover.",
+     "body": "This sparkling, alcohol-free drink is made with adaptogens for a cocktail-style pause that leaves tomorrow intact.",
      "creative_id": "cr_persona_005",
-     "cta": "Add a refined pour",
+     "cta": "Add to your drinks shelf",
      "fact_violations": [],
-     "headline": "A refined sip for tomorrow morning",
+     "headline": "A more considered sip",
      "persona_id": "persona_005",
      "publisher_id": "pub_020",
      "why": "Leans on premium grocery affinity and understated, quality-focused messaging."
@@ -9851,18 +10137,11 @@
   },
   "We sell premium dog food for senior dogs, targeting owners who care about joint health and longevity. Grain-free, vet-formulated, subscription-based.": {
    "agent_notes": [
-    "The Pet Parent ad: the critic reviewed it twice.",
-    "The Busy Parent ad: the critic reviewed it twice.",
+    "The Pet Parent ad: the critic reviewed it once.",
+    "The Busy Parent ad: the critic reviewed it once.",
     "The Wellness Optimizer ad: the critic reviewed it once."
    ],
    "agent_trace": [
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Support your dog's long-term routine\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
     {
      "agent": "critic",
      "args_summary": "{\"headline\":\"Feed their golden years with care\"}",
@@ -9872,57 +10151,36 @@
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Keep senior dog food off your to-do list\"}",
+     "args_summary": "{\"headline\":\"Feed their later years with intention\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Support your dog's long-term routine\"}",
-     "ms": 4074,
-     "result_summary": "{\"accept\":true,\"notes\":[]}",
-     "tool": "review_draft"
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Keep senior dog food off your to-do list\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
     },
     {
      "agent": "copywriter",
      "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Feed their golden years with care\"}",
-     "ms": 4253,
-     "result_summary": "{\"accept\":false,\"notes\":[\"The proof leans on claims that aren’t grounded in the brief. Replace it with one fact from the provided setup, like the audience’s ve…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Keep senior dog food off your to-do list\"}",
-     "ms": 5553,
-     "result_summary": "{\"accept\":false,\"notes\":[\"The body leans on claims that weren’t given in the brief. Swap in one proof point from the available facts, and keep it in your own w…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Feel good about every senior bowl\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Feel good about every senior bowl\"}",
-     "ms": 4016,
+     "ms": 4018,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Keep senior dog food off your to-do list\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Feed their later years with intention\"}",
+     "ms": 3318,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
     },
     {
      "agent": "copywriter",
      "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Keep senior dog food off your to-do list\"}",
-     "ms": 3802,
+     "ms": 3707,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     }
@@ -10025,34 +10283,34 @@
    },
    "creatives": [
     {
-     "body": "A grain-free recipe for older dogs, formulated by vets and delivered by subscription for steady feeding.",
+     "body": "Made for older dogs, this grain-free food is vet-formulated for pet parents who read every label.",
      "creative_id": "cr_persona_004",
-     "cta": "Build their senior plan",
+     "cta": "Add senior food to your box",
      "fact_violations": [],
-     "headline": "Feel good about every senior bowl",
+     "headline": "Feed their golden years with care",
      "persona_id": "persona_004",
      "publisher_id": "pub_007",
-     "why": "Leans on pet food affinity, vet trust, subscription convenience, and emotional connection."
+     "why": "Leans on pet food affinity, ingredient transparency, and emotional connection."
     },
     {
-     "body": "A subscription option helps keep senior dog food on the way, with grain-free, vet-formulated recipes.",
+     "body": "Set up a subscription for vet-formulated, grain-free food made for older dogs.",
      "creative_id": "cr_persona_002",
-     "cta": "Set up pet food reorders",
+     "cta": "Add senior meals to cart",
      "fact_violations": [],
      "headline": "Keep senior dog food off your to-do list",
      "persona_id": "persona_002",
      "publisher_id": "pub_009",
-     "why": "Leans on pet food affinity, convenience, subscriptions, and time-saving."
+     "why": "Leans on pet food affinity, subscriptions, and time-saving convenience."
     },
     {
-     "body": "A grain-free senior dog food shaped by vets for owners who think about joint health and more years together.",
+     "body": "A vet-formulated, grain-free plan made for senior dogs, with subscription refills that keep their bowl on track.",
      "creative_id": "cr_persona_001",
      "cta": "Add to your Tailcrate cart",
      "fact_violations": [],
-     "headline": "Support your dog's long-term routine",
+     "headline": "Feed their later years with intention",
      "persona_id": "persona_001",
      "publisher_id": "pub_018",
-     "why": "Wellness and supplement mindset with science-backed, outcome-focused proof."
+     "why": "Leans on wellness and science-backed food choices for older-dog care."
     }
    ],
    "mode": "agent",
@@ -10813,91 +11071,149 @@
    "agent_notes": [
     "The Value-Conscious Shopper ad: the critic reviewed it twice.",
     "The Wellness Optimizer ad: the critic reviewed it twice.",
-    "The Busy Parent ad: the critic reviewed it twice."
+    "The Busy Parent ad: the critic reviewed it twice.",
+    "The Affluent Classic ad: the critic reviewed it twice.",
+    "The Sustainability Buyer ad: the critic reviewed it twice."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Make your snack pick feel worth it\"}",
+     "args_summary": "{\"headline\":\"Make your snack spend feel worth it\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"A quick bite between dinner plans\"}",
+     "args_summary": "{\"headline\":\"A better bar for a well-kept pantry\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Keep your snack routine on track\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Make your snack pick feel worth it\"}",
-     "ms": 3939,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete proof point from the brief to back up the value claim; right now it sells the feeling, but gives no specific fact to…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"A quick bite between dinner plans\"}",
-     "ms": 4014,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the payoff more directly: this headline is close, but it should feel more like a shortcut for a rushed dinner routine than …",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Keep your snack routine on track\"}",
-     "ms": 4618,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete proof point from the advertiser’s facts; right now the body makes a benefit claim without any specific evidence.\",\"M…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Get more from your snack run\"}",
+     "args_summary": "{\"headline\":\"A quick bite when dinner runs late\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Keep your snack routine on track\"}",
+     "args_summary": "{\"headline\":\"A snack with a straight story\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"One less snack scramble on busy nights\"}",
+     "args_summary": "{\"headline\":\"Fuel your routine without the bland bite\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Get more from your snack run\"}",
-     "ms": 4863,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the value more directly: the headline is a little vague, so make the savings or better deal feel clearer right away.\",\"Add …",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Make your snack spend feel worth it\"}",
+     "ms": 4243,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete fact from the brief to prove the value, such as the fast, impulse-friendly Swiftcart setting, instead of only making…",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Keep your snack routine on track\"}",
-     "ms": 5831,
-     "result_summary": "{\"accept\":false,\"notes\":[\"The copy has no concrete proof point. Swap in a real fact the product can stand behind, such as a clean-ingredient or sustainability …",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A better bar for a well-kept pantry\"}",
+     "ms": 4029,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete proof point tied to Pantrygood’s values, such as clean ingredients, sustainability, or wellness, so the promise feel…",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"One less snack scramble on busy nights\"}",
-     "ms": 4323,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the parent’s real need more directly: less mealtime chaos and one fewer thing to figure out on busy nights.\",\"There’s no co…",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Fuel your routine without the bland bite\"}",
+     "ms": 4342,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete proof point from the brief to back up the benefit; right now the copy promises a better protein bar but gives no fac…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"A snack with a straight story\"}",
+     "ms": 4675,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the sustainability proof this buyer needs: a clear detail about sourcing, certifications, or footprint, not just that the b…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"A quick bite when dinner runs late\"}",
+     "ms": 4829,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the parent’s real need in a more concrete way; this opens well on speed, but it still feels generic. Try making the benefit…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A pantry snack you can trust\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Make your snack spend feel worth it\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Fuel your routine without the bland bite\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Backup bites for hectic dinner plans\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"No dressed-up snack claims\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A pantry snack you can trust\"}",
+     "ms": 4129,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete proof point from the brief. Right now it promises trust and better flavor, but gives no specific fact to back that u…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Fuel your routine without the bland bite\"}",
+     "ms": 3881,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the optimization benefit the persona cares about, not the taste complaint alone. Make the headline about a better way to su…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Make your snack spend feel worth it\"}",
+     "ms": 4483,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The draft needs one concrete proof point from the advertiser brief to back up the value claim; right now the body is just a taste opi…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Backup bites for hectic dinner plans\"}",
+     "ms": 4353,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The ad doesn’t feel like a meal-kit message for Kitchenly yet. Make the benefit about getting dinner handled faster or easier, not ab…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"No dressed-up snack claims\"}",
+     "ms": 5267,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s real motivation: trust and transparency, not a slogan about “dressed-up claims.”\",\"Add one concrete proof poi…",
      "tool": "review_draft"
     }
    ],
@@ -10914,15 +11230,17 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_protein-bars_f9f727",
+    "campaign_id": "cmp_protein-bars_2b7a91",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.97,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_001": 0.55,
-      "persona_002": 0.3,
+      "persona_001": 0.65,
+      "persona_002": 0.65,
+      "persona_005": 0.65,
+      "persona_006": 0.65,
       "persona_008": 0.8
      },
      "publisher_fits": {
@@ -10945,7 +11263,10 @@
      {
       "budget_usd": 1237.53,
       "creative_id": "cr_persona_001",
-      "extra_creative_ids": [],
+      "extra_creative_ids": [
+       "cr_persona_005",
+       "cr_persona_006"
+      ],
       "publisher_id": "pub_008",
       "share": 0.3535811423390753
      },
@@ -10970,15 +11291,15 @@
      "budget": "Recommended $3,500/mo: $22 target CPA × 50 conversions per line item (enough to optimise the bid) across 3 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 7 days (unknown price tier: 3 per 7 days)",
      "guardrails": "Pause if CPA exceeds $33 (1.5× target) after 2,000 impressions",
-     "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
+     "line_items": "3 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Pantrygood (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $3,500 meets the $3,500 recommendation",
-     "targeting": "3 personas, interests groceries, fitness, wellness, ages 28-55, gender all, US"
+     "targeting": "5 personas, interests groceries, fitness, wellness, ages 25-68, gender all, US"
     },
     "targeting": {
      "age_range": [
-      28,
-      55
+      25,
+      68
      ],
      "gender": "all",
      "geo": [
@@ -10992,40 +11313,62 @@
      "personas": [
       "persona_008",
       "persona_001",
-      "persona_002"
+      "persona_002",
+      "persona_005",
+      "persona_006"
      ]
     }
    },
    "creatives": [
     {
-     "body": "They’re protein bars, but without the cardboard-style taste that can make a bar feel like a miss.",
+     "body": "Pick a protein bar that gives you the snack you wanted, minus the cardboard-like taste.",
      "creative_id": "cr_persona_008",
-     "cta": "Add before checkout",
+     "cta": "Add one before checkout",
      "fact_violations": [],
-     "headline": "Spend snack money on bars you’ll enjoy",
+     "headline": "Make your snack spend feel worth it",
      "persona_id": "persona_008",
      "publisher_id": "pub_001",
-     "why": "Leans on grocery affinity and clear value through better-tasting protein bars."
+     "why": "Leans on grocery affinity and clear value messaging."
     },
     {
-     "body": "Stock your pantry with protein bars focused on taste, not the dry, cardboard-like bite some bars bring.",
+     "body": "These are protein bars made to taste far from cardboard, so your grocery order can include a snack that fits your routine.",
      "creative_id": "cr_persona_001",
-     "cta": "Add protein bars to cart",
+     "cta": "Add bars to your pantry order",
      "fact_violations": [],
-     "headline": "A protein snack you’ll want to repeat",
+     "headline": "Support your routine with protein you’ll want",
      "persona_id": "persona_001",
      "publisher_id": "pub_008",
-     "why": "Leans on wellness and fitness interests with outcome-focused snack routine messaging."
+     "why": "Leans on fitness affinity and outcome-focused preference with a taste proof."
     },
     {
-     "body": "These are protein bars with a simple pitch: a taste made to avoid that cardboard-like bite.",
+     "body": "As you sort dinner, keep protein bars in mind—these are made to taste nothing like cardboard.",
      "creative_id": "cr_persona_002",
-     "cta": "Add bars to your meal plan",
+     "cta": "Add before meal checkout",
      "fact_violations": [],
-     "headline": "Less mealtime chaos, one fewer snack to solve",
+     "headline": "One less bite to think about",
      "persona_id": "persona_002",
      "publisher_id": "pub_015",
-     "why": "Leans on meal kit affinity and time-saving messaging for busy family routines."
+     "why": "Uses meal-kit convenience and time-saving for hectic household dinners."
+    },
+    {
+     "body": "Add a protein bar to your grocery routine, made without the flat, cardboard-like taste that makes some bars feel ordinary.",
+     "creative_id": "cr_persona_005",
+     "cta": "Add to your grocery basket",
+     "fact_violations": [],
+     "headline": "A considered snack for the pantry",
+     "persona_id": "persona_005",
+     "publisher_id": "pub_008",
+     "why": "Leans on premium grocery affinity and understated quality-focused messaging."
+    },
+    {
+     "body": "These are protein bars with one plain point: they taste like something you’d want to eat, not cardboard.",
+     "creative_id": "cr_persona_006",
+     "cta": "Add to your pantry order",
+     "fact_violations": [],
+     "headline": "Trust a simpler snack pitch",
+     "persona_id": "persona_006",
+     "publisher_id": "pub_008",
+     "why": "Uses organic grocery affinity and transparency preference with modest, fact-only wording."
     }
    ],
    "mode": "agent",
@@ -11108,8 +11451,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: fitness",
-        "score": 0.5
+        "note": "Affinity: organic_grocery (under groceries)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -11122,7 +11465,7 @@
         "score": 0.6
        }
       ],
-      "fit": 0.55,
+      "fit": 0.65,
       "name": "The Wellness Optimizer",
       "path": [],
       "persona_id": "persona_001",
@@ -11132,8 +11475,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
+        "note": "Affinity: meal_kits (under groceries)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -11146,11 +11489,59 @@
         "score": 0.6
        }
       ],
-      "fit": 0.3,
+      "fit": 0.65,
       "name": "The Busy Parent",
       "path": [],
       "persona_id": "persona_002",
-      "stretch": true
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: premium_grocery (under groceries)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Price tier unknown",
+        "score": 0.6
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.65,
+      "name": "The Affluent Classic",
+      "path": [],
+      "persona_id": "persona_005",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: organic_grocery (under groceries)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Price tier unknown",
+        "score": 0.6
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.65,
+      "name": "The Sustainability Buyer",
+      "path": [],
+      "persona_id": "persona_006",
+      "stretch": false
      }
     ],
     "publishers": [
@@ -11779,65 +12170,51 @@
   },
   "Workout supplements: pre-workout, creatine, protein. We compete on price, not on marketing. Same formulations as the expensive brands for half the cost.": {
    "agent_notes": [
+    "The Fitness Enthusiast ad: the critic reviewed it once.",
     "The Wellness Optimizer ad: the critic reviewed it once.",
-    "The Value-Conscious Shopper ad: the critic reviewed it once.",
-    "The Gen Z Aesthete ad: the critic reviewed it twice."
+    "The Value-Conscious Shopper ad: the critic reviewed it once."
    ],
    "agent_trace": [
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Know what you’re paying for\"}",
+     "args_summary": "{\"headline\":\"Fuel every training day for less\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "critic",
-     "args_summary": "{\"headline\":\"Pay less for your workout stack\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"Less hype on your shelf\"}",
+     "args_summary": "{\"headline\":\"Know what’s in your workout stack\"}",
      "ms": 0,
      "result_summary": "No problems found by code.",
      "tool": "check_copy"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Know what you’re paying for\"}",
-     "ms": 4217,
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Know what’s in your workout stack\"}",
+     "ms": 3955,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Keep your supplement spend in check\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Fuel every training day for less\"}",
+     "ms": 5041,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
      "tool": "review_draft"
     },
     {
      "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Pay less for your workout stack\"}",
-     "ms": 3962,
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Keep your supplement spend in check\"}",
+     "ms": 7464,
      "result_summary": "{\"accept\":true,\"notes\":[]}",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Less hype on your shelf\"}",
-     "ms": 5734,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s real pull here: a cleaner, more aesthetic wellness shelf with a brand that feels less try-hard and more align…",
-     "tool": "review_draft"
-    },
-    {
-     "agent": "critic",
-     "args_summary": "{\"headline\":\"A cleaner stack for your shelf\"}",
-     "ms": 0,
-     "result_summary": "No problems found by code.",
-     "tool": "check_copy"
-    },
-    {
-     "agent": "copywriter",
-     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"A cleaner stack for your shelf\"}",
-     "ms": 4928,
-     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s real motivation, like wanting wellness picks that feel more aligned with their style and values, rather than …",
      "tool": "review_draft"
     }
    ],
@@ -11854,16 +12231,16 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_workout-supplements_16a3ca",
+    "campaign_id": "cmp_workout-supplements_0249d5",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.97,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_001": 0.43,
-      "persona_003": 0.33,
-      "persona_008": 0.38
+      "persona_001": 0.53,
+      "persona_008": 0.38,
+      "persona_009": 0.58
      },
      "publisher_fits": {
       "pub_012": 0.765
@@ -11882,10 +12259,10 @@
     "line_items": [
      {
       "budget_usd": 500.0,
-      "creative_id": "cr_persona_001",
+      "creative_id": "cr_persona_009",
       "extra_creative_ids": [
-       "cr_persona_008",
-       "cr_persona_003"
+       "cr_persona_001",
+       "cr_persona_008"
       ],
       "publisher_id": "pub_012",
       "share": 1.0
@@ -11900,11 +12277,11 @@
      "line_items": "1 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Daily Form (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $500 meets the $500 recommendation",
-     "targeting": "3 personas, interests wellness_dtc, fitness, wellness, ages 19-55, gender all, US"
+     "targeting": "3 personas, interests wellness_dtc, fitness, wellness, ages 22-55, gender all, US"
     },
     "targeting": {
      "age_range": [
-      19,
+      22,
       55
      ],
      "gender": "all",
@@ -11917,42 +12294,42 @@
       "wellness"
      ],
      "personas": [
+      "persona_009",
       "persona_001",
-      "persona_008",
-      "persona_003"
+      "persona_008"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Pre-workout, creatine, and protein with formulas like the expensive brands, priced at half the cost.",
-     "creative_id": "cr_persona_001",
-     "cta": "Compare formulas today",
-     "fact_violations": [],
-     "headline": "Know what you’re paying for",
-     "persona_id": "persona_001",
-     "publisher_id": "pub_012",
-     "why": "Leans on fitness affinity, ingredient transparency, and science-minded proof."
-    },
-    {
-     "body": "Pre-workout, creatine, and protein with formulas that match pricier brands at half the cost.",
-     "creative_id": "cr_persona_008",
+     "body": "Pre-workout, creatine, and protein with formulas like the costly brands, priced at half the cost.",
+     "creative_id": "cr_persona_009",
      "cta": "Compare your stack",
      "fact_violations": [],
-     "headline": "Pay less for your workout stack",
+     "headline": "Fuel every training day for less",
+     "persona_id": "persona_009",
+     "publisher_id": "pub_012",
+     "why": "Leans on supplements affinity and performance-minded value."
+    },
+    {
+     "body": "Pre-workout, creatine, and protein use formulas that match pricier brands, without the big-brand spend.",
+     "creative_id": "cr_persona_001",
+     "cta": "Compare your stack",
+     "fact_violations": [],
+     "headline": "Know what’s in your workout stack",
+     "persona_id": "persona_001",
+     "publisher_id": "pub_012",
+     "why": "Leans on fitness and supplements affinity with ingredient transparency."
+    },
+    {
+     "body": "Choose pre-workout, creatine, or protein with formulas made to match pricier brands at about half the cost.",
+     "creative_id": "cr_persona_008",
+     "cta": "Compare your options",
+     "fact_violations": [],
+     "headline": "Keep your supplement spend in check",
      "persona_id": "persona_008",
      "publisher_id": "pub_012",
      "why": "Leans on wellness products affinity, clear value props, and comparison shopping."
-    },
-    {
-     "body": "Pre-workout, creatine, and protein made with formulas comparable to expensive labels at half the cost.",
-     "creative_id": "cr_persona_003",
-     "cta": "Add a Daily Form basic",
-     "fact_violations": [],
-     "headline": "Supps that match your low-hype vibe",
-     "persona_id": "persona_003",
-     "publisher_id": "pub_012",
-     "why": "Leans on functional beverage affinity with aesthetic-forward, values-aligned messaging."
     }
    ],
    "mode": "agent",
@@ -12013,8 +12390,32 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: fitness",
-        "score": 0.5
+        "note": "Affinity: supplements (under wellness_dtc)",
+        "score": 0.7
+       },
+       {
+        "name": "price",
+        "note": "Low-medium price sensitivity vs value",
+        "score": 0.25
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.58,
+      "name": "The Fitness Enthusiast",
+      "path": [],
+      "persona_id": "persona_009",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: supplements (under wellness_dtc)",
+        "score": 0.7
        },
        {
         "name": "price",
@@ -12027,11 +12428,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.43,
+      "fit": 0.53,
       "name": "The Wellness Optimizer",
       "path": [],
       "persona_id": "persona_001",
-      "stretch": true
+      "stretch": false
      },
      {
       "factors": [
@@ -12055,30 +12456,6 @@
       "name": "The Value-Conscious Shopper",
       "path": [],
       "persona_id": "persona_008",
-      "stretch": true
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
-       },
-       {
-        "name": "price",
-        "note": "Medium-high price sensitivity vs value",
-        "score": 0.75
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.33,
-      "name": "The Gen Z Aesthete",
-      "path": [],
-      "persona_id": "persona_003",
       "stretch": true
      }
     ],

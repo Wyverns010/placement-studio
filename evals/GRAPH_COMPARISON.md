@@ -21,6 +21,42 @@ audience demographics. Re-wiring the same facts as a graph can't learn anything 
 contain. With real co-purchase edges (shopper → brand bought) the same walk and paths code
 would apply unchanged, and this comparison is the harness to re-run.
 
+## Update 2026-11-01: personas
+
+The first comparison only scored publishers. 79 cases now also carry persona labels, written
+before measuring (`must_personas`: shoppers who obviously belong; `must_not_personas`: ones who
+obviously don't, e.g. the Pet Parent for golf clubs). The labels are hand-written and the
+measurements are offline from the same `.cache/llm` briefs ($0).
+
+The formula had two bugs: a persona only matched its exact term, so `supplements` missed a brief
+read as `wellness_dtc` (its parent) and `home_goods` missed `home`; and the stretch fill picked
+any persona with a good price and age fit, so the Pet Parent was added to candles and golf clubs.
+The fix, all in `app/match.py` and `config/tuning.yaml`:
+- **Family affinity** (0.7): the persona term is a parent or child of a brief term (catalog
+  groups + `affinity_parents`). **Sibling** (0.35): both terms sit under the same parent category.
+- **Shopping modes**: the Gifter matches a `gifting` brief and the Sustainability Buyer a
+  `sustainable` one (`persona.attribute_affinities`), as their descriptions say.
+- **Niche penalty** (0.2): a persona whose affinities sit in one category (the Pet Parent) loses
+  0.2 when the brief has no affinity to it at all.
+- **Stretch fill** takes personas with some affinity first.
+
+| | persona must-hit train | must-not avoided train | must-hit held-out | must-not avoided held-out |
+|---|---|---|---|---|
+| formula, before | 87% | 84% | 86% | 74% |
+| graph, before | 94% | 91% | 93% | 83% |
+| **formula, after (live)** | **92%** | **98%** | **86%** | **100%** |
+| graph, after | 94% | 96% | 93% | 96% |
+
+Values were chosen on train. Family 0.6, 0.7 and 0.8 tie, sibling 0.35 and 0.5 tie (0.35 kept,
+set before the sweep), and a niche penalty of 0.1 to 0.3 ties. Publisher numbers are unchanged
+(85/85, 35/36, must-hit 96%/100%, must-not 100%).
+
+**Verdict: the formula stays.** The graph finds more of the shoppers who belong (93% vs 86%
+held out), but it lets more wrong ones in (96% vs 100%). Neither wins on both numbers. The
+remaining formula misses come from how the brief was read: protein bars and "running shoes"
+were read as `groceries` and `shoes`, which carry no Fitness Enthusiast term, so no matcher
+reaches it.
+
 ## What was built
 
 - `app/graph.py` builds a typed, weighted, undirected graph from the data pack. Nodes are 80
