@@ -14,6 +14,7 @@ from app.catalog import Catalog
 from app.models import Brief, CampaignConfig, Creative, GateResult, PersonaScore, PublisherScore
 from app.pipeline import is_weak, make_config, recommended_of
 from app.prompts import render, wrap_steer
+from app.stepagents.guards import floor, floor_note, named_in_steer, unnamed_note
 from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, run_agent
 from app.tuning import Tuning
 
@@ -60,6 +61,13 @@ class PlanDesk:
     def recommended_usd(self) -> float:
         pubs = [p for p in recommended_of(self.publishers) if p.publisher_id not in self.exclude]
         return recommended_budget(self.brief, pubs, self.catalog, is_weak(self.publishers), self.t).usd
+
+    def max_share(self, exclude: frozenset[str]) -> float:
+        """The largest line-item share code would allocate with these exclusions."""
+        items = make_config(self.brief, self.gate, self.publishers, self.personas, self.creatives,
+                            self.request_budget if self.request_budget is not None else self.budget,
+                            catalog=self.catalog, t=self.t, exclude=exclude).line_items
+        return max((li.share for li in items), default=0.0)
 
     def build(self) -> CampaignConfig:
         budget = self.request_budget if self.request_budget is not None else self.budget
@@ -116,18 +124,36 @@ def set_budget(ctx: RunContextWrapper[PlanDesk], monthly_usd: float) -> str:
 
 @function_tool(failure_error_function=None)
 def exclude_publishers(ctx: RunContextWrapper[PlanDesk], publisher_ids: list[str]) -> str:
-    """Drop recommended publishers the steer rules out from the line items (replaces earlier
-    exclusions); at least one must remain."""
+    """Drop recommended publishers the steer names as ones to drop (replaces earlier exclusions).
+    Code refuses leaving fewer than two, or most of the budget in one publisher."""
     d = _desk(ctx)
 
     def run() -> str:
         d.require_steer()
-        rec = {p.publisher_id for p in recommended_of(d.publishers)}
+        recs = recommended_of(d.publishers)
+        rec = {p.publisher_id for p in recs}
+        names = {p.publisher_id: p.name for p in recs}
         bad = [i for i in publisher_ids if i not in rec]
         if bad:
             raise ToolRefused(f"not a recommended publisher: {', '.join(bad)}")
         if rec <= set(publisher_ids):
             raise ToolRefused("at least one publisher must remain")
+        n = floor(d.t.agents.min_recommended_after_steer, len(rec))
+        if len(rec - set(publisher_ids)) < n:
+            d.session.note(floor_note([names[p.publisher_id] for p in recs
+                                       if p.publisher_id in publisher_ids], n))
+            raise ToolRefused(f"a steer may narrow the line items but not below {n}; nothing changed")
+        unnamed = [i for i in publisher_ids
+                   if not named_in_steer(d.steer, names[i], d.catalog.publisher(i).category)]
+        if unnamed:
+            d.session.note(unnamed_note([names[i] for i in unnamed]))
+            raise ToolRefused(f"the steer does not name these as publishers to drop: "
+                              f"{', '.join(unnamed)}; nothing changed")
+        cap = max(d.t.agents.max_share_after_steer, d.max_share(frozenset()))
+        share = d.max_share(frozenset(publisher_ids))
+        if share > cap + 1e-9:
+            raise ToolRefused(f"that would put {share:.0%} of the budget in one publisher "
+                              f"(at most {cap:.0%} after a steer); nothing changed")
         d.exclude = frozenset(publisher_ids)
         return f"Line items now: {', '.join(sorted(rec - d.exclude))}."
 

@@ -188,6 +188,8 @@ class AgentsTuning(BaseModel):
     run_without_steer: dict[str, bool]  # strategist | creative | media_planner
     steer_max_chars: int
     max_turns: dict[str, int]  # strategist | copywriter | critic | media_planner
+    min_recommended_after_steer: int  # a steer never shrinks the recommended set below min(this, n)
+    max_share_after_steer: float  # most budget one publisher may get after a planner exclusion
     critic_max_rounds: int
     max_cost_usd: dict[str, float]  # strategist | creative | media_planner
     timeout_s: float

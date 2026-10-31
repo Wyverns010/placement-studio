@@ -11,10 +11,12 @@ from app.catalog import Catalog
 from app.create import clarify_questions
 from app.gate import ConfidenceGate
 from app.llm import LLMProvider
-from app.match import score_personas, score_publishers, select_personas
-from app.models import Brief, ClarifyQuestion, GateResult
+from app.match import (is_weak_fit, mark_stretch, score_personas, score_publishers,
+                       select_personas)
+from app.models import Brief, ClarifyQuestion, GateResult, PublisherScore
 from app.pipeline import Stage1Plan
 from app.prompts import category_word, render, wrap_advertiser_text, wrap_steer
+from app.stepagents.guards import floor, floor_note, named_in_steer, unnamed_note
 from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, run_agent
 from app.tuning import Tuning
 from app.understand import clamp_brief, understand
@@ -67,6 +69,41 @@ class Stage1Workspace:
     def require_steer(self) -> None:
         if not self.steer:
             raise ToolRefused("there is no steer from the user, so nothing may change")
+
+    def recommended(self, brief: Brief, exclude: frozenset[str]) -> list[PublisherScore]:
+        """The publishers stage 1 would recommend (weak fit: code's stretch picks)."""
+        scored = score_publishers(brief, self.catalog, self.t, exclude)
+        if is_weak_fit(scored, self.t):
+            scored = mark_stretch(scored, self.t, exclude)
+        return [s for s in scored if s.recommended]
+
+    def guard(self, brief: Brief, exclude: frozenset[str]) -> None:
+        """Validate the agent's choices against the steer (code, not the prompt): refuse a plan
+        that shrinks the recommended set below the floor, excludes a publisher the steer doesn't
+        name, or recommends a publisher below the cut-off that wasn't recommended before."""
+        pubs = {p.id: p for p in self.catalog.publishers}
+        original = self.recommended(self.brief(), frozenset())
+        orig_ids = [s.publisher_id for s in original]
+        after = self.recommended(brief, exclude)
+        after_ids = {s.publisher_id for s in after}
+        n = floor(self.t.agents.min_recommended_after_steer, len(original))
+        if len(after) < n:
+            kept = [pubs[i].name for i in orig_ids if i not in after_ids] or [pubs[i].name for i in orig_ids]
+            self.session.note(floor_note(kept, n))
+            raise ToolRefused(f"a steer may narrow the recommended publishers but not below {n}; "
+                              "nothing changed")
+        unnamed = [i for i in sorted(exclude)
+                   if not named_in_steer(self.steer, pubs[i].name, pubs[i].category)]
+        if unnamed:
+            self.session.note(unnamed_note([pubs[i].name for i in unnamed]))
+            raise ToolRefused("the steer does not name these as publishers to avoid: "
+                              f"{', '.join(unnamed)}; nothing changed")
+        cut = self.t.publisher.cutoff
+        low = [s.publisher_id for s in after
+               if not s.stretch and s.fit < cut and s.publisher_id not in orig_ids]
+        if low:
+            raise ToolRefused(f"below the {cut:.2f} cut-off, so it can't be recommended: "
+                              f"{', '.join(low)}; nothing changed")
 
     def plan(self) -> Stage1Plan:
         return Stage1Plan(brief=self.brief(), adjusted=self.adjusted,
@@ -136,6 +173,11 @@ def adjust_brief(ctx: RunContextWrapper[Stage1Workspace], add_categories: list[s
         bad = [c for c in add_categories + remove_categories if c not in vocab]
         if bad:
             raise ToolRefused(f"not in the catalog vocabulary: {', '.join(bad)}")
+        unnamed = [c for c in remove_categories if not named_in_steer(ws.steer, None, c)]
+        if unnamed:
+            ws.session.note(f"Kept {', '.join(category_word(c) for c in unnamed)} in the brief: "
+                            "your note doesn't ask to drop it.")
+            raise ToolRefused(f"the steer does not ask to drop: {', '.join(unnamed)}")
         b = ws.current()
         cats = [c for c in b.categories if c not in remove_categories]
         cats += [c for c in add_categories if c not in cats]
@@ -148,11 +190,13 @@ def adjust_brief(ctx: RunContextWrapper[Stage1Workspace], add_categories: list[s
             hi = age_max if age_max is not None else a.age_ceiling
             if not a.age_floor <= lo <= hi <= a.age_ceiling:
                 raise ToolRefused(f"ages must satisfy {a.age_floor} <= min <= max <= {a.age_ceiling}")
-        ws.adjusted = b.model_copy(update={
+        adjusted = b.model_copy(update={
             "categories": cats,
             "adjacent_categories": [c for c in b.adjacent_categories if c not in cats
                                     and c not in remove_categories],
             "age_min": lo, "age_max": hi})
+        ws.guard(adjusted, ws.exclude_publishers)
+        ws.adjusted = adjusted
         return _brief_view(ws.adjusted)
 
     args = {"add": add_categories, "remove": remove_categories, "age_min": age_min, "age_max": age_max}
@@ -172,6 +216,7 @@ def rank_publishers(ctx: RunContextWrapper[Stage1Workspace], exclude_ids: list[s
         bad = [i for i in exclude_ids if i not in known]
         if bad:
             raise ToolRefused(f"unknown publisher ids: {', '.join(bad)}")
+        ws.guard(ws.current(), frozenset(exclude_ids))
         ws.exclude_publishers = frozenset(exclude_ids)
         cat = {p.id: p.category for p in ws.catalog.publishers}
         scored = score_publishers(ws.current(), ws.catalog, ws.t, ws.exclude_publishers)
