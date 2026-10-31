@@ -7,7 +7,7 @@ vi.mock('../api', async () => {
   const actual = await vi.importActual<typeof import('../api')>('../api')
   return { ...actual, createCreatives: vi.fn(), regenerateCreative: vi.fn(), buildConfig: vi.fn() }
 })
-import { ApiError, buildConfig, createCreatives } from '../api'
+import { ApiError, buildConfig, createCreatives, regenerateCreative } from '../api'
 import Results from './Results'
 
 const pub = (id: string, name: string, rec: boolean) => ({
@@ -111,5 +111,31 @@ describe('step agents UI', () => {
     await waitFor(() => expect(buildConfig).toHaveBeenCalledTimes(2))
     expect(vi.mocked(buildConfig).mock.calls[1][0]).toMatchObject({ steer: 'Keep it under $5,000' })
     expect(await screen.findByText('Fallback (agent unavailable)')).toBeInTheDocument()
+  })
+
+  it('step 2: per-ad Regenerate sends the step steer that was applied', async () => {
+    const user = userEvent.setup()
+    vi.mocked(regenerateCreative).mockReset().mockResolvedValue({ ...cr, headline: 'Fresh take' })
+    render(<Results result={result} onBack={() => {}} />)
+    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    await screen.findByText('Food for old friends')
+    await user.click(screen.getByRole('button', { name: /^regenerate/i }))
+    await waitFor(() => expect(regenerateCreative).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(regenerateCreative).mock.calls[0][0]).not.toHaveProperty('steer')
+    await applyAt(user, 'Make them more playful')
+    await waitFor(() => expect(createCreatives).toHaveBeenCalledTimes(2))
+    await screen.findByText('Food for old friends')
+    await user.click(screen.getByRole('button', { name: /^regenerate/i }))
+    await waitFor(() => expect(regenerateCreative).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(regenerateCreative).mock.calls[1][0]).toMatchObject({ steer: 'Make them more playful' })
+  })
+
+  it('step 2: a long ad run says what the team is doing, with elapsed seconds', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createCreatives).mockImplementationOnce(() => new Promise(() => {}))
+    render(<Results result={result} onBack={() => {}} />)
+    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const status = await screen.findByTestId('agent-working')
+    expect(status).toHaveTextContent(/The copywriter is drafting, the critic is reviewing… \d+ s/)
   })
 })

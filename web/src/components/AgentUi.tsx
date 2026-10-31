@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { STEER_MAX, type AgentMode, type AgentTraceEntry, type StepMeta } from '../types'
 import { Busy } from './ui'
 
@@ -34,6 +34,24 @@ export function AgentTicker({ trace }: { trace?: AgentTraceEntry[] }) {
   return (
     <p data-testid="agent-ticker" role="status" className="m-0 mb-2.5 truncate text-[12px] text-muted">
       Agent: <span className="font-mono text-violet-dark">{last.tool}</span> …
+    </p>
+  )
+}
+
+/**
+ * Step ② while the ads are being written (the agent path takes ~20 s): what the team is doing,
+ * with the seconds elapsed since it started.
+ */
+export function AgentWorking({ className = '' }: { className?: string }) {
+  const [secs, setSecs] = useState(0)
+  useEffect(() => {
+    const start = Date.now()
+    const id = setInterval(() => setSecs(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <p data-testid="agent-working" role="status" className={`m-0 text-[12.5px] text-muted ${className}`}>
+      The copywriter is drafting, the critic is reviewing… {secs} s
     </p>
   )
 }

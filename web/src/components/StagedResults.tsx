@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError, buildConfig, createCreatives, regenerateCreative } from '../api'
 import { usd } from '../format'
 import type { CampaignConfig, CampaignResult, Creative, StagePayload, StepMeta } from '../types'
-import { AgentPanel, AgentSteer } from './AgentUi'
+import { AgentPanel, AgentSteer, AgentWorking } from './AgentUi'
 import ConfigStep from './ConfigStep'
 import OutcomeBanner from './OutcomeBanner'
 import PersonasTab from './PersonasTab'
@@ -60,6 +60,8 @@ export default function StagedResults({
   // campaign (or a step-1 re-run) starts with empty ones for steps 2 and 3.
   const [steer1, setSteer1] = useState(initialSteer)
   const [steer2, setSteer2] = useState('')
+  // The step-2 steer the current ads were written with: per-ad Regenerate sends it too.
+  const [applied2, setApplied2] = useState('')
   const [steer3, setSteer3] = useState('')
   const [meta2, setMeta2] = useState<StepMeta | undefined>()
   const [meta3, setMeta3] = useState<StepMeta | undefined>()
@@ -144,6 +146,7 @@ export default function StagedResults({
         setMeta3(undefined)
       }
       setCreatives(out)
+      setApplied2(steer)
       setStep('creatives')
     } catch (err) {
       if (!isAbort(err)) setStepError(toStageErr(err))
@@ -160,7 +163,7 @@ export default function StagedResults({
     setCardBusy((b) => ({ ...b, [personaId]: true }))
     setCardError((e) => ({ ...e, [personaId]: undefined }))
     try {
-      const fresh = await regenerateCreative({ ...stage, creatives }, personaId, note, t.signal)
+      const fresh = await regenerateCreative({ ...withSteer(applied2), creatives }, personaId, note, t.signal)
       setCreatives((cs) => (cs ?? []).map((c) => (c.persona_id === personaId ? fresh : c)))
       // The approved set changed: the config no longer matches it.
       cancelConfig()
@@ -294,6 +297,7 @@ export default function StagedResults({
               {pending === 'creatives' ? <Busy label="Writing ads…" /> : 'Write ads for these publishers →'}
             </button>
           </StepActions>
+          {pending === 'creatives' && <AgentWorking className="mt-2 text-right" />}
           {errorBlock}
         </section>
       )}
@@ -315,6 +319,7 @@ export default function StagedResults({
             busy={pending === 'creatives'}
             disabled={pending === 'config' || anyCardBusy}
           />
+          {pending === 'creatives' && <AgentWorking className="-mt-2 mb-4" />}
           {errorBlock}
           <AgentPanel className="mb-5" meta={meta2} />
           <PersonasTab

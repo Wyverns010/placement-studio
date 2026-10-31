@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { AgentPanel, AgentSteer, AgentTicker } from './AgentUi'
+import { AgentPanel, AgentSteer, AgentTicker, AgentWorking } from './AgentUi'
 
 const meta = {
   mode: 'agent' as const,
@@ -78,5 +78,21 @@ describe('AgentSteer', () => {
   it('caps the input at 300 characters', () => {
     render(<AgentSteer placeholder="x" value="" onChange={() => {}} onApply={() => {}} />)
     expect(screen.getByLabelText('Tell the agent')).toHaveAttribute('maxlength', '300')
+  })
+})
+
+describe('AgentWorking', () => {
+  it('says what the team is doing and counts the seconds', () => {
+    vi.useFakeTimers()
+    try {
+      render(<AgentWorking />)
+      const s = screen.getByTestId('agent-working')
+      expect(s).toHaveAttribute('role', 'status')
+      expect(s).toHaveTextContent('The copywriter is drafting, the critic is reviewing… 0 s')
+      act(() => vi.advanceTimersByTime(12_000))
+      expect(s).toHaveTextContent('… 12 s')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
