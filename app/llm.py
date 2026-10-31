@@ -47,7 +47,9 @@ class OpenAIProvider:
             key = os.environ.get("OPENAI_API_KEY", "").strip()
             if not key:  # api_key=None would let the SDK re-read the raw (unstripped) env value
                 raise LLMError("OPENAI_API_KEY is not set")
-            self._client = OpenAI(api_key=key, timeout=25, max_retries=0)
+            from app.tuning import load_tuning
+
+            self._client = OpenAI(api_key=key, timeout=load_tuning().llm.timeout_s, max_retries=0)
         return self._client
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:

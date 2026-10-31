@@ -11,7 +11,7 @@ from app.copycheck import (Problem, ad_problems, headline_problems, headlines_si
                            normalise_headline)
 from app.llm import LLMError, LLMProvider, model_creative, model_fast
 from app.models import Brief, ClarifyQuestion, Creative, PersonaScore, PublisherScore
-from app.prompts import feedback, render, wrap_advertiser_text, wrap_current_ad, wrap_user_note
+from app.prompts import category_word, feedback, render, wrap_advertiser_text, wrap_current_ad, wrap_user_note
 from app.tuning import Tuning
 
 
@@ -76,7 +76,7 @@ def _publisher_block(pub: PublisherScore, catalog: Catalog) -> str:
                                                          key=lambda kv: -kv[1]) if v > 0)
     return feedback(
         "publisher_block",
-        name=p.name, category=_CATEGORY_WORDS.get(p.category, p.category.replace("_", " ")),
+        name=p.name, category=category_word(p.category),
         age_min=p.age_min, age_max=p.age_max, gender=gender, income=p.audience.income_tier,
         aov=f"{p.avg_order_value_usd:,.0f}", notes=p.notes or feedback("none"),
     )
@@ -269,20 +269,13 @@ def rewrite_creative(
     return out
 
 
-_CATEGORY_WORDS = {
-    "pet": "pet", "apparel": "apparel", "home": "home goods", "beauty": "beauty",
-    "groceries": "groceries", "meal_kits": "meal kits", "beverages": "drinks",
-    "wellness_dtc": "wellness products", "wellness_services": "fitness/wellness services",
-    "instant_delivery": "instant delivery",
-}
-
-
 def category_words(catalog: Catalog) -> str:
     cats = sorted({p.category for p in catalog.publishers})
-    return ", ".join(_CATEGORY_WORDS.get(c, c.replace("_", " ")) for c in cats)
+    return ", ".join(category_word(c) for c in cats)
 
 
-def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalog) -> list[ClarifyQuestion]:
+def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
+                      t: Tuning) -> list[ClarifyQuestion]:
     system = render(
         "clarify",
         categories=category_words(catalog),
@@ -294,7 +287,7 @@ def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalo
     out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=model_fast())
     qs: list[ClarifyQuestion] = []
     for q in out.questions:
-        opts = q.options[:5]
-        if len(opts) >= 2:
+        opts = q.options[: t.clarify.max_options]
+        if len(opts) >= t.clarify.min_options:
             qs.append(ClarifyQuestion(question=q.question, options=opts))
-    return qs[:3]
+    return qs[: t.clarify.max_questions]

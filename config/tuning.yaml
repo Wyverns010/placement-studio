@@ -88,6 +88,17 @@ creative:
   parrot_sentence_min_words: 4  # ...as is a whole advertiser sentence of at least this many words
   note_max_chars: 200           # regenerate note from the advertiser (treated as data)
   audience_words: [women, men, moms, mums, mothers, dads, fathers, parents, seniors, millennials, gen z, boomers, teens]
+clarify:
+  max_questions: 3              # clarify questions kept from the LLM
+  max_options: 5                # tap-able options kept per question
+  min_options: 2                # a question with fewer options is dropped
+stage1:
+  top_publishers_shown: 5       # publishers streamed in the stage-1 "publishers" event
+  clarify_publishers_shown: 3   # clarify outcome: faded best guess, top N only
+api:
+  replay_delay_s: 0.3           # pause between replayed stage events for a cached sample
+llm:
+  timeout_s: 25                 # OpenAI client timeout per request (no SDK retries)
 input:
   max_chars: 1500
   max_answers: 5                # clarify answers appended to the text

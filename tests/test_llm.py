@@ -130,7 +130,7 @@ def test_cache_key_includes_schema_shape(tmp_path):
     assert len(fake.calls) == 2
 
 
-def test_client_built_with_no_retries_and_25s_timeout(monkeypatch):
+def test_client_built_with_no_retries_and_tuned_timeout(monkeypatch):
     import openai
     seen = {}
 

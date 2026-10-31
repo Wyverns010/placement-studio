@@ -1,0 +1,12 @@
+# How each publisher category is named to the models (the creative prompt's publisher block and
+# the clarify prompt's category list). A category missing here is shown with "_" as a space.
+pet: pet
+apparel: apparel
+home: home goods
+beauty: beauty
+groceries: groceries
+meal_kits: meal kits
+beverages: drinks
+wellness_dtc: wellness products
+wellness_services: fitness/wellness services
+instant_delivery: instant delivery

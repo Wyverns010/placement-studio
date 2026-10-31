@@ -41,7 +41,6 @@ load_dotenv()  # never overrides env vars already set
 
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
 BUSY_MSG = "The demo is busy — try a sample or come back in a bit."
-REPLAY_DELAY_S = 0.3
 NO_ADS_MSG = "The AI service didn't return any ads — try again."
 TAMPERED_MSG = "This campaign changed or expired — run it again."
 NOT_PROCEEDING_MSG = "Ads and a config are only built for a campaign the gate let through."
@@ -347,10 +346,10 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
 
     async def gen():
         if hit:
-            events = result_events(hit)
+            events = result_events(hit, t)
             for i, e in enumerate(events):
                 if i:
-                    await asyncio.sleep(REPLAY_DELAY_S)
+                    await asyncio.sleep(t.api.replay_delay_s)
                 yield encode(e)
             return
         it = run_stage1(full_text, budget, llm=llm, gate=gate, catalog=catalog, t=t)

@@ -46,12 +46,13 @@ class PipelineError(Exception):
     """Raised by collect() when the stream ended in an error event; message is user-safe."""
 
 
-def _pub_data(pubs: list[PublisherScore], outcome: str = "proceed") -> dict:
+def _pub_data(pubs: list[PublisherScore], t: Tuning, outcome: str = "proceed") -> dict:
     if outcome == "clarify":
-        pubs = pubs[:3]  # faded best guess: top 3 only
+        pubs = pubs[: t.stage1.clarify_publishers_shown]  # faded best guess: top N only
     return {
         "recommended": [p.publisher_id for p in pubs if p.recommended],
-        "top": [{"id": p.publisher_id, "name": p.name, "fit": p.fit} for p in pubs[:5]],
+        "top": [{"id": p.publisher_id, "name": p.name, "fit": p.fit}
+                for p in pubs[: t.stage1.top_publishers_shown]],
     }
 
 
@@ -60,7 +61,7 @@ def _persona_data(ps: list[PersonaScore]) -> dict:
                          for p in ps]}
 
 
-def result_events(r: CampaignResult) -> list[StageEvent]:
+def result_events(r: CampaignResult, t: Tuning) -> list[StageEvent]:
     """Stage events for an already-computed result (used to replay cached samples)."""
     ev: list[StageEvent] = []
     if r.brief:
@@ -68,7 +69,7 @@ def result_events(r: CampaignResult) -> list[StageEvent]:
     if r.gate:
         ev.append(StageEvent(stage="gate", data=r.gate.model_dump()))
     if r.publishers:
-        ev.append(StageEvent(stage="publishers", data=_pub_data(r.publishers, r.outcome)))
+        ev.append(StageEvent(stage="publishers", data=_pub_data(r.publishers, t, r.outcome)))
     if r.personas:
         ev.append(StageEvent(stage="personas", data=_persona_data(r.personas)))
     ev.append(StageEvent(stage="done", data=r.model_dump()))
@@ -111,7 +112,7 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
 
     if g.outcome == "out_of_scope":
         excluded = [s.model_copy(update={"recommended": False, "stretch": False}) for s in scored]
-        yield StageEvent(stage="publishers", data=_pub_data(excluded))
+        yield StageEvent(stage="publishers", data=_pub_data(excluded, t))
         yield StageEvent(stage="done", data=result(
             "out_of_scope", msg_out_of_scope(brief.product, brief.audience_type), publishers=excluded).model_dump())
         return
@@ -119,10 +120,10 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
     persona_scores = score_personas(brief, catalog, t)
 
     if g.outcome == "clarify":
-        yield StageEvent(stage="publishers", data=_pub_data(scored, "clarify"))
+        yield StageEvent(stage="publishers", data=_pub_data(scored, t, "clarify"))
         top = select_personas(persona_scores, t)[:1]
         yield StageEvent(stage="personas", data=_persona_data(top))
-        questions = clarify_questions(text, brief, llm, catalog)
+        questions = clarify_questions(text, brief, llm, catalog, t)
         yield StageEvent(stage="done", data=result(
             "clarify", None, publishers=scored, personas=top, clarify=questions).model_dump())
         return
@@ -130,7 +131,7 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
     weak = is_weak_fit(scored, t)
     if weak:
         scored = mark_stretch(scored, t)
-    yield StageEvent(stage="publishers", data=_pub_data(scored))
+    yield StageEvent(stage="publishers", data=_pub_data(scored, t))
     personas = select_personas(persona_scores, t)
     yield StageEvent(stage="personas", data=_persona_data(personas))
     outcome = "weak_fit" if weak else "proceed"

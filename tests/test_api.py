@@ -167,7 +167,7 @@ def _cache_sample(llm, tmp_path, monkeypatch, text="We sell dog food"):
         stage1=full.model_copy(update={"creatives": [], "config": None}),
         creatives=full.creatives, config=full.config)], path)
     monkeypatch.setattr(samples_mod, "CACHE", path)
-    monkeypatch.setattr(api, "REPLAY_DELAY_S", 0)
+    monkeypatch.setattr(T.api, "replay_delay_s", 0)
     return full
 
 
@@ -231,7 +231,7 @@ def test_replay_mirrors_live(over):
     from tests.test_pipeline import fake
     llm = fake(**over)
     live = list(run_stage1("dog food", None, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T))
-    replay = result_events(collect(iter(live)))
+    replay = result_events(collect(iter(live)), T)
     assert [(e.stage, e.data) for e in replay] == [(e.stage, e.data) for e in live]
 
 
@@ -260,7 +260,7 @@ class _Boom:
 def test_cached_sample_skips_llm(monkeypatch):
     """The committed cache serves sample #1's stage 1 and creatives even when the LLM provider
     always raises; stage 3 is code."""
-    monkeypatch.setattr(api, "REPLAY_DELAY_S", 0)
+    monkeypatch.setattr(T.api, "replay_delay_s", 0)
     api.app.dependency_overrides[api.get_llm] = lambda: _Boom()
     try:
         c = TestClient(api.app)

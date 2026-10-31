@@ -46,6 +46,16 @@ def feedback(key: str, /, *, prompts_dir: Path = _DEFAULT_DIR, **slots) -> str:
     return _feedback_templates(Path(prompts_dir))[key].format_map(slots)
 
 
+def category_word(category: str, /, *, prompts_dir: Path = _DEFAULT_DIR) -> str:
+    """A publisher category as the models read it (prompts/category_words.yaml)."""
+    return _category_words(Path(prompts_dir)).get(category, category.replace("_", " "))
+
+
+@lru_cache(maxsize=8)
+def _category_words(prompts_dir: Path) -> dict[str, str]:
+    return yaml.safe_load((prompts_dir / "category_words.yaml").read_text(encoding="utf-8")) or {}
+
+
 @lru_cache(maxsize=8)
 def _feedback_templates(prompts_dir: Path) -> dict[str, str]:
     """creative_feedback.yaml, parsed once per directory (it is read on every check message)."""

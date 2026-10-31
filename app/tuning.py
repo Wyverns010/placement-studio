@@ -149,6 +149,25 @@ class AudienceTuning(BaseModel):
     age_ceiling: int
 
 
+class ClarifyTuning(BaseModel):
+    max_questions: int
+    max_options: int
+    min_options: int
+
+
+class Stage1Tuning(BaseModel):
+    top_publishers_shown: int
+    clarify_publishers_shown: int
+
+
+class ApiTuning(BaseModel):
+    replay_delay_s: float
+
+
+class LLMTuning(BaseModel):
+    timeout_s: float
+
+
 class RateLimitTuning(BaseModel):
     per_client_runs: int
     per_client_window_s: float
@@ -169,7 +188,14 @@ class Tuning(BaseModel):
     input: InputTuning
     audience: AudienceTuning
     ratelimit: RateLimitTuning
+    clarify: ClarifyTuning
+    stage1: Stage1Tuning
+    api: ApiTuning
+    llm: LLMTuning
 
 
-def load_tuning(path: Path = Path("config/tuning.yaml")) -> Tuning:
+DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config/tuning.yaml"
+
+
+def load_tuning(path: Path = DEFAULT_PATH) -> Tuning:
     return Tuning(**yaml.safe_load(Path(path).read_text()))
