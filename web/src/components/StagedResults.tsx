@@ -43,6 +43,9 @@ export default function StagedResults({
   const [cardError, setCardError] = useState<Record<string, StageErr | undefined>>({})
   const [configBusy, setConfigBusy] = useState(false)
   const [configError, setConfigError] = useState<StageErr | null>(null)
+  // The budget stage 3 is built at: the landing value at first, then whatever the user last
+  // applied on step 3 (kept when the config is rebuilt after a regenerate).
+  const [budgetChoice, setBudgetChoice] = useState<number | null>(result.budget_usd ?? null)
 
   // Abort whatever is in flight when this result goes away (new run, back home, unmount).
   const inflight = useRef(new Set<AbortController>())
@@ -53,7 +56,7 @@ export default function StagedResults({
   const track = () => {
     const c = new AbortController()
     inflight.current.add(c)
-    return { signal: c.signal, done: () => inflight.current.delete(c) }
+    return { signal: c.signal, abort: () => c.abort(), done: () => inflight.current.delete(c) }
   }
 
   // Move focus to the step heading on step changes (not on first render).
@@ -78,8 +81,29 @@ export default function StagedResults({
   }
   const anyCardBusy = Object.values(cardBusy).some(Boolean)
 
+  /**
+   * One config request at a time. Starting a new one, regenerating, or leaving step 3 aborts the
+   * current one and bumps the version, so a late response can't re-set a config that was cleared
+   * or replaced.
+   */
+  const configReq = useRef<{ ver: number; abort: (() => void) | null }>({ ver: 0, abort: null })
+  const cancelConfig = () => {
+    configReq.current.abort?.()
+    configReq.current = { ver: configReq.current.ver + 1, abort: null }
+    setConfigBusy(false)
+    setPending((p) => (p === 'config' ? null : p))
+  }
+  const startConfig = () => {
+    cancelConfig()
+    const t = track()
+    const ver = configReq.current.ver
+    configReq.current.abort = t.abort
+    return { ...t, current: () => configReq.current.ver === ver }
+  }
+
   const goTo = (s: Step) => {
     setStepError(null)
+    if (s !== step && step === 'config') cancelConfig()
     setStep(s)
   }
 
@@ -103,15 +127,18 @@ export default function StagedResults({
   async function regenerate(personaId: string, note: string): Promise<boolean> {
     if (!creatives) return false
     const t = track()
+    cancelConfig() // a config built now would describe the old ad
     setCardBusy((b) => ({ ...b, [personaId]: true }))
     setCardError((e) => ({ ...e, [personaId]: undefined }))
     try {
       const fresh = await regenerateCreative({ ...stage, creatives }, personaId, note, t.signal)
       setCreatives((cs) => (cs ?? []).map((c) => (c.persona_id === personaId ? fresh : c)))
       // The approved set changed: the config no longer matches it.
+      cancelConfig()
       setConfig(null)
       setConfigError(null)
-      setStep('creatives')
+      // Step 3 is locked while a card is busy, so the user is on step 1 or 2: stay there.
+      setStep((s) => (s === 'config' ? 'creatives' : s))
       return true
     } catch (err) {
       if (!isAbort(err)) setCardError((e) => ({ ...e, [personaId]: toStageErr(err) }))
@@ -125,43 +152,52 @@ export default function StagedResults({
   async function approve() {
     if (!creatives) return
     if (config) return goTo('config')
-    const t = track()
+    const t = startConfig()
     setPending('config')
     setStepError(null)
     try {
-      const out = await buildConfig({ ...stage, creatives }, result.budget_usd ?? null, t.signal)
+      const out = await buildConfig({ ...stage, creatives }, budgetChoice, t.signal)
+      if (!t.current()) return
       setConfig(out)
       setConfigError(null)
       setStep('config')
     } catch (err) {
-      if (!isAbort(err)) setStepError(toStageErr(err))
+      if (t.current() && !isAbort(err)) setStepError(toStageErr(err))
     } finally {
       t.done()
-      if (!t.signal.aborted) setPending(null)
+      if (t.current()) setPending(null)
     }
   }
 
   /** Re-requests stage 3 at `budget` (null = the recommendation). Keeps the old config on failure. */
   async function updateBudget(budget: number | null) {
     if (!creatives) return
-    const t = track()
+    const t = startConfig()
     setConfigBusy(true)
     setConfigError(null)
     try {
-      setConfig(await buildConfig({ ...stage, creatives }, budget, t.signal))
+      const out = await buildConfig({ ...stage, creatives }, budget, t.signal)
+      if (!t.current()) return
+      setConfig(out)
+      setBudgetChoice(budget)
     } catch (err) {
-      if (!isAbort(err)) setConfigError(toStageErr(err))
+      if (t.current() && !isAbort(err)) setConfigError(toStageErr(err))
     } finally {
       t.done()
-      if (!t.signal.aborted) setConfigBusy(false)
+      if (t.current()) setConfigBusy(false)
     }
   }
 
   const recCount = result.publishers.filter((p) => p.recommended).length
   const steps: StepDef<Step>[] = [
     { id: 'publishers', label: 'Publishers & personas', enabled: true },
-    { id: 'creatives', label: 'Creatives', enabled: !!creatives },
-    { id: 'config', label: 'Campaign config', enabled: !!config && !anyCardBusy },
+    { id: 'creatives', label: 'Creatives', enabled: !!creatives, hint: 'Write the ads first.' },
+    {
+      id: 'config',
+      label: 'Campaign config',
+      enabled: !!config && !anyCardBusy,
+      hint: anyCardBusy ? 'Wait for the ad to finish rewriting.' : 'Approve creatives first.',
+    },
   ]
   const testBudget = config?.budget.test_budget === true ? config.budget.monthly_usd : undefined
 

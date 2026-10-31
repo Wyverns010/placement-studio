@@ -74,6 +74,8 @@ export interface LineItem {
   share: number
   budget_usd: number
   creative_id: string | null
+  /** More ads rotating on this line item (when personas outnumber publishers); may be absent. */
+  extra_creative_ids?: string[]
 }
 
 export type Pacing = 'front_loaded' | 'even' | 'accelerated'

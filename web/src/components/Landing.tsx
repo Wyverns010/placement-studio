@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { CampaignResult, Sample, StreamPartial } from '../types'
-import { budgetProblem, formatBudget, parseOptionalBudget } from '../format'
+import { parseBudgetInput } from '../format'
 import ReadingPanel from './ReadingPanel'
 import { Busy } from './ui'
 
@@ -9,14 +9,14 @@ const MAX_CHARS = 1500 // matches input.max_chars in config/tuning.yaml
 interface Props {
   samples: Sample[]
   text: string
-  /** null = blank: use the recommended budget. */
-  budget: number | null
+  /** Raw budget text; blank = use the recommended budget. */
+  budget: string
   running: boolean
   error: string | null
   lastResult: CampaignResult | null
   partial: StreamPartial
   onTextChange: (t: string) => void
-  onBudgetChange: (n: number | null) => void
+  onBudgetChange: (s: string) => void
   onRun: () => void
   onPickSample: (s: Sample) => void
 }
@@ -24,7 +24,8 @@ interface Props {
 export default function Landing(p: Props) {
   const [showAll, setShowAll] = useState(false)
   const visible = showAll ? p.samples : p.samples.slice(0, 8)
-  const budgetError = budgetProblem(p.budget)
+  const parsed = parseBudgetInput(p.budget)
+  const budgetError = parsed.ok ? null : parsed.error
   const canRun = !p.running && p.text.trim().length > 0 && !budgetError
 
   return (
@@ -85,8 +86,8 @@ export default function Landing(p: Props) {
                     aria-invalid={budgetError ? true : undefined}
                     inputMode="numeric"
                     placeholder="Optional"
-                    value={formatBudget(p.budget)}
-                    onChange={(e) => p.onBudgetChange(parseOptionalBudget(e.target.value))}
+                    value={p.budget}
+                    onChange={(e) => p.onBudgetChange(e.target.value)}
                     className="w-[84px] border-0 bg-transparent pl-0.5 font-[inherit] text-[13px] outline-none placeholder:font-normal placeholder:text-muted"
                   />
                 </span>

@@ -9,7 +9,7 @@ function setup(text: string) {
     <Landing
       samples={[]}
       text={text}
-      budget={25000}
+      budget=""
       running={false}
       error={null}
       lastResult={null}

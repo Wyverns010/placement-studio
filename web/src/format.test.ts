@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetProblem, formatBudget, humanise, jsonHighlight, parseOptionalBudget, pct, usd } from './format'
+import { budgetProblem, formatBudget, humanise, jsonHighlight, parseBudgetInput, pct, usd } from './format'
 
 describe('usd / pct', () => {
   it('formats dollars with separators', () => {
@@ -51,11 +51,23 @@ describe('humanise', () => {
 })
 
 describe('optional budget', () => {
-  it('blank means use the recommendation; digits are parsed', () => {
-    expect(parseOptionalBudget('')).toBeNull()
-    expect(parseOptionalBudget('  ')).toBeNull()
-    expect(parseOptionalBudget('$12,000')).toBe(12000)
-    expect(parseOptionalBudget('0')).toBe(0)
+  it('blank means use the recommendation; $, commas and spaces are ignored', () => {
+    expect(parseBudgetInput('')).toEqual({ ok: true, value: null })
+    expect(parseBudgetInput('  ')).toEqual({ ok: true, value: null })
+    expect(parseBudgetInput('$5,000')).toEqual({ ok: true, value: 5000 })
+    expect(parseBudgetInput('12,000.00')).toEqual({ ok: true, value: 12000 })
+    expect(parseBudgetInput(' 12 000 ')).toEqual({ ok: true, value: 12000 })
+  })
+  it('rounds to whole dollars', () => {
+    expect(parseBudgetInput('5000.5')).toEqual({ ok: true, value: 5001 })
+    expect(parseBudgetInput('5000.4')).toEqual({ ok: true, value: 5000 })
+  })
+  it('rejects exponents, junk, out-of-range and huge values', () => {
+    for (const bad of ['1e3', '12abc', '-5000', '5.000.0', '0', '100', '999999999999999999999', '9'.repeat(400)]) {
+      expect(parseBudgetInput(bad).ok, bad).toBe(false)
+    }
+    expect(parseBudgetInput('999999999999999999999')).toMatchObject({ error: expect.stringMatching(/between \$500 and \$5,000,000/) })
+    expect(parseBudgetInput('1e3')).toMatchObject({ error: expect.stringMatching(/dollar amount/) })
   })
   it('formats with separators and keeps 0 visible', () => {
     expect(formatBudget(null)).toBe('')

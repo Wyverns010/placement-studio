@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { budgetProblem, formatBudget, humanise, parseOptionalBudget, usd } from '../format'
+import { formatBudget, humanise, parseBudgetInput, usd } from '../format'
 import type { CampaignConfig, Creative, PersonaScore, PublisherScore } from '../types'
 import ConfigTab from './ConfigTab'
 import { Busy, StageError, type StageErr } from './ui'
@@ -41,15 +41,18 @@ export default function ConfigStep({
   const monthly = num(b.monthly_usd)
   const recommended = num(b.recommended_usd)
   const isUser = b.source === 'user'
-  const [value, setValue] = useState<number | null>(monthly)
+  const [text, setText] = useState(formatBudget(monthly))
   // Re-sync the field whenever a new config arrives (state derived from props, no effect).
   const [seen, setSeen] = useState(config)
   if (seen !== config) {
     setSeen(config)
-    setValue(monthly)
+    setText(formatBudget(monthly))
   }
-  const problem = budgetProblem(value)
-  const changed = value != null && value !== monthly
+  const parsed = parseBudgetInput(text)
+  const problem = parsed.ok ? null : parsed.error
+  const value = parsed.ok ? parsed.value : null
+  // Blank means "use the recommendation" (budget omitted); otherwise only a changed amount.
+  const canUpdate = parsed.ok && (value == null || value !== monthly)
   const basis = budgetBasis(config.rationales?.budget)
 
   return (
@@ -58,7 +61,7 @@ export default function ConfigStep({
         className="mb-5 rounded-2xl border border-line bg-white px-[18px] py-4"
         onSubmit={(e) => {
           e.preventDefault()
-          if (!busy && !problem && value != null) onBudget(value)
+          if (!busy && canUpdate) onBudget(value)
         }}
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -75,13 +78,14 @@ export default function ConfigStep({
                 aria-invalid={problem ? true : undefined}
                 aria-describedby="config-budget-basis"
                 inputMode="numeric"
-                value={formatBudget(value)}
-                onChange={(e) => setValue(parseOptionalBudget(e.target.value))}
+                placeholder="Recommended"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
                 className="w-[96px] border-0 bg-transparent pl-0.5 font-[inherit] outline-none"
               />
             </span>
           </label>
-          <button type="submit" className="pill pill-sm" disabled={busy || !!problem || value == null || !changed}>
+          <button type="submit" className="pill pill-sm" disabled={busy || !canUpdate}>
             {busy ? <Busy label="Updating…" /> : 'Update'}
           </button>
           <span

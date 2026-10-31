@@ -139,11 +139,15 @@ export default function ConfigFormatted({
       <Row label="Creative rotation" rkey="line_items" config={config}>
         <div className="space-y-1">
           {config.line_items.map((li) => {
-            const cr = creatives.find((c) => c.creative_id === li.creative_id)
+            const ids = [li.creative_id, ...(Array.isArray(li.extra_creative_ids) ? li.extra_creative_ids : [])]
+            const names = ids
+              .map((id) => creatives.find((c) => c.creative_id === id))
+              .filter((c): c is Creative => !!c)
+              .map((c) => personaName(c.persona_id))
             return (
               <div key={li.publisher_id}>
                 <b className="font-semibold">{pubName(li.publisher_id)}</b>
-                <span className="text-muted"> → {cr ? personaName(cr.persona_id) : 'no creative'}</span>
+                <span className="text-muted"> → {names.length ? names.join(', ') : 'no creative'}</span>
               </div>
             )
           })}

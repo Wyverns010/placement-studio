@@ -65,10 +65,22 @@ export function humanise(s: string): string {
 export const BUDGET_MIN = 500
 export const BUDGET_MAX = 5_000_000
 
-/** Parses a typed budget: blank → null (use the recommendation), else the whole dollars. */
-export function parseOptionalBudget(s: string): number | null {
-  const digits = s.replace(/[^\d]/g, '')
-  return digits ? Number(digits) : null
+export type BudgetParse = { ok: true; value: number | null } | { ok: false; error: string }
+
+/**
+ * Parses a typed monthly budget. Blank → null (use the recommendation). Only "$", commas and
+ * spaces are ignored; anything else must be a plain decimal number ("12,000.00", "$5,000",
+ * "5000.5" → 5001). Exponents, other characters and out-of-range values are errors.
+ */
+export function parseBudgetInput(s: string): BudgetParse {
+  const t = s.replace(/[$,\s]/g, '')
+  if (!t) return { ok: true, value: null }
+  if (!/^\d+(\.\d+)?$/.test(t)) return { ok: false, error: 'Enter a dollar amount, like 12,000.' }
+  const n = Number(t)
+  if (!Number.isFinite(n)) return { ok: false, error: budgetProblem(Infinity)! }
+  const value = Math.round(n)
+  const problem = budgetProblem(value)
+  return problem ? { ok: false, error: problem } : { ok: true, value }
 }
 
 /** A user-facing problem with a typed budget, or null when it is blank or in range. */

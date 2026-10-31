@@ -72,6 +72,32 @@ describe('ConfigTab', () => {
     expect(screen.getByText('Your budget')).toBeInTheDocument()
   })
 
+  it('lists extra rotating creatives on a line item, tolerating their absence', () => {
+    const c = {
+      ...config,
+      line_items: [
+        { ...config.line_items[0], extra_creative_ids: ['cr2'] },
+        config.line_items[1],
+      ],
+    }
+    const mk = (id: string, persona: string): Creative => ({
+      creative_id: id, persona_id: persona, publisher_id: 'pub_a', headline: 'h', body: 'b', cta: 'c', why: 'w', fact_violations: [],
+    })
+    render(
+      <ConfigTab
+        config={c}
+        publishers={[pub('pub_a', 'Pawline', 0.8, true), pub('pub_b', 'Ruffco', 0.7, true)]}
+        personas={[
+          { persona_id: 'p1', name: 'Pet Parent', fit: 0.9, factors: [], stretch: false },
+          { persona_id: 'p2', name: 'Busy Parent', fit: 0.8, factors: [], stretch: false },
+        ]}
+        creatives={[mk('cr1', 'p1'), mk('cr2', 'p2')]}
+      />,
+    )
+    expect(screen.getByText('→ Pet Parent, Busy Parent', { exact: false })).toBeInTheDocument()
+    expect(screen.getByText('→ no creative', { exact: false })).toBeInTheDocument()
+  })
+
   it('puts rationales in a title tooltip', () => {
     render(<ConfigTab config={config} />)
     expect(screen.getByTitle('65% of $64 order value')).toHaveTextContent('Bid strategy')

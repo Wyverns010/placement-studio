@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSamples, streamCampaign } from './api'
+import { parseBudgetInput } from './format'
 import Landing from './components/Landing'
 import Nav from './components/Nav'
 import Results from './components/Results'
@@ -25,11 +26,17 @@ function withBudget(req: CampaignRequest, b: number | null): CampaignRequest {
   return b != null ? { ...req, budget_usd: b } : req
 }
 
+/** The typed budget, or null when blank or invalid (Landing blocks running with an invalid one). */
+function budgetValue(raw: string): number | null {
+  const p = parseBudgetInput(raw)
+  return p.ok ? p.value : null
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>({ view: 'landing', runId: 0, running: false, partial: {} })
   const [samples, setSamples] = useState<Sample[]>([])
   const [text, setText] = useState('')
-  const [budget, setBudget] = useState<number | null>(null) // blank = use the recommendation
+  const [budget, setBudget] = useState('') // raw text; blank = use the recommendation
   const [error, setError] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<CampaignResult | null>(null)
   const edited = useRef(false)
@@ -153,7 +160,7 @@ export default function App() {
   const pickSample = (s: Sample) => {
     edited.current = true
     setText(s.text)
-    run(s.text, budget)
+    run(s.text, budgetValue(budget))
   }
 
   viewRef.current = state.view
@@ -195,7 +202,7 @@ export default function App() {
             setText(t)
           }}
           onBudgetChange={setBudget}
-          onRun={() => run(text, budget)}
+          onRun={() => run(text, budgetValue(budget))}
           onPickSample={pickSample}
         />
       )}

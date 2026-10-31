@@ -90,8 +90,7 @@ describe('Landing', () => {
     const user = userEvent.setup()
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
-    await user.type(screen.getByLabelText('Monthly budget in USD'), '12000')
-    expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('12,000')
+    await user.type(screen.getByLabelText('Monthly budget in USD'), '$12,000.00')
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
     expect(runCampaign).toHaveBeenCalledWith({ text: samples[0].text, budget_usd: 12000 })
   })
@@ -145,6 +144,11 @@ describe('Landing', () => {
     expect(screen.getByText(/between \$500 and \$5,000,000/)).toBeInTheDocument()
     await user.clear(input)
     expect(screen.getByRole('button', { name: /build campaign/i })).toBeEnabled()
+    await user.type(input, '1e3')
+    expect(screen.getByRole('button', { name: /build campaign/i })).toBeDisabled()
+    await user.clear(input)
+    await user.type(input, '999999999999999999999')
+    expect(screen.getByText(/between \$500 and \$5,000,000/)).toBeInTheDocument()
   })
 
   it('disables the button and shows reading state while running', async () => {
