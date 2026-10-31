@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Brief, CampaignResult, Outcome, StreamPartial } from '../types'
 import { clamp01, tierLabel, titleCase } from '../format'
+import { AgentTicker } from './AgentUi'
 import { Chips, ThresholdBar } from './ui'
 
 export const VIOLET = 'linear-gradient(90deg,#c4b5fd,#7c3aed)'
@@ -158,6 +159,8 @@ export default function ReadingPanel({ result: last, partial = {}, running = fal
           {live ? (partial.done ? 'done' : 'reading…') : result ? 'last campaign' : 'updates as it runs'}
         </small>
       </div>
+
+      {live && <AgentTicker trace={partial.agent} />}
 
       <div className="rounded-[14px] bg-[#f3effa] p-3.5">
         <Lane label="Understood">

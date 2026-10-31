@@ -1,4 +1,5 @@
-import type { CampaignResult, Sample } from '../types'
+import type { CampaignResult, Sample, StreamPartial } from '../types'
+import { AgentTicker } from './AgentUi'
 import ClarifyView from './ClarifyView'
 import OutOfScopeView from './OutOfScopeView'
 import OutcomeBanner from './OutcomeBanner'
@@ -18,6 +19,12 @@ interface Props {
   onRebuild?: (answers: Record<string, string>) => void
   running?: boolean
   rebuildError?: string | null
+  /** Re-runs stage 1 with the same text/answers plus a steer for the strategist agent. */
+  onSteer?: (steer: string) => void
+  /** The steer the shown result was produced with. */
+  steer?: string
+  /** Live stage events of a re-run (for the agent ticker). */
+  partial?: StreamPartial
 }
 
 export default function Results({
@@ -30,6 +37,9 @@ export default function Results({
   onRebuild = () => {},
   running = false,
   rebuildError = null,
+  onSteer,
+  steer = '',
+  partial,
 }: Props) {
   if (result.outcome !== 'proceed' && result.outcome !== 'weak_fit') {
     return (
@@ -74,7 +84,14 @@ export default function Results({
           <Busy label="Running your campaign again…" />
         </p>
       )}
-      <StagedResults result={result} onRerun={running ? undefined : onRerun} />
+      {running && <AgentTicker trace={partial?.agent} />}
+      <StagedResults
+        result={result}
+        onRerun={running ? undefined : onRerun}
+        onSteer={onSteer}
+        initialSteer={steer}
+        running={running}
+      />
     </section>
   )
 }

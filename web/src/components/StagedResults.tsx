@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, buildConfig, createCreatives, regenerateCreative } from '../api'
 import { usd } from '../format'
-import type { CampaignConfig, CampaignResult, Creative, StagePayload } from '../types'
+import type { CampaignConfig, CampaignResult, Creative, StagePayload, StepMeta } from '../types'
+import { AgentPanel, AgentSteer } from './AgentUi'
 import ConfigStep from './ConfigStep'
 import OutcomeBanner from './OutcomeBanner'
 import PersonasTab from './PersonasTab'
@@ -30,9 +31,17 @@ const isAbort = (err: unknown) => err instanceof Error && err.name === 'AbortErr
 export default function StagedResults({
   result,
   onRerun,
+  onSteer,
+  initialSteer = '',
+  running = false,
 }: {
   result: CampaignResult
   onRerun?: () => void
+  /** Re-runs stage 1 with a steer (App owns it; omit to hide the step-1 box). */
+  onSteer?: (steer: string) => void
+  /** The steer this stage-1 result was produced with. */
+  initialSteer?: string
+  running?: boolean
 }) {
   const [step, setStep] = useState<Step>('publishers')
   const [creatives, setCreatives] = useState<Creative[] | null>(null)
@@ -47,6 +56,13 @@ export default function StagedResults({
   const [approveWarning, setApproveWarning] = useState<string | null>(null)
   // The budget stage 3 is built at: the landing value at first, then whatever the user last
   // applied on step 3 (kept when the config is rebuilt after a regenerate).
+  // Steer boxes (text) and what each step's agent did. Mounted fresh per stage-1 result, so a new
+  // campaign (or a step-1 re-run) starts with empty ones for steps 2 and 3.
+  const [steer1, setSteer1] = useState(initialSteer)
+  const [steer2, setSteer2] = useState('')
+  const [steer3, setSteer3] = useState('')
+  const [meta2, setMeta2] = useState<StepMeta | undefined>()
+  const [meta3, setMeta3] = useState<StepMeta | undefined>()
   const [budgetChoice, setBudgetChoice] = useState<number | null>(result.budget_usd ?? null)
 
   // Abort whatever is in flight when this result goes away (new run, back home, unmount).
@@ -109,13 +125,24 @@ export default function StagedResults({
     setStep(s)
   }
 
-  async function writeAds() {
-    if (creatives) return goTo('creatives')
+  const withSteer = (text: string): StagePayload => (text ? { ...stage, steer: text } : stage)
+
+  /** Requests the ads (step 2); with a steer it re-writes them and drops any config built from the old ones. */
+  async function writeAds(steer = '') {
+    if (creatives && !steer) return goTo('creatives')
     const t = track()
     setPending('creatives')
     setStepError(null)
+    setMeta2(undefined)
     try {
-      const out = await createCreatives(stage, t.signal)
+      const out = await createCreatives(withSteer(steer), t.signal, setMeta2)
+      if (steer) {
+        cancelConfig()
+        setConfig(null)
+        setConfigError(null)
+        setApproveWarning(null)
+        setMeta3(undefined)
+      }
       setCreatives(out)
       setStep('creatives')
     } catch (err) {
@@ -138,6 +165,7 @@ export default function StagedResults({
       // The approved set changed: the config no longer matches it.
       cancelConfig()
       setConfig(null)
+      setMeta3(undefined)
       setConfigError(null)
       setApproveWarning(null)
       // Step 3 is locked while a card is busy, so the user is on step 1 or 2: stay there.
@@ -159,7 +187,8 @@ export default function StagedResults({
     setPending('config')
     setStepError(null)
     try {
-      const out = await buildConfig({ ...stage, creatives }, budgetChoice, t.signal)
+      setMeta3(undefined)
+      const out = await buildConfig({ ...stage, creatives }, budgetChoice, t.signal, setMeta3)
       if (!t.current()) return
       setConfig(out)
       setApproveWarning(flagWarning(creatives, result.personas))
@@ -174,13 +203,13 @@ export default function StagedResults({
   }
 
   /** Re-requests stage 3 at `budget` (null = the recommendation). Keeps the old config on failure. */
-  async function updateBudget(budget: number | null) {
+  async function updateBudget(budget: number | null, steer = '') {
     if (!creatives) return
     const t = startConfig()
     setConfigBusy(true)
     setConfigError(null)
     try {
-      const out = await buildConfig({ ...stage, creatives }, budget, t.signal)
+      const out = await buildConfig({ ...withSteer(steer), creatives }, budget, t.signal, steer ? setMeta3 : undefined)
       if (!t.current()) return
       setConfig(out)
       setBudgetChoice(budget)
@@ -236,6 +265,20 @@ export default function StagedResults({
             title={`${recCount} publisher${recCount === 1 ? '' : 's'} and ${result.personas.length} persona${result.personas.length === 1 ? '' : 's'}`}
             sub="Where your ads will run and who they're written for."
           />
+          {onSteer && (
+            <AgentSteer
+              placeholder="Skip pet stores"
+              value={steer1}
+              onChange={setSteer1}
+              onApply={onSteer}
+              busy={running}
+              allowBlank={!!initialSteer}
+            />
+          )}
+          <AgentPanel
+            className="mb-5"
+            meta={{ mode: result.mode, agent_trace: result.agent_trace, agent_notes: result.agent_notes }}
+          />
           <PublishersTab publishers={result.publishers} config={config} />
           <h4 className="m-0 mt-8 mb-3 text-[13px] font-semibold tracking-[0.06em] text-muted uppercase">
             Personas · {result.personas.length}
@@ -246,7 +289,7 @@ export default function StagedResults({
               type="button"
               className="pill pill-primary"
               disabled={pending === 'creatives' || recCount === 0 || result.personas.length === 0}
-              onClick={writeAds}
+              onClick={() => writeAds()}
             >
               {pending === 'creatives' ? <Busy label="Writing ads…" /> : 'Write ads for these publishers →'}
             </button>
@@ -264,6 +307,16 @@ export default function StagedResults({
             title="Review the ads"
             sub="One ad per persona, each written for one publisher; publishers without their own ad reuse one (the config says which). Regenerate any you'd change — add a note to steer it."
           />
+          <AgentSteer
+            placeholder="Make them more playful"
+            value={steer2}
+            onChange={setSteer2}
+            onApply={(t) => writeAds(t)}
+            busy={pending === 'creatives'}
+            disabled={pending === 'config' || anyCardBusy}
+          />
+          {errorBlock}
+          <AgentPanel className="mb-5" meta={meta2} />
           <PersonasTab
             personas={result.personas}
             creatives={creatives}
@@ -293,7 +346,6 @@ export default function StagedResults({
               {pending === 'config' ? <Busy label="Building config…" /> : 'Approve creatives & build config →'}
             </button>
           </StepActions>
-          {errorBlock}
         </section>
       )}
 
@@ -311,6 +363,14 @@ export default function StagedResults({
               {approveWarning}
             </p>
           )}
+          <AgentSteer
+            placeholder="Keep it under $5,000"
+            value={steer3}
+            onChange={setSteer3}
+            onApply={(t) => updateBudget(budgetChoice, t)}
+            busy={configBusy}
+          />
+          <AgentPanel className="mb-5" meta={meta3} />
           <ConfigStep
             config={config}
             publishers={result.publishers}

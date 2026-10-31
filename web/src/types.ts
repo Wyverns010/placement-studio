@@ -120,9 +120,35 @@ export interface CampaignResult {
   config: CampaignConfig | null
   /** Signs the stage-1 result; sent back with every stage-2/3 request (403 if it changed or expired). */
   stage_token?: string | null
+  /** Step-agent extras (outside the signed token): how this result was produced. */
+  mode?: AgentMode
+  agent_trace?: AgentTraceEntry[]
+  agent_notes?: string[]
 }
 
+export type AgentMode = 'agent' | 'fallback' | 'cached' | 'code'
+
+/** One tool call by a step agent. */
+export interface AgentTraceEntry {
+  agent: string
+  tool: string
+  args_summary?: string
+  result_summary?: string
+  ms?: number
+}
+
+/** What a step agent did (stage 1 result, /api/creatives, /api/config responses). */
+export interface StepMeta {
+  mode?: AgentMode
+  agent_trace?: AgentTraceEntry[]
+  agent_notes?: string[]
+}
+
+/** Longest steer the backend accepts (`agents.steer_max_chars`). */
+export const STEER_MAX = 300
+
 export type StageName =
+  | 'agent'
   | 'understood'
   | 'gate'
   | 'publishers'
@@ -146,6 +172,8 @@ export interface CampaignRequest {
   /** Omit (or null) to use the recommended budget. */
   budget_usd?: number | null
   answers?: Record<string, string>
+  /** Optional free-text note for the strategist agent (≤ 300 chars). */
+  steer?: string
 }
 
 /** Stage payloads received so far while a live run streams in. */
@@ -154,6 +182,8 @@ export interface StreamPartial {
   gate?: GateResult
   publishers?: { recommended: string[]; top: { id: string; name: string; fit: number }[] }
   personas?: { selected: { id: string; name: string; fit: number; stretch: boolean }[] }
+  /** Agent tool calls received so far (SSE `agent` events). */
+  agent?: AgentTraceEntry[]
   done?: true
 }
 
@@ -165,6 +195,8 @@ export interface StagePayload {
   gate: GateResult
   publishers: PublisherScore[]
   personas: PersonaScore[]
+  /** Optional free-text note for the step's agent (≤ 300 chars); sent only when set. */
+  steer?: string
 }
 
 export interface RegeneratePayload extends StagePayload {

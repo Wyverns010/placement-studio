@@ -130,6 +130,20 @@ describe('streamCampaign', () => {
     expect(JSON.parse(u.searchParams.get('answers')!)).toEqual({ q: 'x' })
   })
 
+  it('sends the trimmed steer on the stream URL, and omits it when blank', () => {
+    streamCampaign({ text: 't', steer: '  skip pet stores ' }, () => {})
+    expect(new URL(FakeES.instances[0].url, 'http://x').searchParams.get('steer')).toBe('skip pet stores')
+    streamCampaign({ text: 't', steer: '  ' }, () => {})
+    expect(new URL(FakeES.instances[1].url, 'http://x').searchParams.has('steer')).toBe(false)
+  })
+
+  it('forwards agent events to onEvent', () => {
+    const events: unknown[] = []
+    streamCampaign({ text: 't' }, (e) => events.push(e))
+    FakeES.instances[0].emit('agent', { agent: 'strategist', tool: 'decide', ms: 0 })
+    expect(events).toEqual([{ stage: 'agent', data: { agent: 'strategist', tool: 'decide', ms: 0 } }])
+  })
+
   it('omits budget_usd from the stream URL when no budget was given', () => {
     streamCampaign({ text: 't' }, () => {})
     const u = new URL(FakeES.instances[0].url, 'http://x')
@@ -325,6 +339,13 @@ describe('stage 2 and 3 calls', () => {
     expect(init.method).toBe('POST')
     expect(JSON.parse(init.body)).toEqual(stage)
     expect(JSON.parse(init.body).stage_token).toBe('tok_1')
+  })
+
+  it('createCreatives passes mode, trace and notes to onMeta, and sends a steer in the body', async () => {
+    mockFetch(200, { creatives: [cr], mode: 'agent', agent_trace: [{ agent: 'copywriter', tool: 'x' }], agent_notes: ['n'] })
+    const onMeta = vi.fn()
+    await createCreatives({ ...stage, steer: 'more playful' }, undefined, onMeta)
+    expect(onMeta).toHaveBeenCalledWith({ mode: 'agent', agent_trace: [{ agent: 'copywriter', tool: 'x' }], agent_notes: ['n'] })
   })
 
   it('a 403 (changed or expired campaign) surfaces as ApiError 403 with the detail', async () => {

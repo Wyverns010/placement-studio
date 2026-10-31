@@ -266,6 +266,7 @@ describe('Staged results', () => {
       { ...stage1, gate: result.gate, creatives },
       null,
       expect.any(AbortSignal),
+      expect.any(Function),
     )
     expect(stepBtn(/campaign config/i)).toHaveAttribute('aria-current', 'step')
     expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('6,000')

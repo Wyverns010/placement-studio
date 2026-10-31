@@ -4,7 +4,7 @@ import { parseBudgetInput } from './format'
 import Landing from './components/Landing'
 import Nav from './components/Nav'
 import Results from './components/Results'
-import type { CampaignRequest, CampaignResult, Sample, StageEvent, StreamPartial } from './types'
+import type { AgentTraceEntry, CampaignRequest, CampaignResult, Sample, StageEvent, StreamPartial } from './types'
 
 export interface AppState {
   view: 'landing' | 'results'
@@ -26,6 +26,11 @@ function withBudget(req: CampaignRequest, b: number | null): CampaignRequest {
   return b != null ? { ...req, budget_usd: b } : req
 }
 
+/** Sends steer only when there is one. */
+function withSteer(req: CampaignRequest, steer: string): CampaignRequest {
+  return steer ? { ...req, steer } : req
+}
+
 /** The typed budget, or null when blank or invalid (Landing blocks running with an invalid one). */
 function budgetValue(raw: string): number | null {
   const p = parseBudgetInput(raw)
@@ -45,10 +50,12 @@ export default function App() {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const viewRef = useRef<AppState['view']>('landing')
   const [rebuildError, setRebuildError] = useState<string | null>(null)
-  const lastInput = useRef<{ text: string; budget: number | null; answers: Record<string, string> }>({
+  const [steer, setSteer] = useState('') // the strategist steer the shown result was built with
+  const lastInput = useRef<{ text: string; budget: number | null; answers: Record<string, string>; steer: string }>({
     text: '',
     budget: null,
     answers: {},
+    steer: '',
   })
 
   useEffect(() => {
@@ -96,6 +103,11 @@ export default function App() {
         } else if (e.stage === 'done') {
           cancelStream.current = null
           onDone(e.data as unknown as CampaignResult, my)
+        } else if (e.stage === 'agent') {
+          setState((s) => ({
+            ...s,
+            partial: { ...s.partial, agent: [...(s.partial.agent ?? []), e.data as unknown as AgentTraceEntry] },
+          }))
         } else {
           setState((s) => ({ ...s, partial: { ...s.partial, [e.stage]: e.data } as StreamPartial }))
         }
@@ -111,7 +123,9 @@ export default function App() {
       startStream(
         withBudget({ text: t }, b),
         (result, my) => {
-          lastInput.current = { text: t, budget: b, answers: {} }
+          // A new campaign starts without the previous campaign's steer.
+          lastInput.current = { text: t, budget: b, answers: {}, steer: '' }
+          setSteer('')
           setLastResult(result)
           const show = () =>
             setState((s) => ({ view: 'results', result, displayText: t, runId: s.runId + 1, running: false, partial: {} }))
@@ -133,8 +147,9 @@ export default function App() {
   )
 
   const rebuild = useCallback(
-    (answers: Record<string, string>) => {
+    (answers: Record<string, string>, newSteer?: string) => {
       const { text: t, budget: b, answers: prior } = lastInput.current
+      const st = newSteer ?? lastInput.current.steer
       // Keep earlier answers (the backend caps at 5; drop the oldest first).
       const next = { ...prior }
       for (const [q, a] of Object.entries(answers)) {
@@ -143,9 +158,10 @@ export default function App() {
       }
       const merged = Object.fromEntries(Object.entries(next).slice(-5))
       startStream(
-        withBudget({ text: t, answers: merged }, b),
+        withSteer(withBudget({ text: t, answers: merged }, b), st),
         (result) => {
-          lastInput.current = { text: t, budget: b, answers: merged }
+          lastInput.current = { text: t, budget: b, answers: merged, steer: st }
+          setSteer(st)
           // The API echoes the text with answers appended: keep it (stages 2 and 3 need it
           // unchanged) and show what the user typed.
           setLastResult({ ...result, input_text: t })
@@ -185,6 +201,9 @@ export default function App() {
           onPickSample={pickSample}
           onRebuild={rebuild}
           onRerun={() => rebuild({})}
+          onSteer={(st) => rebuild({}, st)}
+          steer={steer}
+          partial={state.partial}
           running={state.running}
           rebuildError={rebuildError}
         />

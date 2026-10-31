@@ -9,6 +9,7 @@ import type {
   StageEvent,
   StageName,
   StagePayload,
+  StepMeta,
 } from './types'
 
 export class ApiError extends Error {
@@ -79,7 +80,7 @@ export const BAD_RESULT_MESSAGE = 'Something went wrong building this campaign.'
 export const TIMEOUT_MESSAGE = 'The AI service is taking too long — try again or pick a sample.'
 
 // Stage 1 only: creatives and config are separate requests (stages 2 and 3).
-const STAGES: StageName[] = ['understood', 'gate', 'publishers', 'personas', 'done']
+const STAGES: StageName[] = ['agent', 'understood', 'gate', 'publishers', 'personas', 'done']
 
 /**
  * Streams the pipeline over SSE (EventSource), one `onEvent` per stage, ending
@@ -106,6 +107,7 @@ export function streamCampaign(
   const params = new URLSearchParams({ text: req.text })
   if (req.budget_usd != null) params.set('budget_usd', String(req.budget_usd))
   if (req.answers && Object.keys(req.answers).length) params.set('answers', JSON.stringify(req.answers))
+  if (req.steer?.trim()) params.set('steer', req.steer.trim())
   const es = new EventSource(`/api/campaign/stream?${params.toString()}`)
 
   const finish = () => {
@@ -224,9 +226,20 @@ async function postStage<T>(url: string, body: unknown, signal?: AbortSignal): P
   }
 }
 
+const metaOf = (o: StepMeta): StepMeta => ({
+  mode: o.mode,
+  agent_trace: o.agent_trace,
+  agent_notes: o.agent_notes,
+})
+
 /** Stage 2: one ad per persona, placed on the recommended publishers. */
-export async function createCreatives(p: StagePayload, signal?: AbortSignal): Promise<Creative[]> {
-  const out = await postStage<{ creatives: Creative[] }>('/api/creatives', p, signal)
+export async function createCreatives(
+  p: StagePayload,
+  signal?: AbortSignal,
+  onMeta?: (m: StepMeta) => void,
+): Promise<Creative[]> {
+  const out = await postStage<{ creatives: Creative[] } & StepMeta>('/api/creatives', p, signal)
+  onMeta?.(metaOf(out))
   return out.creatives
 }
 
@@ -236,10 +249,12 @@ export async function regenerateCreative(
   personaId: string,
   note?: string,
   signal?: AbortSignal,
+  onMeta?: (m: StepMeta) => void,
 ): Promise<Creative> {
   const n = note?.trim()
   const body = { ...p, persona_id: personaId, ...(n ? { note: n } : {}) }
-  const out = await postStage<{ creative: Creative }>('/api/creatives/regenerate', body, signal)
+  const out = await postStage<{ creative: Creative } & StepMeta>('/api/creatives/regenerate', body, signal)
+  onMeta?.(metaOf(out))
   return out.creative
 }
 
@@ -248,8 +263,10 @@ export async function buildConfig(
   p: ConfigPayload,
   budgetUsd?: number | null,
   signal?: AbortSignal,
+  onMeta?: (m: StepMeta) => void,
 ): Promise<CampaignConfig> {
   const body = budgetUsd != null ? { ...p, budget_usd: budgetUsd } : p
-  const out = await postStage<{ config: CampaignConfig }>('/api/config', body, signal)
+  const out = await postStage<{ config: CampaignConfig } & StepMeta>('/api/config', body, signal)
+  onMeta?.(metaOf(out))
   return out.config
 }
