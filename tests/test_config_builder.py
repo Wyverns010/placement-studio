@@ -168,6 +168,7 @@ def test_weak_fit_rationale_states_the_test_cap():
                        catalog=CAT, t=T)
     assert lux.frequency_cap == {"impressions": 1, "per_days": 14}
     assert "shortened to 14 days" in lux.rationales["frequency_cap"]
+    assert lux.rationales["frequency_cap"].startswith("At most 1 impression per person")
 
 
 def test_targeting_rationale_never_prints_none_ages():
@@ -187,7 +188,9 @@ def test_line_items_rationale_names_reused_ads():
     cfg = build_config(brief=B, gate=GATE, publishers=pubs, personas=personas, creatives=[c],
                        monthly_usd=None, weak_fit=False, catalog=CAT, t=T)
     r = cfg.rationales["line_items"]
-    assert f"{pubs[1].name} reuses the {personas[0].name} ad written for {pubs[0].name}" in r
+    name = personas[0].name.removeprefix("The ")
+    assert f"{pubs[1].name} reuses the {name} ad written for {pubs[0].name}" in r
+    assert "the The" not in r
 
 
 def test_budget_block_is_typed_but_json_shape_unchanged():

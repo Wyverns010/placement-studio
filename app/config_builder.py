@@ -136,8 +136,10 @@ def _reuse_note(items: list[LineItem], publishers: list[PublisherScore],
     for li in items:
         c = by_id.get(li.creative_id or "")
         if c and c.publisher_id != li.publisher_id:
+            persona = re.sub(r"^the\s+", "", persona_names.get(c.persona_id, c.persona_id),
+                             flags=re.IGNORECASE)
             notes.append(f"{pub_names.get(li.publisher_id, li.publisher_id)} reuses the "
-                         f"{persona_names.get(c.persona_id, c.persona_id)} ad written for "
+                         f"{persona} ad written for "
                          f"{pub_names.get(c.publisher_id, c.publisher_id)}")
     return "; " + ", ".join(notes) if notes else ""
 
@@ -186,7 +188,8 @@ def _frequency_rationale(brief: Brief, weak_fit: bool, n: int, days: int, t: Tun
         parts.append(f"−{f.weak_fit_reduction} for a weak-fit test")
         if days < base.per_days:
             parts.append(f"window shortened to {days} days so the test learns fast")
-    return f"At most {n} impressions per person every {days} days ({', '.join(parts)})"
+    return (f"At most {n} impression{'' if n == 1 else 's'} per person every {days} days "
+            f"({', '.join(parts)})")
 
 
 def _pacing_rationale(brief: Brief, weak_fit: bool, pace: str, monthly_usd: float,
