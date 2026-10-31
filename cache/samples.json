@@ -1,4 +1,5 @@
 {
+ "fingerprint": "13e32ef1c60aecc6b1860eb27a3ea6bd96bb5dc04a311808ba374b3d0a308816",
  "format": 2,
  "samples": {
   "A new kind of thing for moms.": {
@@ -3244,7 +3245,7 @@
      "budget": "Recommended $12,500/mo: $50 target CPA × 50 conversions per line item (enough to optimise the bid) across 5 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
      "guardrails": "Pause if CPA exceeds $75 (1.5× target) after 2,000 impressions",
-     "line_items": "5 publishers, budget share proportional to fit with a 10% floor",
+     "line_items": "5 publishers, budget share proportional to fit with a 10% floor; Marlowe & Co. reuses the Affluent Classic ad written for Northbed, Linden Park reuses the Affluent Classic ad written for Northbed",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
      "targeting": "3 personas, interests home, bedding, home_textiles, premium_basics, home_goods, ages 25-68, gender all, US"
@@ -4039,14 +4040,14 @@
      "type": "target_cpa"
     },
     "budget": {
-     "monthly_usd": 12600.0,
+     "monthly_usd": 3000.0,
      "pacing": "front_loaded",
-     "recommended_usd": 12600.0,
+     "recommended_usd": 3000.0,
      "source": "recommended",
      "test_budget": true,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_custom-fit-leather-handbags_1754c6",
+    "campaign_id": "cmp_custom-fit-leather-handbags_a5e19d",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.97,
@@ -4066,7 +4067,7 @@
     },
     "frequency_cap": {
      "impressions": 1,
-     "per_days": 21
+     "per_days": 14
     },
     "guardrails": {
      "cpa_limit_usd": 630.0,
@@ -4075,21 +4076,21 @@
     },
     "line_items": [
      {
-      "budget_usd": 4206.77,
+      "budget_usd": 1001.61,
       "creative_id": "cr_persona_003",
       "extra_creative_ids": [],
       "publisher_id": "pub_005",
       "share": 0.3338709677419355
      },
      {
-      "budget_usd": 4206.77,
+      "budget_usd": 1001.61,
       "creative_id": "cr_persona_001",
       "extra_creative_ids": [],
       "publisher_id": "pub_004",
       "share": 0.3338709677419355
      },
      {
-      "budget_usd": 4186.45,
+      "budget_usd": 996.77,
       "creative_id": "cr_persona_005",
       "extra_creative_ids": [],
       "publisher_id": "pub_016",
@@ -4099,8 +4100,8 @@
     "objective": "conversions",
     "rationales": {
      "bid_strategy": "35% of $1,200 order value (your price) = $420 target CPA",
-     "budget": "Recommended $12,600/mo: $420 target CPA × 50 conversions per line item (enough to optimise the bid) across 3 publishers, rounded to $500 within $500–$5,000,000, then 20% of $63,000 as a test because fit is weak. Split by fit, capped at each publisher's reach at $12 CPM",
-     "frequency_cap": "At most 1 impressions per person every 21 days (luxury price tier: 2 per 21 days, −1 for a weak-fit test)",
+     "budget": "Recommended $3,000/mo: $420 target CPA × 50 conversions per line item (enough to optimise the bid) across 3 publishers, rounded to $500 within $500–$5,000,000, then a test because fit is weak: 20% of $63,000, capped at $3,000, rounded to $500. Split by fit, capped at each publisher's reach at $12 CPM",
+     "frequency_cap": "At most 1 impression per person every 14 days (luxury price tier: 2 per 21 days, −1 for a weak-fit test, window shortened to 14 days so the test learns fast)",
      "guardrails": "Pause if CPA exceeds $630 (1.5× target) after 2,000 impressions",
      "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is purchases",
@@ -6619,14 +6620,14 @@
      "type": "target_cpa"
     },
     "budget": {
-     "monthly_usd": 6800.0,
+     "monthly_usd": 3000.0,
      "pacing": "front_loaded",
-     "recommended_usd": 6800.0,
+     "recommended_usd": 3000.0,
      "source": "recommended",
      "test_budget": true,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_technical-outerwear-shells_ddf053",
+    "campaign_id": "cmp_technical-outerwear-shells_0c1057",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.95,
@@ -6646,7 +6647,7 @@
     },
     "frequency_cap": {
      "impressions": 1,
-     "per_days": 21
+     "per_days": 14
     },
     "guardrails": {
      "cpa_limit_usd": 341.0,
@@ -6655,21 +6656,21 @@
     },
     "line_items": [
      {
-      "budget_usd": 2266.67,
+      "budget_usd": 1000.0,
       "creative_id": "cr_persona_003",
       "extra_creative_ids": [],
       "publisher_id": "pub_004",
       "share": 0.3333333333333333
      },
      {
-      "budget_usd": 2266.67,
+      "budget_usd": 1000.0,
       "creative_id": "cr_persona_001",
       "extra_creative_ids": [],
       "publisher_id": "pub_005",
       "share": 0.3333333333333333
      },
      {
-      "budget_usd": 2266.67,
+      "budget_usd": 1000.0,
       "creative_id": "cr_persona_005",
       "extra_creative_ids": [],
       "publisher_id": "pub_016",
@@ -6679,8 +6680,8 @@
     "objective": "conversions",
     "rationales": {
      "bid_strategy": "35% of $650 order value (your price) = $227 target CPA",
-     "budget": "Recommended $6,800/mo: $227 target CPA × 50 conversions per line item (enough to optimise the bid) across 3 publishers, rounded to $500 within $500–$5,000,000, then 20% of $34,000 as a test because fit is weak. Split by fit, capped at each publisher's reach at $12 CPM",
-     "frequency_cap": "At most 1 impressions per person every 21 days (luxury price tier: 2 per 21 days, −1 for a weak-fit test)",
+     "budget": "Recommended $3,000/mo: $227 target CPA × 50 conversions per line item (enough to optimise the bid) across 3 publishers, rounded to $500 within $500–$5,000,000, then a test because fit is weak: 20% of $34,000, capped at $3,000, rounded to $500. Split by fit, capped at each publisher's reach at $12 CPM",
+     "frequency_cap": "At most 1 impression per person every 14 days (luxury price tier: 2 per 21 days, −1 for a weak-fit test, window shortened to 14 days so the test learns fast)",
      "guardrails": "Pause if CPA exceeds $341 (1.5× target) after 2,000 impressions",
      "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is purchases",
