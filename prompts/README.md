@@ -20,7 +20,17 @@ check still reads only the advertiser's text).
 | `creative_feedback.yaml` | Stage 2 retries, rewrites and violation chips (`app/create.py`, `app/copycheck.py`, loaded once by `app.prompts.feedback`) | none (text only) | per-key slots, e.g. `problems`, `headlines`, `name`, `number`, `word`, `phrase`, `field`/`n`/`limit`, `headline`/`body`/`cta`, `note` | Retry preamble, other-headlines sentence, rewrite (current ad, note) blocks, persona and publisher blocks, and every violation message code can raise |
 | `category_words.yaml` | Stage 2 publisher block and the clarify `categories` slot (`app.prompts.category_word`) | none (text only) | none | How each publisher category is named to the models (`home` → "home goods") |
 | `eval_candidates.md` (+ `eval_candidates_user.md`, `eval_buckets.yaml`) | Offline only: drafting eval candidates (`evals/generate.py`); the app never runs it | `OPENAI_MODEL_FAST` (gpt-5.4-mini) | `publishers` (catalog list), `given` (the 15 given examples, paraphrase bucket only), `n`, `bucket_desc` (from `eval_buckets.yaml`), `hint` | Candidate inputs with a suggested outcome and rationale, appended to `evals/candidates.jsonl` for hand review |
+| `agents/strategist.md` | Step ① Strategist agent (`app/stepagents/strategist.py`), live runs (always with a steer; without one per `agents.run_without_steer`) | `OPENAI_MODEL_FAST` | none | Calls `read_brief`, `decide`, `rank_publishers(exclude_ids)`, `pick_personas(exclude_ids)`, `adjust_brief(add/remove categories, ages)`, `ask_questions`; returns `notes` (steer parts it could not apply; notes with digits are dropped). Code builds the result from the recorded choices |
+| `agents/copywriter.md` | Step ② Copywriter agent, one per persona (`app/stepagents/creative.py`), also Regenerate | `OPENAI_MODEL_CREATIVE` | `product`, `facts`, `persona`, `publisher`, `others`, `playbook`, `headline_max`, `body_max`, `cta_max`, `rounds` | One ad (headline, body, cta, why) after up to `rounds` calls to `review_draft` (the Critic as a tool; later calls are refused by code) |
+| `agents/critic.md` | Step ② Critic agent, called by the Copywriter | `OPENAI_MODEL_FAST` | `persona`, `publisher`, `playbook` | Calls `check_copy` (code's ad checks); `accept` + `notes`. It cannot accept what code rejects, and the final ad is re-checked by code anyway |
+| `agents/media_planner.md` | Step ③ Media planner agent, only with a steer (`app/stepagents/planner.py`) | `OPENAI_MODEL_FAST` | `publishers` (the line items) | Calls `recommend_budget`, `set_budget` (accepted only if code finds that amount in the steer and it is within budget bounds), `exclude_publishers`, `set_pacing`, `preview_config`; code builds the config |
 | `laya_questions.yaml` | Stage 1 Gate, only with `GATE_IMPL=laya` (`app/gate/laya_gate.py`) | Laya encoder (`convaiinnovations/laya`, `typed-decisions`), not an LLM | Laya state: `advertiser_text`, `brief_categories` | Four typed questions: `has_content`, `buyer`, `product_identifiable`, `category`, each with criteria |
+
+Step agents (OpenAI Agents SDK, `app/stepagents/`): the user's steer goes in the agent's user
+message inside `<user_steer>` tags (`wrap_steer`, at most `agents.steer_max_chars`), next to the
+wrapped advertiser text; like a note, it is data. Agents never produce numbers: their tools wrap
+the deterministic code, and each step's result is assembled by code from the tool outputs. Tool
+docstrings in code are the tool schema descriptions (kept short); every instruction is here.
 
 Reasoning effort for both OpenAI models is `OPENAI_REASONING_EFFORT` (default `low`). Limits used
 in the slots (`headline_max` and so on) come from `config/tuning.yaml`.
@@ -54,6 +64,6 @@ Not prompts, but worth knowing:
 - The `no_signal` outcome returns fixed questions (`NO_SIGNAL_QUESTIONS` in `app/create.py`), with no
   LLM call.
 
-Editing any file here except this README changes the sample-cache fingerprint
-(`app.samples.fingerprint`, with `config/tuning.yaml` and `data/*.json`): the precomputed samples
+Editing any file here except this README and `agents/` changes the sample-cache fingerprint
+(`app.samples.fingerprint`, with `config/tuning.yaml` minus its `agents:` block, and `data/*.json`): the samples
 then run live until `make samples` re-runs them.

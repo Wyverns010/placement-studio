@@ -1,6 +1,6 @@
 # Placement Studio
 
-Describe a business in a sentence; get ranked publishers (and why the rest lost), 3–5 persona-tuned ads to regenerate and approve, then a launch-ready campaign config with every number explained. Bad input gets an honest answer, not a campaign.
+Describe a business in a sentence; get ranked publishers (and why the rest lost), 3–5 persona-tuned ads to regenerate and approve, then a launch-ready campaign config with every number explained. Bad input gets an honest answer.
 
 **Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 samples are precomputed (`make samples`), so they load instantly; during an OpenAI outage steps ① and ③ still work (② serves cached ads, but Regenerate is live).
 
@@ -16,14 +16,16 @@ uv run pytest -q; (cd web && npx vitest run)    # tests
 ## How it works
 
 ```
-① text ─▶ Understand (LLM) ─▶ Gate ─▶ Match (code)     POST /api/campaign, GET /api/campaign/stream
-② Create (LLM): one ad per persona; Regenerate one     POST /api/creatives, /api/creatives/regenerate
-③ Config (code) at the recommended or your budget      POST /api/config
+① Strategist agent: Understand ─▶ Gate ─▶ Match (tools)   POST /api/campaign, GET /api/campaign/stream
+② Copywriter + Critic agents: one ad per persona; Regenerate   POST /api/creatives, /api/creatives/regenerate
+③ Config (code); a Media planner agent only for a steer        POST /api/config
 ```
 
-Stages are stateless: each request carries back what the last returned, signed by ① (HMAC, `STAGE_SECRET`); ② and ③ refuse changes (403). Live calls are rate-limited; ③ is free.
+Stages are stateless: each request carries back what the last returned, signed by ① (HMAC, `STAGE_SECRET`); ② and ③ refuse changes (403). Live calls are rate-limited; ③ is free unless steered.
 
-**Numbers from code, words from the LLM.** Understand fills a brief in the catalog's vocabulary. The gate picks proceed, clarify, out_of_scope or no_signal; a proceed with no publisher above the cut-off becomes weak_fit. Match scores publishers on four visible factors (category, audience, income, order value) and personas on affinity, price and age. Create writes one ad per persona in parallel from a [copywriting playbook](prompts/copywriting_playbook.md); code checks each ad (invented facts, length, generic copy, parroting), retries once, then flags it ([details](prompts/README.md)). gpt-5.4-mini reads briefs, gpt-5.5 writes ads (≈3¢ per campaign). Tunables: `config/tuning.yaml`; prompts: `prompts/`.
+**Numbers from code, words from the LLM.** Understand fills a brief in the catalog's vocabulary. The gate picks proceed (weak_fit if nothing clears the cut-off), clarify, out_of_scope or no_signal. Match scores publishers on four visible factors and personas on three. Ads follow a [copywriting playbook](prompts/copywriting_playbook.md); code checks each (invented facts, length, generic copy, parroting) and flags what still fails ([details](prompts/README.md)).
+
+**Step agents** ([OpenAI Agents SDK](app/stepagents/)): each step takes an optional steer ("skip pet stores", "under $5k"). The agent proposes, code disposes: agents pick tool inputs (tools wrap the existing functions) and write words; code assembles every result, the gate is final, and each step returns `agent_trace` and `agent_notes`. The Critic runs code's checks, at most 2 rounds per ad. Any error, timeout or cost cap (≈10¢ per session, priced in `config/tuning.yaml`) falls back to plain code (`mode: "fallback"`); unsteered samples stay cached. gpt-5.5 writes; gpt-5.4-mini does the rest.
 
 ## Campaign config, and why
 
@@ -42,23 +44,18 @@ Stages are stateless: each request carries back what the last returned, signed b
 
 121 labelled cases split by group into 85 train / 36 held out ([details](evals/README.md)). `uv run python -m evals.run --split test` runs all three stages per case.
 
-- Train **85/85**; held out **35/36 = 97.2%**; the 15 given examples **15/15** (2026-10-31; evals write ads with gpt-5.4-mini to save cost).
-- 1 invariant failure held out: an ad kept an unsourced "3" after retry (flagged, not hidden).
-- Caveats: 3rd held-out run, post-hoc (examples once copied eval wording; rewritten again today); noise ±1 case. A Laya gate scored lower.
+- Code pipeline: train **85/85**; held out **35/36 = 97.2%**; the 15 given examples **15/15** (2026-10-31; ads by gpt-5.4-mini). The step-① agent eval is still to run.
+- 1 invariant failure held out: an unsourced "3" kept after retry (flagged, not hidden).
+- Caveats: 3rd held-out run, post-hoc; noise ±1 case.
 
 ## Hard vs easy
 
-Easy: calling an LLM, rendering a UI. Hard:
-
-- **Knowing when not to build a campaign.** A calibrated gate and five honest outcomes.
-- **Explainable, stable matching.** Code over a fixed vocabulary; every score splits into visible parts.
-- **Factual creatives.** The facts check is code, not a plea to the model.
-- **Honest evals.** Group splits, train-only calibration, catching contamination.
+Easy: calling an LLM, rendering a UI. Hard: knowing when not to build a campaign (a calibrated gate, five honest outcomes); explainable, stable matching (every score splits into visible parts); factual creatives (the facts check is code, not a plea); honest evals (group splits, train-only calibration).
 
 ## What I cut, and why
 
-Image creatives, auth and saved campaigns, editing config beyond the budget, real auction modelling (a flat $12 CPM caps reach), an ad-policy engine: each is real work that doesn't change the core decisions.
+Image creatives, auth and saved campaigns, real auction modelling (a flat $12 CPM caps reach), an ad-policy engine: real work that doesn't change the core decisions.
 
 ## With another week, and at scale
 
-A fresh eval batch; learn weights and gate calibration from conversion data; an ad-policy layer. At scale: LLMs for low-volume ambiguous work, small calibrated models for high-volume typed decisions, and an embedding prefilter before scoring 10k publishers.
+A fresh eval batch; learn weights and gate calibration from conversion data; an ad-policy layer. At scale: LLMs for ambiguous low-volume work, small calibrated models for typed decisions, an embedding prefilter before scoring 10k publishers.
