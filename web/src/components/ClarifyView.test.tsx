@@ -12,10 +12,10 @@ const base: CampaignResult = {
   brief: null,
   gate: { outcome: 'clarify', confidence: 0.31, threshold: 0.7, impl: 'llm', signals: {} },
   publishers: [
-    { publisher_id: 'a', name: 'Kitchenly', fit: 0.42, factors: [], recommended: false, stretch: false, reason: '' },
+    { publisher_id: 'a', name: 'Kitchenly', fit: 0.42, factors: [{ name: 'category', score: 0.7, note: '' }], recommended: false, stretch: false, reason: '' },
     { publisher_id: 'b', name: 'Swiftcart', fit: 0.36, factors: [], recommended: false, stretch: false, reason: '' },
-    { publisher_id: 'c', name: 'Everbody', fit: 0.33, factors: [], recommended: false, stretch: false, reason: '' },
-    { publisher_id: 'd', name: 'Lowfit', fit: 0.1, factors: [], recommended: false, stretch: false, reason: '' },
+    { publisher_id: 'c', name: 'Everbody', fit: 0.33, factors: [{ name: 'category', score: 0.7, note: '' }], recommended: false, stretch: false, reason: '' },
+    { publisher_id: 'd', name: 'Lowfit', fit: 0.1, factors: [{ name: 'category', score: 0, note: '' }], recommended: false, stretch: false, reason: '' },
   ],
   personas: [{ persona_id: 'p', name: 'Busy Parent', fit: 0.5, factors: [], stretch: false }],
   creatives: [],
@@ -102,7 +102,7 @@ describe('ClarifyView', () => {
     expect(screen.getByRole('button', { name: /rebuild campaign/i })).toBeDisabled()
   })
 
-  it('clarify shows the faded best-guess card with top 3 publishers', () => {
+  it('clarify best guess lists only publishers with a category match', () => {
     setup()
     expect(screen.getByText('We need a bit more before spending your budget.')).toBeInTheDocument()
     const card = screen.getByLabelText('Best guess so far')
@@ -110,6 +110,7 @@ describe('ClarifyView', () => {
     expect(card).toHaveTextContent('Kitchenly')
     expect(card).toHaveTextContent('Everbody')
     expect(card).not.toHaveTextContent('Lowfit')
+    expect(card).not.toHaveTextContent('Swiftcart')
     expect(card).toHaveTextContent('Busy Parent')
   })
 

@@ -51,7 +51,7 @@ export default function ResultHeader({
       {gate && (
         <div className="min-w-0 rounded-2xl border border-line bg-white p-3.5 md:min-w-[270px]">
           <div className="mb-2.5 flex justify-between text-[12.5px] text-muted">
-            <span>Confidence gate ({gate.impl === 'laya' ? 'Laya' : 'LLM'})</span>
+            <span>Confidence gate</span>
             <span className={`rounded-full px-[9px] py-[3px] text-[11.5px] font-semibold ${badge.cls}`}>
               {badge.text}
             </span>

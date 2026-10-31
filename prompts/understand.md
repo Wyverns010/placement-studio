@@ -27,7 +27,7 @@ conflicts may only contain terms from this list:
 - price_usd: the price of one typical purchase in USD, only if the text states a price. Never guess or estimate it; use null when no price is stated. For "from $X", "starts at $X" or "$X and up" use X; for a range use its midpoint; for a per-unit price sold in a stated pack size (for example "$1.80 a bottle, sold in 24-packs") use the pack price.
 - price_tier: one of value, mid, premium, luxury, unknown. You may infer it from cues in the text ("top-shelf", "costs less than the market leader", "budget-friendly", "boutique couture"), or from a stated price. Use "unknown" when there are no cues.
 - business_model: "subscription" if the offer recurs (subscription, membership, monthly plan), "one_off" for single purchases, "unknown" if unclear.
-- age_min, age_max: the target age range only if the text states or clearly implies one; otherwise null.
+- age_min, age_max: the age range of the shopper who buys, only if the text states or clearly implies one; otherwise null. When the product is used by someone else, give the buyer's age, not the user's: baby food for toddlers is bought by parents, so never 1 to 3. If only the user's age is known, use null.
 - gender_skew: "female", "male" or "balanced" only if the text states or clearly implies the target gender; otherwise "unknown".
 - facts: claims literally stated in the text, one short item each, close to the original wording (for example "made with oat milk", "ships in 2 days"). Never infer, embellish or add claims that are not written down.
 - unknowns: the missing information that would change who to target or where to advertise (for example "price", "target age group", "whether it is B2B or consumer"). Do not list things that would not change targeting.

@@ -59,7 +59,7 @@ def test_clamp_brief_to_input_caps():
     assert len(c.facts) == i.brief_list_max_items and all(len(f) == i.brief_item_max_chars for f in c.facts)
     assert len(c.unknowns) == i.brief_list_max_items
     assert c.categories == ["pet_food"] and c.adjacent_categories == ["pet", "home"]
-    assert c.price_usd is None and c.age_min == 0 and c.age_max == i.brief_age_max
+    assert c.price_usd is None and c.age_min == i.buyer_age_min and c.age_max == i.brief_age_max
     ok = brief(product="dog food", facts=["a"], price_usd=60, age_min=30, age_max=50)
     assert clamp_brief(ok, T) == ok
 
@@ -98,3 +98,12 @@ def test_schema_vocab_unchanged_by_grouping():
     for term in cat.vocab:
         b = brief_schema(cat)(**_payload(categories=[term]))
         assert b.categories == [term]
+
+
+@pytest.mark.parametrize("lo,hi,want", [(1, 3, (None, None)), (13, 25, (18, 25)), (35, None, (35, None)),
+                                         (None, 12, (None, None)), (25, 40, (25, 40))])
+def test_clamp_keeps_buyer_ages_only(lo, hi, want):
+    from app.understand import clamp_brief
+    from tests.conftest import T, brief
+    b = clamp_brief(brief(age_min=lo, age_max=hi), T)
+    assert (b.age_min, b.age_max) == want

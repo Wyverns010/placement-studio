@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -46,37 +45,6 @@ class PublisherTuning(BaseModel):
     weak_fit_show: int
 
 
-class MatchTuning(BaseModel):
-    impl: Literal["formula", "graph"] = "formula"
-
-
-class GraphEdges(BaseModel):
-    primary: float
-    subcategory: float
-    attribute: float
-    parent: float
-    affinity: float
-    audience: float
-
-
-class GraphSeed(BaseModel):
-    category: float
-    adjacent: float
-
-
-class GraphTuning(BaseModel):
-    edges: GraphEdges
-    audience_min: float
-    seed: GraphSeed
-    through: dict[str, float]  # node kind (term | persona | publisher) -> pass-through multiplier
-    max_hops: int
-    min_path_weight: float
-    paths_combined: int
-    corroboration: float
-    penalty_below: float
-    paths_shown: int
-
-
 class PersonaWeights(BaseModel):
     affinity: float
     price: float
@@ -99,6 +67,7 @@ class PersonaTuning(BaseModel):
     cutoff: float
     min: int
     max: int
+    age_mismatch_penalty: float = 0.0  # the brief states ages and this persona's range misses them
     niche_penalty: float = 0.0  # a one-category shopper (pet owners) with no affinity to this brief
     attribute_affinities: dict[str, list[str]] = {}  # persona id -> brief attribute tags it shops by
 
@@ -134,24 +103,11 @@ class FrequencyTuning(BaseModel):
     min_impressions: int
 
 
-class LayaThresholds(BaseModel):
-    """Thresholds fit for the Laya gate (its probabilities live on a different scale)."""
-
-    proceed_threshold: float
-    no_signal_threshold: float
-    business_threshold: float
-
-
 class GateTuning(BaseModel):
     proceed_threshold: float
     no_signal_threshold: float
     business_threshold: float
     category_disagreement_factor: float
-    laya: LayaThresholds | None = None  # absent -> the Laya gate uses the values above
-
-    def for_impl(self, impl: str) -> GateTuning:
-        """The thresholds a gate implementation reads: gate.laya overrides for Laya when set."""
-        return self.model_copy(update=self.laya.model_dump()) if impl == "laya" and self.laya else self
 
 
 class CreativeTuning(BaseModel):
@@ -178,6 +134,7 @@ class InputTuning(BaseModel):
     brief_item_max_chars: int
     brief_categories_max: int
     brief_age_max: int
+    buyer_age_min: int = 18
 
 
 class AudienceTuning(BaseModel):
@@ -246,8 +203,6 @@ class AgentsTuning(BaseModel):
 
 class Tuning(BaseModel):
     publisher: PublisherTuning
-    match: MatchTuning = MatchTuning()
-    graph: GraphTuning
     persona: PersonaTuning
     budget: BudgetTuning
     bid: BidTuning

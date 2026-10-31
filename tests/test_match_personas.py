@@ -168,3 +168,10 @@ def test_stretch_fill_prefers_personas_with_some_affinity():
     sel = select_personas(scores, T)
     assert [s.persona_id for s in sel] == ["a", "d", "b"]  # d has an affinity, so it beats a higher-fit b
     assert [s.stretch for s in sel] == [False, True, True]
+
+
+def test_persona_outside_stated_ages_is_penalised():
+    s = _by_id(score_personas(brief(categories=["apparel"], age_min=35), CAT, T), "persona_003")  # Gen Z 19-27
+    assert _factor(s, "age_mismatch").score == -T.persona.age_mismatch_penalty
+    unknown = _by_id(score_personas(brief(categories=["apparel"]), CAT, T), "persona_003")
+    assert all(f.name != "age_mismatch" for f in unknown.factors)

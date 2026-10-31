@@ -1,5 +1,9 @@
 # Shopper graph vs the formula (2026-10-31)
 
+> The graph code was removed after this experiment (it never beat the formula); see git history
+> before the removal commit to re-run it. File and command names below (`app/graph.py`,
+> `evals/compare_graph.py`, `tests/test_graph.py`, `match.impl`, `graph:`) describe that removed code.
+
 **The rule** (set before measuring): ship graph matching only if its stage-1 outcome accuracy is
 ≥ the formula's on **both** splits, **and** its must-hit rate is ≥ the formula's, **and** it avoids
 100% of must-not publishers. Otherwise keep the formula. Behind that sits the point of the
@@ -9,10 +13,10 @@ experiment: switch to graph matching only **if it measurably helps**.
 
 The graph **ties** the formula on every labelled number. Train: 85/85 vs 85/85, must-hit 96% vs 96%,
 must-not 100%. Held out: 35/36 vs 35/36, must-hit 100% vs 100%, must-not 100%. A tie meets the
-rule's minimum, but it is not a measured improvement, so `match.impl` stays `formula`. The tie
+rule's minimum, but it is not a measured improvement, so `match.impl` stayed `formula`. The tie
 is also fragile. Of the 120 graph settings that tie on train, only 58 still tie on the held-out
-split; the rest recommend a must-not publisher there. All the code stays behind the switch
-(`match.impl: graph` in `config/tuning.yaml`).
+split; the rest recommend a must-not publisher there. The code sat behind a switch
+(`match.impl: graph` in `config/tuning.yaml`) until it was removed.
 
 Why a tie is the expected result here: Disco's Shopper Graph is built from cross-brand
 **purchase** edges. The data pack has none: no co-purchase data, no shopper-level records. Ours is
@@ -59,7 +63,7 @@ reaches it.
 
 ## What was built
 
-- `app/graph.py` builds a typed, weighted, undirected graph from the data pack. Nodes are 80
+- `app/graph.py` built a typed, weighted, undirected graph from the data pack. Nodes are 80
   category terms, 20 publishers and 10 personas. It has 5 kinds of edges; their weights are in
   `config/tuning.yaml` under `graph:`.
   - Publisher to its category: 1.0.
@@ -86,7 +90,7 @@ reaches it.
 
 ## How it was measured ($0, offline)
 
-`uv run python -m evals.compare_graph` runs the real stage-1 pipeline (understand → gate → match)
+`uv run python -m evals.compare_graph` (removed) ran the real stage-1 pipeline (understand → gate → match)
 on all 121 cases, once per `match.impl`, on the **same** understood brief. Understand answers come
 from the disk cache `.cache/llm` (121/121 hits). A cache miss fails the case instead of calling a
 model, so there were no live calls and no spend. Clarify questions are stubbed; they never change
@@ -173,7 +177,7 @@ That makes it the cheapest follow-up: give the formula's persona affinity the sa
 - weak-dining (train): formula adds **Studiogrid** (fit 0.054 vs 0.054 in graph). Graph paths: –
 - adv-multi (test): formula adds **Northbed** (fit 0.555 vs 0.21 in graph). Graph paths: home goods → home → Northbed; pet supplies → The Pet Parent → Northbed
 
-## Reproduce
+## Reproduce (from git history before the removal commit)
 
     uv run python -m evals.compare_graph            # tables above (all 121 cases, $0)
     uv run python -m evals.compare_graph --sweep    # the train-only tuning sweep

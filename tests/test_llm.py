@@ -89,11 +89,12 @@ def test_openai_provider_wraps_errors():
 
 def test_get_provider_cache_toggle(monkeypatch, tmp_path):
     monkeypatch.delenv("LLM_CACHE_DIR", raising=False)
-    assert isinstance(llm.get_provider(), OpenAIProvider)
+    assert isinstance(llm.get_provider(), llm.MemoProvider)  # always memoised (briefs only)
+    assert isinstance(llm.get_provider().inner, OpenAIProvider)
     monkeypatch.setenv("LLM_CACHE_DIR", str(tmp_path))
-    assert isinstance(llm.get_provider(), CachedProvider)
+    assert isinstance(llm.get_provider().inner, CachedProvider)
     monkeypatch.setenv("LLM_CACHE_DIR", "")
-    assert isinstance(llm.get_provider(), OpenAIProvider)
+    assert isinstance(llm.get_provider().inner, OpenAIProvider)
 
 
 def test_model_defaults(monkeypatch):
@@ -184,3 +185,27 @@ def test_openai_client_blank_key_raises_without_constructing(monkeypatch, raw):
     with pytest.raises(LLMError, match="OPENAI_API_KEY is not set"):
         OpenAIProvider()._get_client()
     assert built == []
+
+
+def test_memo_provider_repeats_a_brief_but_not_other_schemas():
+    from app.llm import MemoProvider
+
+    class BriefSchema(BaseModel):
+        x: int
+
+    n = {"calls": 0}
+
+    def answer(system, user):
+        n["calls"] += 1
+        return n["calls"]
+
+    inner = FakeProvider({"BriefSchema": lambda s, u: BriefSchema(x=answer(s, u)),
+                          "Out": lambda s, u: Out(answer=str(answer(s, u)))})
+    memo = MemoProvider(inner, memo={})
+    a = memo.parse(system="s", user="u", schema=BriefSchema, model="m")
+    b = memo.parse(system="s", user="u", schema=BriefSchema, model="m")
+    assert a.x == b.x == 1
+    assert memo.parse(system="s", user="other", schema=BriefSchema, model="m").x == 2
+    memo.parse(system="s", user="u", schema=Out, model="m")
+    memo.parse(system="s", user="u", schema=Out, model="m")
+    assert n["calls"] == 4  # ads and other schemas always go live

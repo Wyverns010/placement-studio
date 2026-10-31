@@ -39,7 +39,7 @@ export function briefChips(b: Brief | null | undefined): string[] {
   const tier = tierLabel(b.price_tier)
   if (tier) chips.push(tier)
   if (b.business_model !== 'unknown') chips.push(titleCase(b.business_model === 'one_off' ? 'one-off' : b.business_model))
-  return chips
+  return [...new Set(chips)] // a 'subscription' category and the subscription model read the same
 }
 
 /** Subtle pulsing "…" for a lane the pipeline has not reached yet. */

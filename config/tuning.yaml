@@ -32,27 +32,13 @@ publisher:
   max_recommended: 5
   weak_fit_min_recommended: 1   # weak_fit only when no publisher clears the cutoff (the brief's examples #3, #13: single-publisher categories proceed)
   weak_fit_show: 3
-match:
-  impl: formula                 # formula | graph (app/graph.py). Measured: evals/GRAPH_COMPARISON.md
-graph:                          # match.impl: graph only. Values chosen on the train split (evals/GRAPH_COMPARISON.md)
-  # edge weights: publisher-category (primary), publisher-subcategory, publisher-attribute tag,
-  # subcategory/interest term-parent category, persona-affinity term, persona-publisher (x audience fit)
-  edges: {primary: 1.0, subcategory: 0.85, attribute: 0.20, parent: 0.70, affinity: 1.0, audience: 0.4}
-  audience_min: 0.60            # persona-publisher edge only when their audience fit is at least this
-  seed: {category: 1.0, adjacent: 0.5}   # walk starts: brief categories, adjacent categories
-  through: {term: 0.5, persona: 0.2, publisher: 0.3}  # x when a path passes THROUGH a node of this kind
-  max_hops: 3                   # longest path counted (term -> persona -> publisher is 2)
-  min_path_weight: 0.05         # paths weaker than this are dropped while walking
-  paths_combined: 3             # strongest distinct paths combined per node
-  corroboration: 0.25           # extra paths count at this share: 1 - (1-w1) * prod(1 - c*wk)
-  penalty_below: 0.35           # graph score below this -> publisher no_category_penalty applies
-  paths_shown: 2                # paths explained per recommended publisher / persona
 persona:
   weights: {affinity: 0.5, price: 0.2, age: 0.3}
   affinity_scores: {direct: 1.0, family: 0.7, adjacent: 0.5, sibling: 0.35}  # family: parent/child term, sibling: same parent
   price_ideal: {value: 2, mid: 1, premium: 0.5, luxury: 0}   # brief price tier -> ideal persona price_rank
   price_scale: 2                # price factor = 1 - |ideal - price_rank| / scale
   conflict_penalty: 0.35
+  age_mismatch_penalty: 0.2     # brief states ages, persona's range doesn't overlap (Gen Z for "women 35+")
   niche_penalty: 0.2            # one-category persona (Pet Parent) with no affinity to the brief
   cutoff: 0.45
   min: 3
@@ -90,10 +76,6 @@ gate:
   no_signal_threshold: 0.30
   business_threshold: 0.50
   category_disagreement_factor: 0.80
-  laya:                         # GATE_IMPL=laya only; fit with evals.calibrate --gate laya
-    proceed_threshold: 0.45
-    no_signal_threshold: 0.4
-    business_threshold: 0.65
 creative:
   headline_max_chars: 60
   body_max_chars: 160
@@ -128,6 +110,7 @@ input:
   brief_item_max_chars: 200
   brief_categories_max: 20      # categories, adjacent_categories, conflicts
   brief_age_max: 120
+  buyer_age_min: 18             # ages below this are the product's user, not the buyer
 audience:
   age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
   age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)

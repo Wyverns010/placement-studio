@@ -124,9 +124,40 @@ class CachedProvider:
         return result
 
 
+class MemoProvider:
+    """In-process memo for the calls whose answer must not drift between requests: the same text
+    reads into the same brief (so the same gate outcome) when a steer or a retry re-runs stage 1.
+    Other schemas (ads, regenerations) always go live. The memo is shared by every instance (the
+    API builds a provider per request)."""
+
+    _shared: dict[str, BaseModel] = {}
+    _shared_lock = threading.Lock()
+
+    def __init__(self, inner: LLMProvider, schemas: frozenset[str] = frozenset({"BriefSchema"}),
+                 max_entries: int = 1024, memo: dict[str, BaseModel] | None = None):
+        self.inner, self.schemas, self.max_entries = inner, schemas, max_entries
+        self._memo = self._shared if memo is None else memo
+        self._lock = self._shared_lock
+
+    def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
+        if schema.__name__ not in self.schemas:
+            return self.inner.parse(system=system, user=user, schema=schema, model=model)
+        key = hashlib.sha256(json.dumps([model, system, user, schema.__name__]).encode()).hexdigest()
+        with self._lock:
+            hit = self._memo.get(key)
+        if hit is not None:
+            return hit.model_copy(deep=True)  # type: ignore[return-value]
+        result = self.inner.parse(system=system, user=user, schema=schema, model=model)
+        with self._lock:
+            if len(self._memo) >= self.max_entries:
+                self._memo.pop(next(iter(self._memo)))  # oldest first (dicts keep insertion order)
+            self._memo[key] = result
+        return result.model_copy(deep=True)
+
+
 def get_provider() -> LLMProvider:
     provider: LLMProvider = OpenAIProvider()
     cache_dir = os.getenv("LLM_CACHE_DIR", "")
     if cache_dir:
         provider = CachedProvider(provider, Path(cache_dir))
-    return provider
+    return MemoProvider(provider)

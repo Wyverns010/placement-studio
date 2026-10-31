@@ -296,19 +296,40 @@ def category_words(catalog: Catalog) -> str:
     return ", ".join(category_word(c) for c in cats)
 
 
+ANSWERS_HEADER = "\n\nAdditional details:\n"  # the API appends clarify answers to the text after this
+
+
+def answered_questions(text: str) -> dict[str, str]:
+    """Clarify answers already in the stage-1 text ("- question: answer" lines after ANSWERS_HEADER)."""
+    _, sep, tail = text.partition(ANSWERS_HEADER)
+    if not sep:
+        return {}
+    pairs = (line[2:].split(": ", 1) for line in tail.splitlines() if line.startswith("- "))
+    return {p[0].strip(): p[1].strip() for p in pairs if len(p) == 2}
+
+
+def _norm(q: str) -> str:
+    return " ".join(q.lower().replace("?", " ").split())
+
+
 def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
                       t: Tuning) -> list[ClarifyQuestion]:
+    answered = answered_questions(text)
     system = render(
         "clarify",
         categories=category_words(catalog),
         product=brief.product or feedback("product_default"),
         facts="; ".join(brief.facts) or feedback("none"),
         unknowns="\n".join(f"- {u}" for u in brief.unknowns) or feedback("clarify_unknowns_default"),
+        answered="\n".join(f"- {q}: {a}" for q, a in answered.items()) or feedback("none"),
     )
     user = wrap_advertiser_text(text)
     out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=model_fast())
     qs: list[ClarifyQuestion] = []
+    asked = {_norm(q) for q in answered}
     for q in out.questions:
+        if _norm(q.question) in asked:  # the prompt says never re-ask; this catches a verbatim repeat
+            continue
         opts = q.options[: t.clarify.max_options]
         if len(opts) >= t.clarify.min_options:
             qs.append(ClarifyQuestion(question=q.question, options=opts))

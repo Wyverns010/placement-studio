@@ -25,7 +25,7 @@ export interface GateResult {
   outcome: Outcome
   confidence: number
   threshold: number
-  impl: 'llm' | 'laya'
+  impl: 'llm'
   signals: Record<string, number | string>
 }
 

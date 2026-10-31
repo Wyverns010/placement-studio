@@ -20,21 +20,7 @@ dev = [
     "huggingface-hub>=2.4.0",
     "pytest>=9.2.0",
 ]
-# Optional Laya gate (GATE_IMPL=laya): uv sync --group laya. Linux pulls CPU-only torch.
-laya = [
-    "laya",
-    "torch",
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-markers = ["laya: needs the laya package and its checkpoint (uv sync --group laya)"]

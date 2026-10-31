@@ -14,7 +14,11 @@ const LABEL = 'text-[11.5px] font-semibold tracking-[0.06em] text-muted uppercas
 type Pick = { kind: 'option'; value: string } | { kind: 'other'; text: string }
 
 function BestGuess({ result }: { result: CampaignResult }) {
-  const top = [...result.publishers].sort((a, b) => b.fit - a.fit).slice(0, 3)
+  // only publishers with some category match: a tie on price and audience alone is no guess
+  const top = result.publishers
+    .filter((p) => p.factors.some((f) => f.name === 'category' && f.score > 0))
+    .sort((a, b) => b.fit - a.fit)
+    .slice(0, 3)
   const persona = result.personas[0]
   const chips = result.brief
     ? [
@@ -46,7 +50,7 @@ function BestGuess({ result }: { result: CampaignResult }) {
           <span className="blk">{persona.name}</span>
         </div>
       )}
-      <div className={LABEL}>Tentative</div>
+      {top.length > 0 && <div className={LABEL}>Tentative</div>}
       {top.map((p) => (
         <div key={p.publisher_id} className="mt-2 grid grid-cols-[96px_1fr_36px] items-center gap-2 text-[12.5px]">
           <span className="truncate">{p.name}</span>

@@ -212,3 +212,23 @@ def test_adjacent_interest_terms_map_at_adjacent_level():
         cat = next(f for f in s.factors if f.name == "category")
         assert cat.score == T.publisher.category_scores.adjacent and cat.note == "Adjacent via home goods"
     assert not is_weak_fit(list(scores.values()), T)
+
+
+def test_named_subcategory_ranks_the_publisher_that_carries_it_first():
+    # ceramic dinnerware reads as home + kitchen: Hearthstone (kitchen) beats Northbed (bedding)
+    scores = {s.publisher_id: s for s in score_publishers(brief(categories=["home", "kitchen"]), CAT, T)}
+    hearth, north = scores["pub_014"], scores["pub_011"]
+    cat = lambda s: next(f for f in s.factors if f.name == "category")  # noqa: E731
+    assert cat(hearth).score == T.publisher.category_scores.primary
+    assert cat(north).score == T.publisher.category_scores.same_category
+    assert cat(north).note == "Home category, but no kitchen"
+    assert hearth.fit > north.fit
+    plain = {s.publisher_id: s for s in score_publishers(brief(categories=["home"]), CAT, T)}
+    assert cat(plain["pub_011"]).score == T.publisher.category_scores.primary
+
+
+def test_weak_fit_stretch_picks_only_related_publishers():
+    s = score_publishers(brief(categories=["beverages", "functional_beverages"], price_tier="value",
+                               price_usd=3), CAT, T)
+    picked = [p for p in mark_stretch(s, T) if p.recommended]
+    assert picked and all(next(f for f in p.factors if f.name == "category").score > 0 for p in picked)

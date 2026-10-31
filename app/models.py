@@ -31,7 +31,7 @@ class GateResult(BaseModel):
     outcome: Outcome  # never "weak_fit" (decided after match)
     confidence: float
     threshold: float
-    impl: Literal["llm", "laya"]
+    impl: Literal["llm"]
     signals: dict[str, float | str]  # raw per-question values, shown in Details
 
 
@@ -49,7 +49,6 @@ class PublisherScore(BaseModel):
     recommended: bool
     stretch: bool
     reason: str  # about 8 words max
-    path: list[str] = []  # match.impl graph: strongest graph paths in plain words ("a → b → c")
 
 
 class PersonaScore(BaseModel):
@@ -58,7 +57,6 @@ class PersonaScore(BaseModel):
     fit: float
     factors: list[Factor]
     stretch: bool
-    path: list[str] = []  # match.impl graph: strongest graph paths in plain words
 
 
 class Creative(BaseModel):

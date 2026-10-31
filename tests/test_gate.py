@@ -53,8 +53,7 @@ def test_llm_gate_maps_brief_self_report(brief_kw, expected):
     assert r.outcome == expected and r.impl == "llm"
 
 
-def test_get_gate(monkeypatch):
-    monkeypatch.delenv("GATE_IMPL", raising=False)
+def test_get_gate():
     assert isinstance(get_gate(), LLMSelfReportGate)
     with pytest.raises(ValueError):
         get_gate("bogus")

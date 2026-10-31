@@ -615,3 +615,17 @@ def test_prompt_forbids_copying_and_orders_motivation_fact_cta():
     system = llm.calls[0]["system"]
     assert "verbatim" in system and "own words" in system
     assert "motivation" in system and "proof" in system and "call to action" in system
+
+
+def test_clarify_never_reasks_an_answered_question():
+    out = ClarifyBatch(questions=[
+        ClarifyQuestion(question="What kind of product is it?", options=["Beauty", "Apparel"]),
+        ClarifyQuestion(question="Roughly what does it cost?", options=["Under $30", "$30+"]),
+    ])
+    llm = FakeProvider({"ClarifyBatch": out})
+    text = ("We help people feel better.\n\nAdditional details:\n"
+            "- What kind of product is it?: Beauty\n- Who is it for?: Adults")
+    qs = clarify_questions(text, brief(), llm, CAT, T)
+    assert [q.question for q in qs] == ["Roughly what does it cost?"]
+    system = llm.calls[0]["system"]
+    assert "- What kind of product is it?: Beauty" in system and "- Who is it for?: Adults" in system

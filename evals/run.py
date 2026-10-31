@@ -1,6 +1,6 @@
 """Run the labelled eval set through the pipeline and report accuracy.
 
-    uv run python -m evals.run [--gate llm|laya] [--split train|test|all] [--concurrency 8]
+    uv run python -m evals.run [--split train|test|all] [--concurrency 8] [--stage1]
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pathlib import Path
 from app.catalog import load_catalog
 from app.gate import get_gate
 from app.match import is_weak_fit, score_publishers
-from app.pipeline import run_full
+from app.pipeline import collect, run_full, run_stage1
 from app.tuning import load_tuning
 from evals.invariants import check
 
@@ -72,7 +72,7 @@ class _TimedGate:
             self.seconds += time.perf_counter() - start
 
 
-def _run_one(case: dict, llm, gate, catalog, t) -> dict:
+def _run_one(case: dict, llm, gate, catalog, t, stage1_only: bool = False) -> dict:
     rec = {"id": case["id"], "split": case["split"], "expected": case["expected"],
            "must_publishers": case.get("must_publishers", []),
            "must_not_publishers": case.get("must_not_publishers", []),
@@ -87,7 +87,8 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
     start = time.perf_counter()
     try:
         # all three stages at the recommended budget (cases' legacy budget_usd is ignored)
-        r = run_full(text, None, llm=counter, gate=timed, catalog=catalog, t=t)
+        r = (collect(run_stage1(text, None, llm=counter, gate=timed, catalog=catalog, t=t)) if stage1_only
+             else run_full(text, None, llm=counter, gate=timed, catalog=catalog, t=t))
         rec["outcome"] = r.outcome
         if r.gate:
             rec["gate_impl"] = r.gate.impl
@@ -98,7 +99,7 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
             rec["weak_fit_if_proceed"] = is_weak_fit(score_publishers(r.brief, catalog, t), t)
         rec["recommended_ids"] = [p.publisher_id for p in r.publishers if p.recommended]
         rec["persona_ids"] = [p.persona_id for p in r.personas]
-        rec["invariant_failures"] = check(r, t)
+        rec["invariant_failures"] = [] if stage1_only else check(r, t)
         rec["creative_calls"] = counter.calls["CreativeBatch"]
         # first pass makes one call per persona; every call beyond that is a retry
         rec["creative_retries"] = max(0, rec["creative_calls"] - len(r.personas)) if rec["creative_calls"] else 0
@@ -110,9 +111,10 @@ def _run_one(case: dict, llm, gate, catalog, t) -> dict:
     return rec
 
 
-def run_cases(cases: list[dict], *, llm, gate, catalog, t, concurrency: int = 8) -> list[dict]:
+def run_cases(cases: list[dict], *, llm, gate, catalog, t, concurrency: int = 8,
+              stage1_only: bool = False) -> list[dict]:
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
-        return list(ex.map(lambda c: _run_one(c, llm, gate, catalog, t), cases))
+        return list(ex.map(lambda c: _run_one(c, llm, gate, catalog, t, stage1_only), cases))
 
 
 def summarize(recs: list[dict]) -> dict:
@@ -200,12 +202,13 @@ def main(argv: list[str] | None = None) -> int:
 
     load_dotenv()
     ap = argparse.ArgumentParser(prog="evals.run")
-    ap.add_argument("--gate", choices=["llm", "laya"], default="llm")
     ap.add_argument("--split", choices=["train", "test", "all"], default="train")
     ap.add_argument("--concurrency", type=int, default=8)
     ap.add_argument("--only", default="", help="comma-separated case ids")
     ap.add_argument("--no-cache", action="store_true")
     ap.add_argument("--cases", type=Path, default=CASES)
+    ap.add_argument("--stage1", action="store_true",
+                    help="understand, gate and match only (outcomes, publishers, personas; no ads)")
     a = ap.parse_args(argv)
 
     if a.no_cache:
@@ -213,19 +216,15 @@ def main(argv: list[str] | None = None) -> int:
     else:
         os.environ.setdefault("LLM_CACHE_DIR", str(ROOT / ".cache" / "llm"))
     t = load_tuning(ROOT / "config" / "tuning.yaml")
-    try:
-        gate = get_gate(a.gate, tuning=t)
-    except ImportError as e:
-        print(f"gate {a.gate!r} is not available: {e} (uv sync --group laya)", file=sys.stderr)
-        return 2
+    gate = get_gate(tuning=t)
     from app.llm import get_provider
 
     only = {x for x in a.only.split(",") if x} or None
     cases = load_cases(a.cases, split=a.split, only=only)
     recs = run_cases(cases, llm=get_provider(), gate=gate, catalog=load_catalog(ROOT / "data"), t=t,
-                     concurrency=a.concurrency)
+                     concurrency=a.concurrency, stage1_only=a.stage1)
     LAST_RUN.write_text(json.dumps(recs, indent=1))
-    LAST_RUN.with_name(f"last_run_{a.gate}_{a.split}.json").write_text(json.dumps(recs, indent=1))
+    LAST_RUN.with_name(f"last_run_llm_{a.split}.json").write_text(json.dumps(recs, indent=1))
     print(render(summarize(recs)))
     return 0
 

@@ -35,13 +35,9 @@ rungs use one group each. The result is 85 train and 36 test cases (the 85th, `p
 uv run python -m evals.run --split train            # accuracy, confusion, invariants -> last_run.json
 uv run python -m evals.run --only given-05,para-05  # targeted re-check
 uv run python -m evals.calibrate --split train --dry-run
-uv sync --group laya                                 # optional Laya gate (torch + 1.6 GB checkpoint)
-uv run --group laya python -m evals.run --gate laya --split train --concurrency 1
-uv run python -m evals.calibrate --gate laya --split train   # writes gate.laya only
 ```
 
-Each run also writes `last_run_<gate>_<split>.json`. `calibrate --gate laya` refuses records from
-the other gate.
+Each run also writes `last_run_llm_<split>.json`.
 
 LLM calls are cached in `.cache/llm`, so re-runs are free; `--no-cache` forces live calls. Each case
 runs all three stages through `app.pipeline.run_full` (stage 1, creatives, config at the recommended
@@ -108,9 +104,12 @@ about 1% of personas on the latest held-out run, with no residual violations. La
 concurrency 8, uncached Understand: p50 8.3s, p90 10.0s per case (the 2026-10-30 runs measured p50
 5.6s, p90 7.1s).
 
-## Gate comparison: LLM self-report vs Laya (2026-10-31)
+## Gate comparison: LLM self-report vs Laya (2026-10-31, historical)
 
-`LayaGate` asks the open-source Laya encoder (`convaiinnovations/laya`, `typed-decisions`
+The Laya gate was removed after this experiment; the code (`app/gate/laya_gate.py`,
+`prompts/laya_questions.yaml`, `--gate laya`) is in git history before the removal commit.
+
+`LayaGate` asked the open-source Laya encoder (`convaiinnovations/laya`, `typed-decisions`
 checkpoint, Apache-2.0) four typed questions from `prompts/laya_questions.yaml`. Both gates saw the
 same Understand briefs. On each split the Laya run came after the LLM run and read its briefs from
 the disk cache. As a check, `weak_fit_if_proceed` (computed from the brief) matched on all 108
@@ -151,13 +150,12 @@ noise band (33/36 to 35/36), the LLM gate stays clearly ahead of Laya's 30/36 he
 The LLM gate wins because its signals come from a model that has already read the text closely
 enough to fill in the whole brief. Laya is a small encoder answering from the text alone.
 
-**Recommendation: keep the LLM gate as the production default (`GATE_IMPL=llm`).** Laya is
+**Outcome: the LLM gate stayed the only gate and Laya was removed.** Laya is
 calibrated and inspectable, but on this set it is less accurate on both splits. It adds about 0.3
 to 0.5 s per request and about 2 GB of memory, and it saves no LLM call, because Understand still
 has to run to drive matching. A hybrid (for example, Laya as a cheap no_signal pre-filter before
 the LLM call) is not supported by these numbers: Laya's no_signal recall is 3/5 held out. Revisit
-if a fine-tuned or larger Laya checkpoint becomes available. `GATE_IMPL=laya` stays available for
-side-by-side checks.
+if a fine-tuned or larger Laya checkpoint becomes available.
 
 ## Known misses (latest runs, LLM gate)
 

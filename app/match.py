@@ -19,6 +19,12 @@ def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Fact
     cs = t.publisher.category_scores
     attrs = set(t.publisher.attribute_tags)
     if p.category in b.categories:
+        # the brief also names a narrower term in this category (kitchen) that this publisher lacks
+        narrow = sorted(set(b.categories) & set(catalog.vocab_groups().get(p.category, [])) - attrs
+                        - set(p.subcategories) - {p.category})
+        if narrow and not set(b.categories) & set(p.subcategories):
+            return Factor(name="category", score=cs.same_category,
+                          note=f"{_label(p.category).capitalize()} category, but no {_label(narrow[0])}"), "same_category"
         return Factor(name="category", score=cs.primary, note=f"{_label(p.category).capitalize()} category match"), "primary"
     sub = [c for c in p.subcategories if c in b.categories and c not in attrs]
     if sub:
@@ -114,16 +120,9 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
     pt = t.publisher
     w = pt.weights
     weights = {"category": w.category, "audience": w.audience, "income": w.income, "aov": w.aov}
-    rows: list[tuple[float, Publisher, list[Factor], list[bool], list[str]]] = []
-    graph = None
-    if t.match.impl == "graph":  # category factor = shopper-graph proximity (app/graph.py)
-        from app.graph import publisher_category
-        graph = publisher_category(brief, catalog, t)
+    rows: list[tuple[float, Publisher, list[Factor], list[bool]]] = []
     for p in catalog.publishers:
-        if graph:
-            cat, level, path = graph[p.id]
-        else:
-            (cat, level), path = _category(brief, p, t, catalog), []
+        cat, level = _category(brief, p, t, catalog)
         aud, aud_unk = _audience(brief, p, t)
         inc, inc_unk = _income(brief, p, t)
         aov, aov_unk = _aov(brief, p, t)
@@ -133,11 +132,11 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
             fit *= pt.no_category_penalty
         if not aov_unk:
             fit *= pt.aov_gate_floor + (1 - pt.aov_gate_floor) * aov.score
-        rows.append((fit, p, factors, [False, aud_unk, inc_unk, aov_unk], path))
+        rows.append((fit, p, factors, [False, aud_unk, inc_unk, aov_unk]))
     rows.sort(key=lambda r: (-r[0], r[1].id))
     out: list[PublisherScore] = []
     rank = 0
-    for fit, p, factors, unk, path in rows:
+    for fit, p, factors, unk in rows:
         if p.id in exclude:
             recommended, reason = False, EXCLUDED_REASON
         else:
@@ -146,7 +145,7 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
             rank += 1
         out.append(PublisherScore(
             publisher_id=p.id, name=p.name, fit=round(fit, 3), factors=factors,
-            recommended=recommended, stretch=False, reason=reason, path=path,
+            recommended=recommended, stretch=False, reason=reason,
         ))
     return out
 
@@ -157,11 +156,16 @@ def is_weak_fit(scores: list[PublisherScore], t: Tuning) -> bool:
 
 def mark_stretch(scores: list[PublisherScore], t: Tuning,
                  excluded: frozenset[str] = frozenset()) -> list[PublisherScore]:
-    """The closest weak_fit_show publishers (skipping `excluded`) become recommended stretch picks."""
+    """The closest weak_fit_show publishers (skipping `excluded`) become recommended stretch picks:
+    only ones with some category overlap, unless none has any (then the closest overall)."""
     n = t.publisher.weak_fit_show
+
+    def related(s: PublisherScore) -> bool:
+        return any(f.name == "category" and f.score > 0 for f in s.factors)
+    need_related = any(related(s) for s in scores if s.publisher_id not in excluded)
     out, picked = [], 0
     for s in scores:
-        pick = s.publisher_id not in excluded and picked < n
+        pick = s.publisher_id not in excluded and picked < n and (related(s) or not need_related)
         picked += pick
         out.append(s.model_copy(update={"recommended": pick, "stretch": pick}))
     return out
@@ -227,12 +231,11 @@ def _persona_age(b: Brief, p: Persona, t: Tuning) -> Factor:
     return Factor(name="age", score=score, note=note)
 
 
-def _persona_raw(b: Brief, p: Persona, t: Tuning, aff: Factor | None = None,
+def _persona_raw(b: Brief, p: Persona, t: Tuning,
                  parents: dict[str, set[str]] | None = None) -> tuple[float, list[Factor]]:
-    """Unclamped fit and its factors (a 4th `conflict` factor only when a penalty applies).
-    `aff` replaces the affinity factor (match.impl graph)."""
+    """Unclamped fit and its factors (a 4th `conflict` factor only when a penalty applies)."""
     w = t.persona.weights
-    aff = aff or _affinity(b, p, t, parents or {})
+    aff = _affinity(b, p, t, parents or {})
     price, age = _persona_price(b, p, t), _persona_age(b, p, t)
     factors = [aff, price, age]
     raw = w.affinity * aff.score + w.price * price.score + w.age * age.score
@@ -242,6 +245,10 @@ def _persona_raw(b: Brief, p: Persona, t: Tuning, aff: Factor | None = None,
             factors.append(Factor(name="niche", score=-t.persona.niche_penalty,
                                   note=f"Only shops {_label(next(iter(cats)))}"))
             raw -= t.persona.niche_penalty
+    if age.score <= 0 and age_bounds(b, t) is not None and t.persona.age_mismatch_penalty:
+        factors.append(Factor(name="age_mismatch", score=-t.persona.age_mismatch_penalty,
+                              note="Outside the brief's ages"))
+        raw -= t.persona.age_mismatch_penalty
     hit = sorted({c.lower() for c in b.conflicts} & {d.lower() for d in p.disinterested_in})
     if hit:
         pen = t.persona.conflict_penalty
@@ -251,20 +258,14 @@ def _persona_raw(b: Brief, p: Persona, t: Tuning, aff: Factor | None = None,
 
 
 def score_personas(brief: Brief, catalog: Catalog, t: Tuning) -> list[PersonaScore]:
-    graph = None
-    if t.match.impl == "graph":  # affinity factor = shopper-graph proximity (app/graph.py)
-        from app.graph import persona_affinity
-        graph = persona_affinity(brief, catalog, t)
     parents = term_parents(catalog, t)
     rows = []
     for p in catalog.personas:
-        aff, path = graph[p.id] if graph else (None, [])
-        raw, factors = _persona_raw(brief, p, t, aff, parents)
-        rows.append((max(0.0, min(1.0, raw)), p, factors, path))
+        raw, factors = _persona_raw(brief, p, t, parents)
+        rows.append((max(0.0, min(1.0, raw)), p, factors))
     rows.sort(key=lambda r: (-r[0], r[1].id))
-    return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False,
-                         path=path)
-            for fit, p, f, path in rows]
+    return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False)
+            for fit, p, f in rows]
 
 
 def select_personas(scores: list[PersonaScore], t: Tuning) -> list[PersonaScore]:

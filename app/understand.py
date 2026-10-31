@@ -67,6 +67,13 @@ def clamp_brief(b: Brief, t: Tuning) -> Brief:
     def age(a: int | None) -> int | None:
         return None if a is None else min(max(a, 0), i.brief_age_max)
 
+    # ages are the buyer's: a range entirely under buyer_age_min is the product's user (toddlers)
+    lo, hi = age(b.age_min), age(b.age_max)
+    if hi is not None and hi < i.buyer_age_min:
+        lo = hi = None
+    elif lo is not None and lo < i.buyer_age_min:
+        lo = i.buyer_age_min
+
     price = b.price_usd
     if price is not None and not (math.isfinite(price) and price >= 0):
         price = None
@@ -75,5 +82,5 @@ def clamp_brief(b: Brief, t: Tuning) -> Brief:
         "facts": items(b.facts), "unknowns": items(b.unknowns),
         "categories": terms(b.categories), "adjacent_categories": terms(b.adjacent_categories),
         "conflicts": terms(b.conflicts), "price_usd": price,
-        "age_min": age(b.age_min), "age_max": age(b.age_max),
+        "age_min": lo, "age_max": hi,
     })

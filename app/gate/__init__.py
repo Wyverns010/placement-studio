@@ -1,7 +1,6 @@
 """Confidence gate: decides whether an input is clear enough to build a campaign."""
 from __future__ import annotations
 
-import os
 from typing import Protocol
 
 from app.models import Brief, GateResult
@@ -45,14 +44,9 @@ def decide_outcome(
     )
 
 
-def get_gate(impl: str | None = None, *, tuning: Tuning | None = None) -> ConfidenceGate:
-    impl = impl or os.environ.get("GATE_IMPL", "llm")
+def get_gate(impl: str = "llm", *, tuning: Tuning | None = None) -> ConfidenceGate:
     if impl == "llm":
         from app.gate.llm_gate import LLMSelfReportGate
 
         return LLMSelfReportGate(tuning or load_tuning())
-    if impl == "laya":
-        from app.gate.laya_gate import LayaGate
-
-        return LayaGate(tuning or load_tuning())
     raise ValueError(f"Unknown gate impl: {impl!r}")

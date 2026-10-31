@@ -10,9 +10,12 @@ Known facts: {facts}
 # What is missing (ask about these)
 {unknowns}
 
+# Already answered by the advertiser (never ask these again, in any wording)
+{answered}
+
 # Rules
-- Question 1 must always pin down WHAT the product is, i.e. its category. Its options are the categories from this list that could plausibly fit what the advertiser said (2 to 4 of them, in plain words), then "Other…" as the last option. Categories we place ads in: {categories}.
+- Question 1 pins down WHAT the product is, i.e. its category, unless the advertiser already answered that (then skip it). Its options are the categories from this list that could plausibly fit what the advertiser said (2 to 4 of them, in plain words), then "Other…" as the last option. Categories we place ads in: {categories}.
 - Question 2 is the price. Question 3 is the audience, and only if it is still unknown. Skip a question only if we already know the answer (see above).
-- Do not ask about anything we already know. Never more than 3 questions.
+- Do not ask about anything we already know or the advertiser already answered. Never more than 3 questions.
 - Questions are plain and friendly, under 10 words, and answerable without marketing knowledge.
 - Each question has 2 to 5 options, written as short tap-able chips of 1 to 4 words (for example "Under $30", "Parents", "Subscription"). Options must be mutually exclusive and cover the likely answers.

@@ -205,69 +205,6 @@ def test_run_cases_counts_creative_retries_and_truncates_like_api():
     assert s["latency_p50"] is not None
 
 
-def test_write_tuning_gate_leaves_laya_block_alone(tmp_path):
-    p = tmp_path / "tuning.yaml"
-    p.write_text(Path("config/tuning.yaml").read_text())
-    old = yaml.safe_load(p.read_text())["gate"]["laya"]
-    calibrate.write_tuning(p, {"proceed_threshold": 0.55})
-    new = yaml.safe_load(p.read_text())["gate"]
-    assert new["proceed_threshold"] == 0.55 and new["laya"] == old
-
-
-def test_write_tuning_laya_block_only(tmp_path):
-    src = Path("config/tuning.yaml").read_text()
-    p = tmp_path / "tuning.yaml"
-    p.write_text(src)
-    calibrate.write_tuning(p, {"proceed_threshold": 0.35, "no_signal_threshold": 0.45,
-                               "business_threshold": 0.25}, block="gate.laya")
-    new, old = yaml.safe_load(p.read_text()), yaml.safe_load(src)
-    assert new["gate"]["laya"] == {"proceed_threshold": 0.35, "no_signal_threshold": 0.45,
-                                   "business_threshold": 0.25}
-    assert {k: v for k, v in new["gate"].items() if k != "laya"} == \
-        {k: v for k, v in old["gate"].items() if k != "laya"}
-    assert len(src.splitlines()) == len(p.read_text().splitlines())
-
-
-def test_calibrate_laya_refuses_llm_records(tmp_path):
-    runs = tmp_path / "r.json"
-    runs.write_text(json.dumps([rec("a", "proceed", 0.9, 0.0, 0.9)]))  # no gate_impl -> llm
-    tun = tmp_path / "t.yaml"
-    tun.write_text(Path("config/tuning.yaml").read_text())
-    assert calibrate.main(["--gate", "laya", "--runs", str(runs), "--tuning", str(tun)]) == 1
-
-
-def test_calibrate_laya_writes_laya_block(tmp_path):
-    recs = [dict(rec("p", "proceed", 0.6, 0.1, 0.45), gate_impl="laya"),
-            dict(rec("c", "clarify", 0.6, 0.1, 0.2), gate_impl="laya"),
-            dict(rec("n", "no_signal", 0.15, 0.1, 0.1), gate_impl="laya")]
-    runs = tmp_path / "r.json"
-    runs.write_text(json.dumps(recs))
-    tun = tmp_path / "t.yaml"
-    tun.write_text(Path("config/tuning.yaml").read_text())
-    assert calibrate.main(["--gate", "laya", "--runs", str(runs), "--tuning", str(tun)]) == 0
-    g = yaml.safe_load(tun.read_text())["gate"]
-    assert 0.2 < g["laya"]["proceed_threshold"] <= 0.45
-    assert g["proceed_threshold"] == 0.70  # llm thresholds untouched
-
-
-def test_calibrate_laya_creates_missing_laya_block(tmp_path):
-    src = Path("config/tuning.yaml").read_text()
-    lines = src.splitlines(keepends=True)
-    i = next(n for n, line in enumerate(lines) if line.startswith("  laya:"))
-    del lines[i:i + 4]  # the laya: line and its three thresholds
-    tun = tmp_path / "t.yaml"
-    tun.write_text("".join(lines))
-    assert "laya" not in yaml.safe_load(tun.read_text())["gate"]
-    recs = [dict(rec("p", "proceed", 0.6, 0.1, 0.45), gate_impl="laya"),
-            dict(rec("c", "clarify", 0.6, 0.1, 0.2), gate_impl="laya")]
-    runs = tmp_path / "r.json"
-    runs.write_text(json.dumps(recs))
-    assert calibrate.main(["--gate", "laya", "--runs", str(runs), "--tuning", str(tun)]) == 0
-    new = yaml.safe_load(tun.read_text())
-    assert set(new["gate"]["laya"]) == {"proceed_threshold", "no_signal_threshold", "business_threshold"}
-    assert list(new) == list(yaml.safe_load(src))  # block inserted inside gate, order kept
-
-
 def test_invariants_flag_duplicate_headlines():
     r = result_for(fake())
     assert len(r.creatives) >= 2

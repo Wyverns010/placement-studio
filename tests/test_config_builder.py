@@ -6,7 +6,7 @@ from tests.conftest import CAT, T, brief
 
 B = brief(product="Senior dog food", categories=["pet_food"], adjacent_categories=["pet_health", "subscription"],
           price_usd=60, price_tier="premium", business_model="subscription")
-GATE = GateResult(outcome="proceed", confidence=0.9, threshold=0.7, impl="laya", signals={})
+GATE = GateResult(outcome="proceed", confidence=0.9, threshold=0.7, impl="llm", signals={})
 
 
 def _inputs(b=B):
