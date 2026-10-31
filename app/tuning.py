@@ -122,6 +122,7 @@ class CreativeTuning(BaseModel):
     claim_words: list[str]
     banned_phrases: list[str]
     note_max_chars: int
+    age_range_bounds: tuple[int, int]
     audience_words: list[str]
     headline_similarity: float
 

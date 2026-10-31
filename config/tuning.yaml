@@ -63,6 +63,7 @@ creative:
   claim_words: [clinically, proven, cure, guaranteed, "#1", doctor, vet-recommended, award]
   # generic copy (headline/body): sent back once unless the advertiser wrote the phrase
   banned_phrases: [high-quality, perfect for, look no further, elevate, unlock, game-changer]
+  age_range_bounds: [13, 99]    # a bare "NN-NN" in copy counts as an age range only inside these
   note_max_chars: 200           # regenerate note from the advertiser (treated as data)
   audience_words: [women, men, moms, mums, mothers, dads, fathers, parents, seniors, millennials, gen z, boomers, teens]
 input:

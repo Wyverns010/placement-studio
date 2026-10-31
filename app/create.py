@@ -87,14 +87,51 @@ def fact_problems(creative: Creative, input_text: str, t: Tuning) -> list[Proble
     return violations
 
 
-_AGE = re.compile(r"\b(?:ages?|aged)\s+\d{1,2}\b|\b\d{2}\s*(?:-|–|—|to)\s*\d{2}\b", re.IGNORECASE)
+_DASH = r"(?:-|–|—|to)"
+# Explicit age context: "ages 25+", "ages 25-34", "ages 25 and up", "aged 30 and over".
+_AGE_CONTEXT = re.compile(
+    r"\b(?:ages?\s+\d{1,2}|aged\s+\d{2})\s*(?:\+|and\s+(?:up|over|older)\b|" + _DASH + r"\s*\d{1,2}\b)",
+    re.IGNORECASE)
+# A bare two-number range ("18-24"); only an age when both ends are plausible ages and no unit
+# follows ("24-48 hours", "20-30 oz", "20-30%"). "25-34 year olds" is still an age.
+_UNITS = (r"(?:%|(?:percent|hours?|hrs?|days?|nights?|minutes?|mins?|seconds?|secs?|weeks?|months?"
+          r"|years?(?![\s-]*olds?)|yrs?|oz|ml|l|liters?|litres?|lbs?|pounds?|kg|g|grams?|cm|mm|in"
+          r"|inch(?:es)?|ft|feet|servings?|packs?|pieces?|pcs|count|ct|calories|cal|mg)\b)")
+_BARE_RANGE = re.compile(r"\b(\d{2})\s*" + _DASH + r"\s*(\d{2})\b(?!\s*" + _UNITS + ")", re.IGNORECASE)
 _UNDER = re.compile(r"\bunder\s+\$\s?\d[\d,]*", re.IGNORECASE)
 
 
 def _plain(text: str) -> str:
-    """Lowercase, dashes unified and whitespace collapsed, for 'did the advertiser write it'."""
-    text = re.sub(r"\s*[–—-]\s*", "-", text.lower())
+    """Lowercase, dashes unified ("25 to 34" -> "25-34") and whitespace collapsed, for 'did the
+    advertiser write it'."""
+    text = re.sub(r"(\d)\s*(?:–|—|-|\bto\b)\s*(\d)", r"\1-\2", text.lower())
+    text = re.sub(r"\s*[–—-]\s*", "-", text)
     return " ".join(text.split())
+
+
+def _in_source(phrase: str, source: str) -> bool:
+    """Whole-word containment ('for men' is not inside 'for mental')."""
+    return re.search(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", source) is not None
+
+
+def _phrase_pattern(phrase: str) -> re.Pattern:
+    """A banned phrase with space/hyphen variants and simple inflections of its last word
+    ("elevate" -> elevates/elevated/elevating; "high-quality" -> "high quality")."""
+    words = re.split(r"[\s-]+", phrase.strip().lower())
+    *head, last = words
+    if last.endswith("e"):
+        tail = re.escape(last[:-1]) + r"(?:e|es|ed|ing)"
+    elif last.isalpha():
+        tail = re.escape(last) + r"(?:s|es|ed|ing)?"
+    else:
+        tail = re.escape(last)
+    body = r"[\s-]+".join([re.escape(w) for w in head] + [tail])
+    return re.compile(r"(?<![\w#])" + body + r"(?!\w)", re.IGNORECASE)
+
+
+def _is_age_range(m: re.Match, t: Tuning) -> bool:
+    lo, hi = t.creative.age_range_bounds
+    return all(lo <= int(g) <= hi for g in m.groups())
 
 
 def generic_problems(creative: Creative, input_text: str, t: Tuning) -> list[Problem]:
@@ -103,17 +140,23 @@ def generic_problems(creative: Creative, input_text: str, t: Tuning) -> list[Pro
     copy = f"{creative.headline} {creative.body}"
     source = _plain(input_text)
     audience = re.compile(r"\bfor\s+(?:" + "|".join(re.escape(w) for w in t.creative.audience_words)
-                          + r")\b", re.IGNORECASE)
+                          + r")(?![\w'’])", re.IGNORECASE)
+    out: list[Problem] = []
     found: list[tuple[str, str]] = []  # (feedback key, phrase as written)
-    found += [("generic_age", m.group(0)) for m in _AGE.finditer(copy)]
+    found += [("generic_age", m.group(0)) for m in _AGE_CONTEXT.finditer(copy)]
+    found += [("generic_age", m.group(0)) for m in _BARE_RANGE.finditer(copy)
+              if _is_age_range(m, t) and not any(m.start() >= a.start() and m.end() <= a.end()
+                                                 for a in _AGE_CONTEXT.finditer(copy))]
     found += [("generic_audience", m.group(0)) for m in audience.finditer(copy)]
     found += [("generic_price_band", m.group(0)) for m in _UNDER.finditer(copy)]
-    found += [("generic_phrase", w) for w in t.creative.banned_phrases if _has_word(w, copy)]
-    out: list[Problem] = []
     for key, phrase in found:
         p = _plain(phrase)
-        if p not in source:
+        if not _in_source(p, source):
             out.append(Problem("generic_copy", feedback(key, phrase=p)))
+    for w in t.creative.banned_phrases:
+        pat = _phrase_pattern(w)
+        if pat.search(copy) and not pat.search(input_text):
+            out.append(Problem("generic_copy", feedback("generic_phrase", phrase=w)))
     return out
 
 
