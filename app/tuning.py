@@ -67,7 +67,6 @@ class PersonaTuning(BaseModel):
 
 
 class BudgetTuning(BaseModel):
-    default_monthly_usd: float
     min_usd: float
     max_usd: float
     assumed_cpm_usd: float
@@ -122,6 +121,7 @@ class CreativeTuning(BaseModel):
     cta_max_chars: int
     claim_words: list[str]
     banned_phrases: list[str]
+    note_max_chars: int
     audience_words: list[str]
     headline_similarity: float
 

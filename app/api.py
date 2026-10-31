@@ -1,8 +1,17 @@
-"""FastAPI app: JSON and SSE endpoints over the pipeline."""
+"""FastAPI app over the three stages. Stateless: each stage-2/3 request carries back what the
+client received from the stage before, re-validated here with the Pydantic models.
+
+  POST /api/campaign, GET /api/campaign/stream   stage 1 (understand, gate, match)   counts as a run
+  POST /api/creatives                            stage 2 (one ad per persona)        counts as a run
+  POST /api/creatives/regenerate                 stage 2 (rewrite one ad)            counts as a run
+  POST /api/config                               stage 3 (config, code only)         free
+Cached samples (stage 1 and their creatives) skip the LLM and the rate limit.
+"""
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from functools import lru_cache
 from pathlib import Path
 
@@ -17,9 +26,11 @@ from dotenv import load_dotenv
 from app import samples
 from app.catalog import Catalog, load_catalog
 from app.gate import ConfidenceGate, get_gate
-from app.llm import LLMProvider, get_provider
-from app.models import CampaignResult, StageEvent
-from app.pipeline import PipelineError, collect, result_events, run_stage1
+from app.llm import LLMError, LLMProvider, get_provider
+from app.models import (Brief, CampaignConfig, CampaignResult, Creative, GateResult, PersonaScore,
+                        PublisherScore, StageEvent)
+from app.pipeline import (MSG_LLM, MSG_OTHER, PipelineError, collect, make_config, make_creatives,
+                          recommended_of, regenerate, result_events, run_stage1)
 from app.ratelimit import RateLimiter
 from app.tuning import Tuning, load_tuning
 
@@ -28,6 +39,10 @@ load_dotenv()  # never overrides env vars already set
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
 BUSY_MSG = "The demo is busy — try a sample or come back in a bit."
 REPLAY_DELAY_S = 0.3
+MAX_ANSWERS, MAX_ANSWER_CHARS = 5, 200  # clarify answers appended to the text (API input caps)
+NO_ADS_MSG = "The AI service didn't return any ads — try again."
+
+log = logging.getLogger(__name__)
 
 app = FastAPI(title="Placement Studio")
 
@@ -59,8 +74,41 @@ def get_gate_dep(t: Tuning = Depends(get_tuning)) -> ConfidenceGate:
 
 class CampaignRequest(BaseModel):
     text: str
-    budget_usd: float | None = None
+    budget_usd: float | None = None  # optional; only echoed back for stage 3
     answers: dict[str, str] | None = None
+
+
+class CreativesRequest(BaseModel):
+    """Stage 2: what stage 1 returned (input_text, brief, publishers, personas)."""
+    input_text: str
+    brief: Brief
+    publishers: list[PublisherScore]
+    personas: list[PersonaScore]
+
+
+class RegenerateRequest(CreativesRequest):
+    creatives: list[Creative]
+    persona_id: str
+    note: str | None = None
+
+
+class ConfigRequest(CreativesRequest):
+    """Stage 3: budget_usd omitted means use the recommended budget."""
+    gate: GateResult
+    creatives: list[Creative]
+    budget_usd: float | None = None
+
+
+class CreativesResponse(BaseModel):
+    creatives: list[Creative]
+
+
+class CreativeResponse(BaseModel):
+    creative: Creative
+
+
+class ConfigResponse(BaseModel):
+    config: CampaignConfig
 
 
 def _client_key(request: Request) -> str:
@@ -74,29 +122,78 @@ def _client_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _check_budget(budget: float | None, t: Tuning) -> None:
+    b = t.budget
+    if budget is not None and not (b.min_usd <= budget <= b.max_usd):
+        raise HTTPException(
+            422, f"Budget must be between ${b.min_usd:,.0f} and ${b.max_usd:,.0f}.")
+
+
+ANSWERS_HEADER = "\n\nAdditional details:\n"
+
+
 def _prepare(text: str, budget: float | None, answers: dict[str, str] | None,
-             t: Tuning) -> tuple[str, float, bool]:
-    """Validate and build the pipeline input. Returns (text, budget, has_answers)."""
+             t: Tuning) -> tuple[str, float | None, bool]:
+    """Validate and build the stage-1 input. Returns (text, budget, has_answers)."""
     text = (text or "").strip()
     if not text:
         raise HTTPException(422, "Please describe your business.")
     text = text[: t.input.max_chars]
-    b = t.budget
-    if budget is None:
-        budget = b.default_monthly_usd
-    if not (b.min_usd <= budget <= b.max_usd):
-        raise HTTPException(
-            422, f"Budget must be between ${b.min_usd:,.0f} and ${b.max_usd:,.0f}.")
+    _check_budget(budget, t)
     if answers:
-        answers = {str(q)[:200]: str(a)[:200] for q, a in list(answers.items())[:5]}
-        text += "\n\nAdditional details:\n" + "\n".join(f"- {q}: {a}" for q, a in answers.items())
+        answers = {str(q)[:MAX_ANSWER_CHARS]: str(a)[:MAX_ANSWER_CHARS]
+                   for q, a in list(answers.items())[:MAX_ANSWERS]}
+        text += ANSWERS_HEADER + "\n".join(f"- {q}: {a}" for q, a in answers.items())
     return text, budget, bool(answers)
 
 
-def _cached(text: str, budget: float, has_answers: bool, t: Tuning) -> CampaignResult | None:
-    if has_answers:
-        return None
-    return samples.cached_result(text, budget, default_budget=t.budget.default_monthly_usd)
+def _cached(text: str, budget: float | None, has_answers: bool) -> CampaignResult | None:
+    return None if has_answers else samples.cached_stage1(text, budget)
+
+
+def _max_input_chars(t: Tuning) -> int:
+    """Longest input_text stage 1 can produce: the text plus the capped clarify answers."""
+    line = len("- : \n") + 2 * MAX_ANSWER_CHARS
+    return t.input.max_chars + len(ANSWERS_HEADER) + MAX_ANSWERS * line
+
+
+def _validate_stage(req: CreativesRequest, catalog: Catalog, t: Tuning) -> str:
+    """Shared checks for stage 2/3 requests; returns the stripped input_text."""
+    text = (req.input_text or "").strip()
+    if not text:
+        raise HTTPException(422, "Please describe your business.")
+    if len(text) > _max_input_chars(t):
+        raise HTTPException(422, "input_text is longer than stage 1 produces.")
+    known_pubs = {p.id for p in catalog.publishers}
+    known_personas = {p.id for p in catalog.personas}
+    if len(req.publishers) > len(known_pubs) or any(p.publisher_id not in known_pubs for p in req.publishers):
+        raise HTTPException(422, "Unknown publisher in the request.")
+    if not recommended_of(req.publishers):
+        raise HTTPException(422, "No recommended publishers to place ads on.")
+    if not 1 <= len(req.personas) <= t.persona.max:
+        raise HTTPException(422, f"Send between 1 and {t.persona.max} personas.")
+    if any(p.persona_id not in known_personas for p in req.personas):
+        raise HTTPException(422, "Unknown persona in the request.")
+    for c in getattr(req, "creatives", []):
+        if c.persona_id not in known_personas or c.publisher_id not in known_pubs:
+            raise HTTPException(422, "Unknown persona or publisher in a creative.")
+    if len(getattr(req, "creatives", [])) > t.persona.max:
+        raise HTTPException(422, f"Send at most {t.persona.max} creatives.")
+    return text
+
+
+async def _live(fn):
+    """Run a stage-2 call in a thread; map failures to a user-safe 502."""
+    try:
+        return await run_in_threadpool(fn)
+    except LLMError:
+        log.exception("stage 2 LLM failure")
+        raise HTTPException(502, MSG_LLM)
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("stage 2 failure")
+        raise HTTPException(502, MSG_OTHER)
 
 
 def _check_rate(request: Request, limiter: RateLimiter) -> None:
@@ -121,7 +218,7 @@ async def campaign(req: CampaignRequest, request: Request,
                    catalog: Catalog = Depends(get_catalog), t: Tuning = Depends(get_tuning),
                    limiter: RateLimiter = Depends(get_limiter)):
     text, budget, has_answers = _prepare(req.text, req.budget_usd, req.answers, t)
-    hit = _cached(text, budget, has_answers, t)
+    hit = _cached(text, budget, has_answers)
     if hit:
         return hit
     _check_rate(request, limiter)
@@ -149,7 +246,7 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
         except ValueError:
             raise HTTPException(422, "answers must be a JSON object.")
     full_text, budget, has_answers = _prepare(text, budget_usd, parsed, t)
-    hit = _cached(full_text, budget, has_answers, t)
+    hit = _cached(full_text, budget, has_answers)
     if not hit:
         _check_rate(request, limiter)
 
@@ -169,6 +266,52 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
             yield encode(e)
 
     return EventSourceResponse(gen())
+
+
+@app.post("/api/creatives", response_model=CreativesResponse)
+async def creatives(req: CreativesRequest, request: Request,
+                    llm: LLMProvider = Depends(get_llm), catalog: Catalog = Depends(get_catalog),
+                    t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter)):
+    text = _validate_stage(req, catalog, t)
+    hit = samples.cached_creatives(text, req.publishers, req.personas)
+    if hit:
+        return {"creatives": hit}
+    _check_rate(request, limiter)
+    out = await _live(lambda: make_creatives(text, req.brief, req.publishers, req.personas,
+                                             llm=llm, catalog=catalog, t=t))
+    if not out:
+        raise HTTPException(502, NO_ADS_MSG)
+    return {"creatives": out}
+
+
+@app.post("/api/creatives/regenerate", response_model=CreativeResponse)
+async def regenerate_creative(req: RegenerateRequest, request: Request,
+                              llm: LLMProvider = Depends(get_llm),
+                              catalog: Catalog = Depends(get_catalog),
+                              t: Tuning = Depends(get_tuning),
+                              limiter: RateLimiter = Depends(get_limiter)):
+    text = _validate_stage(req, catalog, t)
+    if not any(c.persona_id == req.persona_id for c in req.creatives):
+        raise HTTPException(422, "persona_id has no creative to regenerate.")
+    note = (req.note or "").strip() or None
+    if note and len(note) > t.creative.note_max_chars:
+        raise HTTPException(422, f"Keep the note to {t.creative.note_max_chars} characters.")
+    _check_rate(request, limiter)
+    out = await _live(lambda: regenerate(text, req.brief, req.publishers, req.personas,
+                                         req.creatives, req.persona_id, note,
+                                         llm=llm, catalog=catalog, t=t))
+    return {"creative": out}
+
+
+@app.post("/api/config", response_model=ConfigResponse)
+def config(req: ConfigRequest, catalog: Catalog = Depends(get_catalog),
+           t: Tuning = Depends(get_tuning)):
+    _validate_stage(req, catalog, t)
+    if req.gate.outcome != "proceed":
+        raise HTTPException(422, "A config is only built for a campaign the gate let through.")
+    _check_budget(req.budget_usd, t)
+    return {"config": make_config(req.brief, req.gate, req.publishers, req.personas, req.creatives,
+                                  req.budget_usd, catalog=catalog, t=t)}
 
 
 DIST = Path(__file__).resolve().parent.parent / "web" / "dist"

@@ -24,7 +24,6 @@ persona:
   min: 3
   max: 5
 budget:
-  default_monthly_usd: 25000
   min_usd: 500
   max_usd: 5000000
   assumed_cpm_usd: 12
@@ -64,6 +63,7 @@ creative:
   claim_words: [clinically, proven, cure, guaranteed, "#1", doctor, vet-recommended, award]
   # generic copy (headline/body): sent back once unless the advertiser wrote the phrase
   banned_phrases: [high-quality, perfect for, look no further, elevate, unlock, game-changer]
+  note_max_chars: 200           # regenerate note from the advertiser (treated as data)
   audience_words: [women, men, moms, mums, mothers, dads, fathers, parents, seniors, millennials, gen z, boomers, teens]
 input:
   max_chars: 1500

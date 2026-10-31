@@ -1,13 +1,14 @@
-"""Run the 15 example advertisers through the real pipeline and cache the results.
+"""Run the 15 example advertisers through all three stages and cache each stage's result.
 
     make samples        # needs OPENAI_API_KEY (from .env or the environment)
 
-Writes cache/samples.json as {normalised_text: CampaignResult}. Re-run whenever prompts or
-tuning change. The API replays these instantly, so the demo works without any LLM call.
+Writes cache/samples.json as {"format": 2, "samples": {normalised_text: {stage1, creatives,
+config}}}: the stage-1 result (no creatives or config), the creatives, and the config at the
+recommended budget. Re-run whenever prompts or tuning change. The API serves stage 1 and the
+creatives from here instantly, so the default click-through needs no LLM call.
 """
 from __future__ import annotations
 
-import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -23,7 +24,7 @@ from app.catalog import load_catalog  # noqa: E402
 from app.gate import get_gate  # noqa: E402
 from app.llm import get_provider  # noqa: E402
 from app.pipeline import run_full  # noqa: E402
-from app.samples import CACHE, load_samples, norm  # noqa: E402
+from app.samples import CACHE, SampleEntry, load_samples, write_cache  # noqa: E402
 from app.tuning import load_tuning  # noqa: E402
 
 # The expected outcomes for the 15 given examples; any listed outcome is acceptable.
@@ -37,23 +38,21 @@ EXPECTED: dict[int, tuple[str, ...]] = {
 
 def main() -> int:
     t, catalog, llm, gate = load_tuning(), load_catalog(), get_provider(), get_gate(tuning=load_tuning())
-    budget = t.budget.default_monthly_usd
     samples = load_samples()
 
     def run(s: dict):
         text = s["text"][: t.input.max_chars]  # same truncation as the API
-        return run_full(text, budget, llm=llm, gate=gate, catalog=catalog, t=t)
+        return run_full(text, None, llm=llm, gate=gate, catalog=catalog, t=t)  # recommended budget
 
     with ThreadPoolExecutor(max_workers=5) as ex:
         results = list(ex.map(run, samples))
 
-    out = {norm(r.input_text): r.model_dump(mode="json") for r in results}
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE.write_text(json.dumps(out, indent=1, sort_keys=True, ensure_ascii=False) + "\n",
-                     encoding="utf-8")
+    entries = [SampleEntry(stage1=r.model_copy(update={"creatives": [], "config": None}),
+                           creatives=r.creatives, config=r.config) for r in results]
+    write_cache(entries)
 
     bad = 0
-    print(f"wrote {len(out)} entries to {CACHE}")
+    print(f"wrote {len(entries)} entries to {CACHE}")
     for s, r in zip(samples, results):
         want = EXPECTED.get(s["id"], ())
         ok = r.outcome in want
