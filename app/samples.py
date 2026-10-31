@@ -53,19 +53,39 @@ CACHE_FORMAT = 2  # cache/samples.json: {"format": 2, "fingerprint": sha256, "sa
 
 def _fingerprint_files(root: Path) -> list[Path]:
     """What a cached result depends on: tuning, every prompt file, and the catalog JSON.
-    prompts/README.md is documentation (never sent to a model), so it is left out."""
+    prompts/README.md is documentation (never sent to a model), so it is left out, as are the
+    step agents' prompts (prompts/agents/): cached samples are no-steer code results."""
     prompts = [p for p in (root / "prompts").rglob("*")
                if p.is_file() and not p.name.startswith(".") and p.name != "README.md"
-               and "__pycache__" not in p.parts]
+               and "__pycache__" not in p.parts and p.relative_to(root).parts[1] != "agents"]
     return sorted([root / "config/tuning.yaml", *prompts, *(root / "data").glob("*.json")],
                   key=lambda p: p.relative_to(root).as_posix())
+
+
+_TOP_KEY = re.compile(rb"^[^\s#]")
+
+
+def _without_agents_block(raw: bytes) -> bytes:
+    """tuning.yaml without its top-level `agents:` block (step-agent tunables never shape a
+    cached sample), byte for byte otherwise."""
+    out, skipping = [], False
+    for line in raw.splitlines(keepends=True):
+        if _TOP_KEY.match(line):
+            skipping = line.startswith(b"agents:")
+        if not skipping:
+            out.append(line)
+    return b"".join(out)
 
 
 def fingerprint(root: Path = ROOT) -> str:
     """sha256 over (relative path, bytes) of every input the cached samples were built from."""
     h = hashlib.sha256()
     for p in _fingerprint_files(Path(root)):
-        h.update(p.relative_to(root).as_posix().encode() + b"\0" + p.read_bytes() + b"\0")
+        rel = p.relative_to(root).as_posix()
+        data = p.read_bytes()
+        if rel == "config/tuning.yaml":
+            data = _without_agents_block(data)
+        h.update(rel.encode() + b"\0" + data + b"\0")
     return h.hexdigest()
 
 

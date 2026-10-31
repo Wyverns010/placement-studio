@@ -119,3 +119,26 @@ ratelimit:
   cost_stage1: 1                # runs charged per call: stage 1 (understand + gate + match)
   cost_creatives: 2             # stage 2: one creative call per persona (3-5 calls)
   cost_regenerate: 1            # stage 2: rewrite one ad
+agents:                         # step agents (app/stepagents). Not in the sample-cache fingerprint:
+  enabled: true                 # cached samples are no-steer code results, never agent output
+  run_without_steer:            # live runs with no steer: use the agent, or plain code ("code" mode)
+    strategist: true
+    creative: true
+    media_planner: false        # stage 3 stays free and instant unless the user steers it
+  steer_max_chars: 300          # the "Tell the agent…" text (data, never instructions)
+  max_turns: {strategist: 10, copywriter: 6, critic: 3, media_planner: 8}
+  critic_max_rounds: 2          # critic reviews per ad; later review requests are refused
+  max_cost_usd:                 # cost guard per step run (≈10¢ per 3-step session); over -> fallback
+    strategist: 0.02
+    creative: 0.07
+    media_planner: 0.01
+  timeout_s: 90                 # whole step; over -> fallback
+  max_notes: 6                  # agent_notes kept per step
+  note_max_chars: 200
+  trace_args_chars: 80          # agent_trace summaries are cut to these lengths
+  trace_result_chars: 160
+  ratelimit_cost_config: 1      # runs charged for /api/config with a steer (the planner is an LLM)
+  prices_per_1m_usd:            # USD per 1M tokens for the cost guard; check OpenAI's price page.
+    gpt-5.4-mini: {input: 0.75, cached_input: 0.075, output: 4.5}
+    gpt-5.5: {input: 5.0, cached_input: 0.5, output: 30.0}
+    default: {input: 5.0, cached_input: 0.5, output: 30.0}   # any other model: priced high

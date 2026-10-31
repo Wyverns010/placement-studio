@@ -60,3 +60,8 @@ def _category_words(prompts_dir: Path) -> dict[str, str]:
 def _feedback_templates(prompts_dir: Path) -> dict[str, str]:
     """creative_feedback.yaml, parsed once per directory (it is read on every check message)."""
     return yaml.safe_load((prompts_dir / "creative_feedback.yaml").read_text(encoding="utf-8"))
+
+
+def wrap_steer(text: str | None) -> str:
+    """Wrap the user's step-agent steer ("Tell the agent…", untrusted, data) in <user_steer> tags."""
+    return _wrap("user_steer", text or "")

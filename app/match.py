@@ -8,6 +8,7 @@ from app.models import Brief, Factor, PersonaScore, PublisherScore
 from app.tuning import Tuning
 
 _INCOME_NAME = {1: "mid", 2: "mid-high", 3: "high"}
+EXCLUDED_REASON = "Excluded by your note"  # a publisher a steer removed
 
 
 def _label(s: str) -> str:
@@ -106,7 +107,10 @@ def _pick_reason(factors: list[Factor], unknown: list[bool], recommended: bool) 
     return max(known, key=lambda f: f.score) if recommended else min(known, key=lambda f: f.score)
 
 
-def score_publishers(brief: Brief, catalog: Catalog, t: Tuning) -> list[PublisherScore]:
+def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
+                     exclude: frozenset[str] = frozenset()) -> list[PublisherScore]:
+    """Every publisher, best fit first. `exclude` ids (a user's steer) keep their fit but are never
+    recommended and don't take a recommendation slot."""
     pt = t.publisher
     w = pt.weights
     weights = {"category": w.category, "audience": w.audience, "income": w.income, "aov": w.aov}
@@ -125,12 +129,17 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning) -> list[Publishe
         rows.append((fit, p, factors, [False, aud_unk, inc_unk, aov_unk]))
     rows.sort(key=lambda r: (-r[0], r[1].id))
     out: list[PublisherScore] = []
-    for rank, (fit, p, factors, unk) in enumerate(rows):
-        recommended = fit >= pt.cutoff and rank < pt.max_recommended
-        pick = _pick_reason(factors, unk, recommended)
+    rank = 0
+    for fit, p, factors, unk in rows:
+        if p.id in exclude:
+            recommended, reason = False, EXCLUDED_REASON
+        else:
+            recommended = fit >= pt.cutoff and rank < pt.max_recommended
+            reason = _pick_reason(factors, unk, recommended).note
+            rank += 1
         out.append(PublisherScore(
             publisher_id=p.id, name=p.name, fit=round(fit, 3), factors=factors,
-            recommended=recommended, stretch=False, reason=pick.note,
+            recommended=recommended, stretch=False, reason=reason,
         ))
     return out
 
@@ -139,12 +148,17 @@ def is_weak_fit(scores: list[PublisherScore], t: Tuning) -> bool:
     return sum(1 for s in scores if s.recommended) < t.publisher.weak_fit_min_recommended
 
 
-def mark_stretch(scores: list[PublisherScore], t: Tuning) -> list[PublisherScore]:
+def mark_stretch(scores: list[PublisherScore], t: Tuning,
+                 excluded: frozenset[str] = frozenset()) -> list[PublisherScore]:
+    """The closest weak_fit_show publishers (skipping `excluded`) become recommended stretch picks."""
     n = t.publisher.weak_fit_show
-    return [
-        s.model_copy(update={"recommended": i < n, "stretch": i < n})
-        for i, s in enumerate(scores)
-    ]
+    out, picked = [], 0
+    for s in scores:
+        pick = s.publisher_id not in excluded and picked < n
+        picked += pick
+        out.append(s.model_copy(update={"recommended": pick, "stretch": pick}))
+    return out
+
 
 
 # ---- personas ----

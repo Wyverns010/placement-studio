@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Iterator
 
 from app.catalog import Catalog
@@ -17,8 +18,8 @@ from app.llm import LLMError, LLMProvider
 from app.match import (
     is_weak_fit, mark_stretch, score_personas, score_publishers, select_personas,
 )
-from app.models import (Brief, CampaignConfig, CampaignResult, Creative, GateResult,
-                        PersonaScore, PublisherScore, StageEvent)
+from app.models import (Brief, CampaignConfig, CampaignResult, ClarifyQuestion, Creative,
+                        GateResult, PersonaScore, PublisherScore, StageEvent)
 from app.tuning import Tuning
 from app.understand import clamp_brief, understand
 
@@ -40,6 +41,19 @@ def msg_out_of_scope(product: str | None, audience_type: str = "business") -> st
                 "something they buy there, so we don't recommend spending here.")
     return (f"This catalog reaches shoppers at checkout; {product or 'this product'} sells to "
             "business buyers, so we don't recommend spending here.")
+
+
+@dataclass(frozen=True)
+class Stage1Plan:
+    """What the stage-1 agent chose through its tools (app/stepagents/strategist.py); code applies
+    it. `brief` is the understood brief the gate reads; `adjusted` (if any) is that brief with the
+    steer's changes, used for matching and returned. Exclusions keep their scores but are never
+    picked. `clarify` reuses questions a tool already asked for."""
+    brief: Brief
+    adjusted: Brief | None = None
+    exclude_publishers: frozenset[str] = frozenset()
+    exclude_personas: frozenset[str] = frozenset()
+    clarify: tuple[ClarifyQuestion, ...] | None = None
 
 
 class PipelineError(Exception):
@@ -77,11 +91,13 @@ def result_events(r: CampaignResult, t: Tuning) -> list[StageEvent]:
 
 
 def run_stage1(text: str, budget_usd: float | None, *, llm: LLMProvider, gate: ConfidenceGate,
-               catalog: Catalog, t: Tuning) -> Iterator[StageEvent]:
+               catalog: Catalog, t: Tuning, plan: Stage1Plan | None = None,
+               meta: dict | None = None) -> Iterator[StageEvent]:
     """Stage 1 events: understood, gate, [publishers, personas,] done | error. `budget_usd` is only
-    echoed in the result (the client passes it on to stage 3)."""
+    echoed in the result (the client passes it on to stage 3). `plan` applies an agent's choices;
+    `meta` (mode, agent_trace, agent_notes) is copied into the result."""
     try:
-        yield from _run(text, budget_usd, llm, gate, catalog, t)
+        yield from _run(text, budget_usd, llm, gate, catalog, t, plan, meta or {})
     except LLMError:
         log.exception("pipeline LLM failure")
         yield StageEvent(stage="error", data={"message": MSG_LLM})
@@ -90,17 +106,23 @@ def run_stage1(text: str, budget_usd: float | None, *, llm: LLMProvider, gate: C
         yield StageEvent(stage="error", data={"message": MSG_OTHER})
 
 
-def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
+def _run(text, budget_usd, llm, gate, catalog, t, plan: Stage1Plan | None,
+         meta: dict) -> Iterator[StageEvent]:
     def result(outcome, message=None, publishers=(), personas=(), clarify=()) -> CampaignResult:
         return CampaignResult(
             input_text=text, budget_usd=budget_usd, outcome=outcome, message=message,
             brief=brief, gate=g, publishers=list(publishers), personas=list(personas),
-            creatives=[], clarify=list(clarify), config=None,
+            creatives=[], clarify=list(clarify), config=None, **meta,
         )
 
-    brief = clamp_brief(understand(text, catalog, llm), t)  # within the caps stage 2/3 enforce
+    if plan:
+        base, brief = plan.brief, plan.adjusted or plan.brief
+        no_pubs, no_personas = plan.exclude_publishers, plan.exclude_personas
+    else:
+        base = brief = clamp_brief(understand(text, catalog, llm), t)  # within the stage 2/3 caps
+        no_pubs = no_personas = frozenset()
     yield StageEvent(stage="understood", data=brief.model_dump())
-    g = gate.assess(text, brief)
+    g = gate.assess(text, base)  # the gate reads what the advertiser wrote, never a steer
     yield StageEvent(stage="gate", data=g.model_dump())
 
     if g.outcome == "no_signal":
@@ -108,7 +130,7 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
                                                    clarify=NO_SIGNAL_QUESTIONS).model_dump())
         return
 
-    scored = score_publishers(brief, catalog, t)
+    scored = score_publishers(brief, catalog, t, no_pubs)
 
     if g.outcome == "out_of_scope":
         excluded = [s.model_copy(update={"recommended": False, "stretch": False}) for s in scored]
@@ -117,20 +139,21 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
             "out_of_scope", msg_out_of_scope(brief.product, brief.audience_type), publishers=excluded).model_dump())
         return
 
-    persona_scores = score_personas(brief, catalog, t)
+    persona_scores = [p for p in score_personas(brief, catalog, t) if p.persona_id not in no_personas]
 
     if g.outcome == "clarify":
         yield StageEvent(stage="publishers", data=_pub_data(scored, t, "clarify"))
         top = select_personas(persona_scores, t)[:1]
         yield StageEvent(stage="personas", data=_persona_data(top))
-        questions = clarify_questions(text, brief, llm, catalog, t)
+        questions = (list(plan.clarify) if plan and plan.clarify is not None
+                     else clarify_questions(text, brief, llm, catalog, t))
         yield StageEvent(stage="done", data=result(
             "clarify", None, publishers=scored, personas=top, clarify=questions).model_dump())
         return
 
     weak = is_weak_fit(scored, t)
     if weak:
-        scored = mark_stretch(scored, t)
+        scored = mark_stretch(scored, t, no_pubs)
     yield StageEvent(stage="publishers", data=_pub_data(scored, t))
     personas = select_personas(persona_scores, t)
     yield StageEvent(stage="personas", data=_persona_data(personas))
@@ -166,11 +189,15 @@ def regenerate(text: str, brief: Brief, publishers: list[PublisherScore],
 
 def make_config(brief: Brief, gate: GateResult, publishers: list[PublisherScore],
                 personas: list[PersonaScore], creatives: list[Creative], budget_usd: float | None,
-                *, catalog: Catalog, t: Tuning) -> CampaignConfig:
-    """Stage 3 (code only): `budget_usd` None means use the recommended budget."""
-    return build_config(brief=brief, gate=gate, publishers=recommended_of(publishers),
+                *, catalog: Catalog, t: Tuning, exclude: frozenset[str] = frozenset(),
+                pacing_override: str | None = None) -> CampaignConfig:
+    """Stage 3 (code only): `budget_usd` None means use the recommended budget. `exclude` drops
+    publishers from the line items and `pacing_override` sets pacing (the media planner's choices)."""
+    return build_config(brief=brief, gate=gate,
+                        publishers=[p for p in recommended_of(publishers) if p.publisher_id not in exclude],
                         personas=personas, creatives=creatives, monthly_usd=budget_usd,
-                        weak_fit=is_weak(publishers), catalog=catalog, t=t)
+                        weak_fit=is_weak(publishers), catalog=catalog, t=t,
+                        pacing_override=pacing_override)
 
 
 BUILT = ("proceed", "weak_fit")

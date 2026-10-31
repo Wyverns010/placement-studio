@@ -107,6 +107,18 @@ class CampaignConfig(BaseModel):
     decision_trace: dict
 
 
+Mode = Literal["agent", "fallback", "cached", "code"]
+
+
+class TraceStep(BaseModel):
+    """One step an agent took (a tool call, or the fallback), shown in "What the agent did"."""
+    agent: str
+    tool: str
+    args_summary: str
+    result_summary: str
+    ms: int
+
+
 class CampaignResult(BaseModel):
     """Stage 1 fills everything but creatives and config; run_full fills those too."""
     input_text: str
@@ -121,8 +133,12 @@ class CampaignResult(BaseModel):
     clarify: list[ClarifyQuestion]
     config: CampaignConfig | None
     stage_token: str | None = None  # API only: HMAC over the stage-1 fields (app/stagesign.py)
+    # step agents (outside the signed fields): how this result was made and what the agent did
+    mode: Mode | None = None  # agent | fallback (agent failed, code ran) | cached | code (no agent)
+    agent_trace: list[TraceStep] = []
+    agent_notes: list[str] = []
 
 
 class StageEvent(BaseModel):
-    stage: Literal["understood", "gate", "publishers", "personas", "done", "error"]
+    stage: Literal["agent", "understood", "gate", "publishers", "personas", "done", "error"]
     data: dict

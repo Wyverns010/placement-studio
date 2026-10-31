@@ -86,3 +86,18 @@ def test_cached_stage1_reproduces_from_its_brief(text, entry):
 def test_cached_config_matches_current_code(text, entry):
     rebuilt = samples_mod.rebuild_config(entry, catalog=CAT, t=T)
     assert (rebuilt and rebuilt.model_dump()) == (entry.config and entry.config.model_dump())
+
+
+def test_fingerprint_ignores_step_agent_tunables_and_prompts(tmp_path):
+    """Cached samples are no-steer code results: the tuning `agents:` block and prompts/agents/
+    never shape them, so editing those keeps the cache current."""
+    root = _tree(tmp_path)
+    (root / "config/tuning.yaml").write_text("a: 1\nagents:\n  x: 1\n  # note\nb: 2\n")
+    (root / "prompts/agents").mkdir()
+    (root / "prompts/agents/strategist.md").write_text("v1")
+    before = samples_mod.fingerprint(root)
+    (root / "config/tuning.yaml").write_text("a: 1\nagents:\n  x: 2\n  y: 3\nb: 2\n")
+    (root / "prompts/agents/strategist.md").write_text("v2")
+    assert samples_mod.fingerprint(root) == before
+    (root / "config/tuning.yaml").write_text("a: 1\nagents:\n  x: 2\nb: 3\n")
+    assert samples_mod.fingerprint(root) != before

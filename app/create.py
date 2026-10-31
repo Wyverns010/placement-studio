@@ -150,15 +150,9 @@ def _call_many(text, brief, targets, all_targets, catalog, llm, t, retry_problem
     return {p.id: it for (p, _), it in zip(targets, results) if it is not None}
 
 
-def write_creatives(
-    text: str,
-    brief: Brief,
-    personas: list[PersonaScore],
-    publishers: list[PublisherScore],
-    catalog: Catalog,
-    llm: LLMProvider,
-    t: Tuning,
-) -> list[Creative]:
+def creative_targets(personas: list[PersonaScore], publishers: list[PublisherScore],
+                     catalog: Catalog) -> list[tuple[Persona, PublisherScore]]:
+    """(persona, publisher) per persona, in order, on distinct recommended publishers where possible."""
     by_id = {p.id: p for p in catalog.personas}
     targets: list[tuple[Persona, PublisherScore]] = []
     used: set[str] = set()
@@ -168,6 +162,31 @@ def write_creatives(
         if persona and pub:
             targets.append((persona, pub))
             used.add(pub.publisher_id)
+    return targets
+
+
+def set_problems(creatives: list[Creative], text: str, product: str | None,
+                 names: dict[str, str], t: Tuning) -> dict[str, list[Problem]]:
+    """Per persona_id: code's problems with each ad (facts, length, generic copy, parroting), then
+    headline problems across the set. Also writes them to each creative's fact_violations."""
+    probs = {c.persona_id: ad_problems(c, text, names[c.persona_id], t) for c in creatives}
+    for pid, vs in headline_problems(creatives, product, names, t.creative.headline_similarity).items():
+        probs[pid] += vs
+    for c in creatives:
+        c.fact_violations = [p.message for p in probs[c.persona_id]]
+    return probs
+
+
+def write_creatives(
+    text: str,
+    brief: Brief,
+    personas: list[PersonaScore],
+    publishers: list[PublisherScore],
+    catalog: Catalog,
+    llm: LLMProvider,
+    t: Tuning,
+) -> list[Creative]:
+    targets = creative_targets(personas, publishers, catalog)
     if not targets:
         return []
     pub_of = {p.id: pub for p, pub in targets}
@@ -187,13 +206,8 @@ def write_creatives(
         return [result[p.id] for p, _ in targets if p.id in result]
 
     def check_all() -> None:
-        """Fact/length problems per creative, then headline problems across the whole set."""
         probs.clear()
-        probs.update({pid: ad_problems(c, text, names[pid], t) for pid, c in result.items()})
-        for pid, vs in headline_problems(ordered(), brief.product, names, t.creative.headline_similarity).items():
-            probs[pid] += vs
-        for pid, c in result.items():
-            c.fact_violations = [p.message for p in probs[pid]]
+        probs.update(set_problems(ordered(), text, brief.product, names, t))
 
     result.update({pid: build(it) for pid, it in _call_many(text, brief, targets, targets, catalog, llm, t).items()})
     check_all()
@@ -206,6 +220,24 @@ def write_creatives(
         result.update({pid: build(it) for pid, it in retried.items()})
         check_all()  # re-check headlines against the final set
     return ordered()
+
+
+def rewrite_problems(c: Creative, current: Creative, text: str, persona_name: str,
+                     product: str | None, other_heads: list[tuple[str, str]],
+                     names: dict[str, str], t: Tuning) -> list[Problem]:
+    """Code's problems with a rewritten ad: the usual ad checks, plus a headline unchanged from the
+    current one, equal to the product name, or like another persona's (`other_heads`: (headline,
+    persona_id))."""
+    sim = t.creative.headline_similarity
+    out = ad_problems(c, text, persona_name, t)
+    if headlines_similar(c.headline, current.headline, sim):
+        out.append(Problem("headline_unchanged", feedback("headline_unchanged")))
+    if normalise_headline(c.headline) == normalise_headline(product or ""):
+        out.append(Problem("headline_product", feedback("headline_product")))
+    dup = next((pid for h, pid in other_heads if headlines_similar(h, c.headline, sim)), None)
+    if dup:
+        out.append(Problem("headline_duplicate", feedback("headline_duplicate", name=names.get(dup, dup))))
+    return out
 
 
 def rewrite_creative(
@@ -235,23 +267,13 @@ def rewrite_creative(
               if c.persona_id != persona_id and c.persona_id in by_id]
     names = {c.persona_id: by_id[c.persona_id].name for c in creatives if c.persona_id in by_id}
     other_heads = [(c.headline, c.persona_id) for c in creatives if c.persona_id != persona_id]
-    sim = t.creative.headline_similarity
 
     def build(it: CreativeItem) -> Creative:
         return current.model_copy(update={"headline": it.headline, "body": it.body, "cta": it.cta,
                                           "why": it.why, "fact_violations": []})
 
     def problems(c: Creative) -> list[Problem]:
-        out = ad_problems(c, text, persona.name, t)
-        if headlines_similar(c.headline, current.headline, sim):
-            out.append(Problem("headline_unchanged", feedback("headline_unchanged")))
-        if normalise_headline(c.headline) == normalise_headline(brief.product or ""):
-            out.append(Problem("headline_product", feedback("headline_product")))
-        dup = next((pid for h, pid in other_heads if headlines_similar(h, c.headline, sim)), None)
-        if dup:
-            out.append(Problem("headline_duplicate",
-                               feedback("headline_duplicate", name=names.get(dup, dup))))
-        return out
+        return rewrite_problems(c, current, text, persona.name, brief.product, other_heads, names, t)
 
     target = (persona, pub)
     heads = [h for h, _ in other_heads]

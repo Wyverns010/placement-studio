@@ -177,6 +177,31 @@ class RateLimitTuning(BaseModel):
     cost_regenerate: int
 
 
+class AgentPrice(BaseModel):
+    input: float
+    cached_input: float
+    output: float
+
+
+class AgentsTuning(BaseModel):
+    enabled: bool
+    run_without_steer: dict[str, bool]  # strategist | creative | media_planner
+    steer_max_chars: int
+    max_turns: dict[str, int]  # strategist | copywriter | critic | media_planner
+    critic_max_rounds: int
+    max_cost_usd: dict[str, float]  # strategist | creative | media_planner
+    timeout_s: float
+    max_notes: int
+    note_max_chars: int
+    trace_args_chars: int
+    trace_result_chars: int
+    ratelimit_cost_config: int
+    prices_per_1m_usd: dict[str, AgentPrice]  # model name -> price; "default" for any other
+
+    def price(self, model: str) -> AgentPrice:
+        return self.prices_per_1m_usd.get(model) or self.prices_per_1m_usd["default"]
+
+
 class Tuning(BaseModel):
     publisher: PublisherTuning
     persona: PersonaTuning
@@ -192,6 +217,7 @@ class Tuning(BaseModel):
     stage1: Stage1Tuning
     api: ApiTuning
     llm: LLMTuning
+    agents: AgentsTuning
 
 
 DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config/tuning.yaml"

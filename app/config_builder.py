@@ -4,7 +4,8 @@ import hashlib
 import math
 import re
 
-from app.budget import allocate, frequency_cap, order_value_used, pacing, recommended_budget
+from app.budget import (Pacing, allocate, frequency_cap, order_value_used, pacing,
+                        recommended_budget)
 from app.catalog import Catalog
 from app.match import age_bounds
 from app.models import (Brief, CampaignConfig, Creative, GateResult, LineItem,
@@ -48,8 +49,9 @@ def _assign_creatives(items: list[LineItem], personas: list[PersonaScore],
 def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherScore],
                  personas: list[PersonaScore], creatives: list[Creative],
                  monthly_usd: float | None, weak_fit: bool, catalog: Catalog,
-                 t: Tuning) -> CampaignConfig:
-    """`monthly_usd` None means use the recommended budget; a user's figure always wins."""
+                 t: Tuning, pacing_override: Pacing | None = None) -> CampaignConfig:
+    """`monthly_usd` None means use the recommended budget; a user's figure always wins, as does
+    a pacing the user asked for (`pacing_override`, from the media planner's validated tool)."""
     rec = recommended_budget(brief, publishers, catalog, weak_fit, t)
     source = "recommended" if monthly_usd is None else "user"
     monthly_usd = rec.usd if monthly_usd is None else monthly_usd
@@ -59,7 +61,8 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     subscription = brief.business_model == "subscription"
     bid = t.bid
     freq_n, freq_days = frequency_cap(brief, weak_fit, t)
-    pace = pacing(brief, weak_fit, monthly_usd, rec.usd)
+    code_pace = pacing(brief, weak_fit, monthly_usd, rec.usd)
+    pace = pacing_override or code_pace
     order_value = order_value_used(brief, publishers, catalog)
 
     bounds = age_bounds(brief, t)
@@ -86,7 +89,10 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
         "targeting": f"{len(personas)} personas, interests {', '.join(interests) or 'none'}, "
                      f"{_ages_text(age_range)}, gender {gender}, US",
         "frequency_cap": _frequency_rationale(brief, weak_fit, freq_n, freq_days, t),
-        "pacing": _pacing_rationale(brief, weak_fit, pace, monthly_usd, rec.usd),
+        "pacing": _pacing_rationale(brief, weak_fit, code_pace, monthly_usd, rec.usd)
+                  if pace == code_pace else
+                  f"{_PACE_WORD[pace]}: you asked for it (we'd pick {_PACE_WORD[code_pace].lower()}: "
+                  f"{_pacing_rationale(brief, weak_fit, code_pace, monthly_usd, rec.usd).split(': ', 1)[1]})",
         "guardrails": f"Pause if CPA exceeds ${cpa_limit:,.0f} ({bid.guardrail_cpa_multiple:g}× target) "
                       f"after {bid.guardrail_min_impressions:,} impressions",
         "line_items": f"{len(items)} publishers, budget share proportional to fit with a "
@@ -113,6 +119,9 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
                         "persona_fits": {p.persona_id: p.fit for p in personas},
                         "weak_fit": weak_fit},
     )
+
+
+_PACE_WORD = {"front_loaded": "Front-loaded", "even": "Even", "accelerated": "Accelerated"}
 
 
 def _ages_text(age_range: list) -> str:
