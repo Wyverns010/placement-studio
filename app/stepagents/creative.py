@@ -119,6 +119,11 @@ def _review_tool(runtime: AgentRuntime, desk: AdDesk) -> FunctionTool:
                    "flag anything still wrong.")
             session.record("copywriter", "review_draft", args, msg, 0)
             return msg
+        if session.cost_usd > session.cap * t.agents.critic_stop_fraction:
+            msg = ("Refused: this step's budget for reviews is used up. Return your best draft "
+                   "now; code will flag anything still wrong.")
+            session.record("copywriter", "review_draft", args, msg, 0)
+            return msg
         d.rounds += 1
         t0 = time.perf_counter()
         out = await inner.on_invoke_tool(ctx, args_json)
@@ -177,6 +182,15 @@ def _desk_note(desk: AdDesk, c: Creative) -> str:
     if c.fact_violations:
         s += "; code still flags it (see the chips)"
     return s + "."
+
+
+def projected_usd(n_ads: int, t: Tuning) -> float:
+    """What the creative team is expected to cost for n ads (measured per-ad mean)."""
+    return n_ads * t.agents.creative_est_usd_per_ad
+
+
+def n_ads(personas: list[PersonaScore], publishers: list[PublisherScore], catalog: Catalog) -> int:
+    return len(creative_targets(personas, recommended_of(publishers), catalog))
 
 
 async def write_all(text: str, brief: Brief, publishers: list[PublisherScore],

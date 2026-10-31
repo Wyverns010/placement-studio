@@ -191,6 +191,8 @@ class AgentsTuning(BaseModel):
     min_recommended_after_steer: int  # a steer never shrinks the recommended set below min(this, n)
     max_share_after_steer: float  # most budget one publisher may get after a planner exclusion
     critic_max_rounds: int
+    critic_stop_fraction: float  # share of the step's cap after which critic reviews are refused
+    creative_est_usd_per_ad: float  # projected agent cost per ad (checked before spending)
     max_cost_usd: dict[str, float]  # strategist | creative | media_planner
     timeout_s: float  # per model call
     max_retries: int  # per model call

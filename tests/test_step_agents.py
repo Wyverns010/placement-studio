@@ -564,3 +564,59 @@ def test_live_client_uses_agent_timeout_and_retries(monkeypatch):
     assert c.timeout == min(T.agents.timeout_s, T.agents.step_timeout_s) == 30
     assert c.max_retries == T.agents.max_retries == 1
     assert T.agents.step_timeout_s >= T.agents.timeout_s
+
+
+# ---- step ② cost: decide before spending ----
+
+def _agents(**kw):
+    return T.model_copy(update={"agents": T.agents.model_copy(update=kw)})
+
+
+def test_creative_cap_covers_the_measured_cost():
+    assert T.agents.max_cost_usd["creative"] == 0.15  # measured mean $0.095, max $0.135
+
+
+def test_creative_projected_over_cap_falls_back_before_any_model_call():
+    r = plain()
+    copywriter, critic = ScriptedModel([]), ScriptedModel([])
+    rt = AgentRuntime(models={"copywriter": copywriter, "critic": critic})
+    t = _agents(max_cost_usd={**T.agents.max_cost_usd, "creative": 0.05})
+    llm = fake()
+    out, meta = steps.creatives_step(r.input_text, r.brief, r.publishers, r.personas, "warmer",
+                                     llm=llm, catalog=CAT, t=t, runtime=rt)
+    assert len(r.personas) * t.agents.creative_est_usd_per_ad > 0.05
+    assert meta["mode"] == "fallback" and out and "CreativeBatch" in [c["schema"] for c in llm.calls]
+    assert copywriter.calls == () and critic.calls == ()
+    assert "cost" in meta["agent_notes"][0]
+
+
+def test_critic_rounds_stop_when_spend_is_close_to_the_cap():
+    cap = T.agents.max_cost_usd["creative"]
+    p = T.agents.price(AgentRuntime.model_name("copywriter"))
+    tokens = int(cap * (T.agents.critic_stop_fraction + 0.05) / p.output * 1e6)
+    heavy = Usage(requests=1, input_tokens=0, output_tokens=tokens, total_tokens=tokens)
+    copywriter = ScriptedModel([ModelStep(output=call("review_draft", _draft("Draft 1")), usage=heavy),
+                                final(**_draft("Draft 1"))])
+    critic = ScriptedModel([])
+    rt = AgentRuntime(models={"copywriter": copywriter, "critic": critic})
+    r, personas = _stage1()
+    out, meta = steps.creatives_step(r.input_text, r.brief, r.publishers, personas, "warmer",
+                                     llm=fake(), catalog=CAT, t=T, runtime=rt)
+    assert meta["mode"] == "agent" and out[0].headline == "Draft 1"
+    assert critic.calls == ()  # no review paid for once spend is close to the cap
+    review = [s for s in meta["agent_trace"] if s.tool == "review_draft"][0]
+    assert review.result_summary.startswith("Refused")
+
+
+def test_creative_cost_cap_still_falls_back_cleanly():
+    big = Usage(requests=1, input_tokens=0, output_tokens=10_000_000, total_tokens=10_000_000)
+    copywriter = ScriptedModel([ModelStep(output=call("review_draft", _draft("Draft 1")), usage=big),
+                                final(**_draft("Draft 1"))])
+    rt = AgentRuntime(models={"copywriter": copywriter, "critic": ScriptedModel([])})
+    r, personas = _stage1()
+    llm = fake()
+    out, meta = steps.creatives_step(r.input_text, r.brief, r.publishers, personas, "warmer",
+                                     llm=llm, catalog=CAT, t=T, runtime=rt)
+    assert meta["mode"] == "fallback" and out and out[0].headline != "Draft 1"
+    assert "cost cap" in meta["agent_notes"][0] and meta["agent_trace"][-1].tool == "fallback"
+    assert "CreativeBatch" in [c["schema"] for c in llm.calls]

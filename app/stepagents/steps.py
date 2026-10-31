@@ -21,7 +21,8 @@ from app.models import (Brief, CampaignConfig, Creative, GateResult, PersonaScor
                         StageEvent)
 from app.pipeline import Stage1Plan, make_config, make_creatives, regenerate, run_stage1
 from app.stepagents import creative, planner, strategist
-from app.stepagents.runtime import AgentRuntime, Session, run_step, wants_agent
+from app.stepagents.runtime import (AgentRuntime, CostCapExceeded, Session, run_step,
+                                   wants_agent)
 from app.tuning import Tuning
 
 log = logging.getLogger(__name__)
@@ -66,6 +67,15 @@ def stage1_events(text: str, budget_usd: float | None, steer: str | None, *, llm
                           plan=ws.plan(), meta=session.meta("agent"))
 
 
+def _projected_over_cap(n_ads: int, session: Session) -> CostCapExceeded | None:
+    """Decide before spending: if the team's expected cost is over the step's cap, the code
+    writer runs straight away instead of paying for an agent run that would stop at the cap."""
+    est = creative.projected_usd(n_ads, session.t)
+    if est > session.cap:
+        return CostCapExceeded(f"projected cost ${est:.2f} is over the ${session.cap:.2f} cap")
+    return None
+
+
 def creatives_step(text: str, brief: Brief, publishers: list[PublisherScore],
                    personas: list[PersonaScore], steer: str | None, *, llm: LLMProvider,
                    catalog: Catalog, t: Tuning,
@@ -77,6 +87,8 @@ def creatives_step(text: str, brief: Brief, publishers: list[PublisherScore],
     if runtime is None or not wants_agent("creative", steer, t):
         return code(), dict(CODE)
     session = Session("creative", runtime, t)
+    if (over := _projected_over_cap(creative.n_ads(personas, publishers, catalog), session)):
+        return code(), session.fallback_meta(over)
     try:
         out = run_step(lambda: creative.write_all(text, brief, publishers, personas, steer,
                                                   catalog=catalog, t=t, runtime=runtime,
@@ -99,6 +111,8 @@ def regenerate_step(text: str, brief: Brief, publishers: list[PublisherScore],
     if runtime is None or not wants_agent("creative", steer or note, t):
         return code(), dict(CODE)
     session = Session("creative", runtime, t)
+    if (over := _projected_over_cap(1, session)):
+        return code(), session.fallback_meta(over)
     try:
         out = run_step(lambda: creative.rewrite_one(text, brief, publishers, personas, creatives,
                                                     persona_id, note, steer, catalog=catalog, t=t,
