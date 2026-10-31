@@ -84,13 +84,14 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
                         f"{ltv} = ${cpa:,.0f} target CPA",
         "budget": _budget_rationale(rec, source, monthly_usd, unallocated, weak_fit, len(publishers), t),
         "targeting": f"{len(personas)} personas, interests {', '.join(interests) or 'none'}, "
-                     f"ages {age_range[0]}-{age_range[1]}, gender {gender}, US",
+                     f"{_ages_text(age_range)}, gender {gender}, US",
         "frequency_cap": _frequency_rationale(brief, weak_fit, freq_n, freq_days, t),
         "pacing": _pacing_rationale(brief, weak_fit, pace, monthly_usd, rec.usd),
         "guardrails": f"Pause if CPA exceeds ${cpa_limit:,.0f} ({bid.guardrail_cpa_multiple:g}× target) "
                       f"after {bid.guardrail_min_impressions:,} impressions",
         "line_items": f"{len(items)} publishers, budget share proportional to fit with a "
-                      f"{t.budget.min_share:.0%} floor" + _rotation_note(items, publishers),
+                      f"{t.budget.min_share:.0%} floor" + _rotation_note(items, publishers)
+                      + _reuse_note(items, publishers, personas, creatives),
     }
     return CampaignConfig(
         campaign_id=_campaign_id(brief, publishers, personas, monthly_usd),
@@ -114,6 +115,33 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     )
 
 
+def _ages_text(age_range: list) -> str:
+    lo, hi = age_range
+    if lo is None and hi is None:
+        return "all ages"
+    if lo is None:
+        return f"ages up to {hi}"
+    if hi is None:
+        return f"ages {lo}+"
+    return f"ages {lo}-{hi}"
+
+
+def _reuse_note(items: list[LineItem], publishers: list[PublisherScore],
+                personas: list[PersonaScore], creatives: list[Creative]) -> str:
+    """Line items with no ad of their own serve one written for another publisher: say so."""
+    pub_names = {p.publisher_id: p.name for p in publishers}
+    persona_names = {p.persona_id: p.name for p in personas}
+    by_id = {c.creative_id: c for c in creatives}
+    notes = []
+    for li in items:
+        c = by_id.get(li.creative_id or "")
+        if c and c.publisher_id != li.publisher_id:
+            notes.append(f"{pub_names.get(li.publisher_id, li.publisher_id)} reuses the "
+                         f"{persona_names.get(c.persona_id, c.persona_id)} ad written for "
+                         f"{pub_names.get(c.publisher_id, c.publisher_id)}")
+    return "; " + ", ".join(notes) if notes else ""
+
+
 def _rotation_note(items: list[LineItem], publishers: list[PublisherScore]) -> str:
     names = {p.publisher_id: p.name for p in publishers}
     rot = [f"{1 + len(li.extra_creative_ids)} ads rotate on {names.get(li.publisher_id, li.publisher_id)}"
@@ -130,8 +158,11 @@ def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, 
            + (f", {capped} capped at reach (${b.assumed_cpm_usd:g} CPM)" if capped else "")
            + f", rounded to ${b.round_to_usd:,.0f} within ${b.min_usd:,.0f}–${b.max_usd:,.0f}")
     if weak_fit:
-        why += f", then {b.weak_fit_test_fraction:.0%} of ${rec.full_usd:,.0f} as a test because fit is weak"
-        if rec.full_usd * b.weak_fit_test_fraction < b.min_usd:
+        share = rec.full_usd * b.weak_fit_test_fraction
+        why += (f", then a test because fit is weak: {b.weak_fit_test_fraction:.0%} of "
+                f"${rec.full_usd:,.0f}, capped at ${b.weak_fit_test_max_usd:,.0f}, "
+                f"rounded to ${b.round_to_usd:,.0f}")
+        if min(share, b.weak_fit_test_max_usd) < b.min_usd:
             why += f" (raised to the ${b.min_usd:,.0f} minimum)"
     if source == "user" and weak_fit:
         why += (f". You chose ${monthly_usd:,.0f}; we'd suggest a ${rec.usd:,.0f} test because nothing "
@@ -153,6 +184,8 @@ def _frequency_rationale(brief: Brief, weak_fit: bool, n: int, days: int, t: Tun
         parts.append(f"+{f.subscription_extra} for a subscription")
     if weak_fit:
         parts.append(f"−{f.weak_fit_reduction} for a weak-fit test")
+        if days < base.per_days:
+            parts.append(f"window shortened to {days} days so the test learns fast")
     return f"At most {n} impressions per person every {days} days ({', '.join(parts)})"
 
 

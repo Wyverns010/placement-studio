@@ -151,3 +151,40 @@ def test_guardrail_limit_is_one_rounded_value():
     cfg, _, _ = _build(b=b)
     assert cfg.guardrails["cpa_limit_usd"] == 32
     assert "exceeds $32 " in cfg.rationales["guardrails"]
+
+
+def test_weak_fit_rationale_states_the_test_cap():
+    b = B.model_copy(update={"price_usd": 1000, "business_model": "one_off"})
+    pubs, personas, creatives = _inputs()
+    cfg = build_config(brief=b, gate=GATE, publishers=pubs, personas=personas, creatives=creatives,
+                       monthly_usd=None, weak_fit=True, catalog=CAT, t=T)
+    rec = recommended_budget(b, pubs, CAT, True, T)
+    assert rec.usd == T.budget.weak_fit_test_max_usd == 3000
+    assert cfg.budget["monthly_usd"] == 3000
+    r = cfg.rationales["budget"]
+    assert "capped at $3,000" in r and "20%" in r
+    lux = build_config(brief=b.model_copy(update={"price_tier": "luxury"}), gate=GATE, publishers=pubs,
+                       personas=personas, creatives=creatives, monthly_usd=None, weak_fit=True,
+                       catalog=CAT, t=T)
+    assert lux.frequency_cap == {"impressions": 1, "per_days": 14}
+    assert "shortened to 14 days" in lux.rationales["frequency_cap"]
+
+
+def test_targeting_rationale_never_prints_none_ages():
+    cfg = build_config(brief=B, gate=GATE, publishers=_inputs()[0], personas=[], creatives=[],
+                       monthly_usd=None, weak_fit=False, catalog=CAT, t=T)
+    assert cfg.targeting["age_range"] == [None, None]
+    assert "None" not in cfg.rationales["targeting"]
+    assert "all ages" in cfg.rationales["targeting"]
+
+
+def test_line_items_rationale_names_reused_ads():
+    pubs, personas, _ = _inputs()
+    assert len(pubs) >= 2
+    # one ad only, written for the first publisher: the others reuse it
+    c = Creative(creative_id="cr_x", persona_id=personas[0].persona_id,
+                 publisher_id=pubs[0].publisher_id, headline="h", body="b", cta="c", why="w")
+    cfg = build_config(brief=B, gate=GATE, publishers=pubs, personas=personas, creatives=[c],
+                       monthly_usd=None, weak_fit=False, catalog=CAT, t=T)
+    r = cfg.rationales["line_items"]
+    assert f"{pubs[1].name} reuses the {personas[0].name} ad written for {pubs[0].name}" in r
