@@ -3,15 +3,17 @@
  "format": 2,
  "samples": {
   "A new kind of thing for moms.": {
+   "agent_notes": [],
+   "agent_trace": [],
    "config": null,
    "creatives": [],
+   "mode": "code",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "women",
-      "family_products"
+      "women"
      ],
      "age_max": null,
      "age_min": null,
@@ -26,13 +28,12 @@
      "gender_skew": "female",
      "price_tier": "unknown",
      "price_usd": null,
-     "product": "unclear product for moms",
+     "product": "something for moms",
      "self_confidence": 0.44,
      "unknowns": [
       "what the product is",
       "price",
-      "business model",
-      "target age group"
+      "whether it is a one-time purchase or subscription"
      ]
     },
     "budget_usd": null,
@@ -42,7 +43,6 @@
        "Beauty",
        "Wellness product",
        "Home goods",
-       "Apparel",
        "Other…"
       ],
       "question": "What kind of product is it?"
@@ -52,18 +52,9 @@
        "Under $25",
        "$25-$50",
        "$50-$100",
-       "$100+"
+       "Over $100"
       ],
-      "question": "What’s the price?"
-     },
-     {
-      "options": [
-       "Moms 18-24",
-       "Moms 25-34",
-       "Moms 35-44",
-       "Moms 45+"
-      ],
-      "question": "Who is it for?"
+      "question": "What price range?"
      }
     ],
     "config": null,
@@ -88,8 +79,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: family_products",
-        "score": 0.5
+        "note": "No affinity overlap",
+        "score": 0.0
        },
        {
         "name": "price",
@@ -102,11 +93,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.55,
-      "name": "The Value-Conscious Shopper",
+      "fit": 0.3,
+      "name": "The Wellness Optimizer",
       "path": [],
-      "persona_id": "persona_008",
-      "stretch": false
+      "persona_id": "persona_001",
+      "stretch": true
      }
     ],
     "publishers": [
@@ -734,6 +725,55 @@
    }
   },
   "A subscription box for new cat owners. First three months of their cat's life. Toys, food samples, a little booklet about what to expect.": {
+   "agent_notes": [
+    "The Pet Parent ad: the critic reviewed it once.",
+    "The Wellness Optimizer ad: the critic reviewed it once.",
+    "The Busy Parent ad: the critic reviewed it once."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Help your new cat feel like family\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Make new-cat days easier\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Make early cat care feel planned\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Help your new cat feel like family\"}",
+     "ms": 4167,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Make new-cat days easier\"}",
+     "ms": 3336,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Make early cat care feel planned\"}",
+     "ms": 3535,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 40.0,
@@ -747,7 +787,7 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_subscription-box-for-new-cat-own_76705b",
+    "campaign_id": "cmp_subscription-box-for-new-cat-own_c1bac0",
     "conversion_event": "subscription_start",
     "decision_trace": {
      "gate_confidence": 0.98,
@@ -755,8 +795,8 @@
      "gate_threshold": 0.7,
      "persona_fits": {
       "persona_001": 0.3,
-      "persona_004": 0.55,
-      "persona_008": 0.55
+      "persona_002": 0.3,
+      "persona_004": 0.55
      },
      "publisher_fits": {
       "pub_007": 0.78,
@@ -784,14 +824,14 @@
      },
      {
       "budget_usd": 2000.0,
-      "creative_id": "cr_persona_008",
+      "creative_id": "cr_persona_001",
       "extra_creative_ids": [],
       "publisher_id": "pub_009",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 2000.0,
-      "creative_id": "cr_persona_001",
+      "creative_id": "cr_persona_002",
       "extra_creative_ids": [],
       "publisher_id": "pub_018",
       "share": 0.3333333333333333
@@ -806,12 +846,12 @@
      "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is subscription starts",
      "pacing": "Even: $6,000 meets the $6,000 recommendation",
-     "targeting": "3 personas, interests pet, subscription, subscription_boxes, family_products, ages 28-55, gender all, US"
+     "targeting": "3 personas, interests pet, subscription, subscription_boxes, ages 28-50, gender all, US"
     },
     "targeting": {
      "age_range": [
       28,
-      55
+      50
      ],
      "gender": "all",
      "geo": [
@@ -820,55 +860,54 @@
      "interests": [
       "pet",
       "subscription",
-      "subscription_boxes",
-      "family_products"
+      "subscription_boxes"
      ],
      "personas": [
       "persona_004",
-      "persona_008",
-      "persona_001"
+      "persona_001",
+      "persona_002"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Get a starter box with toys, food samples, and a small guide to what to expect in the first three months.",
+     "body": "In the early months, each box brings toys, food samples, and a short guide to what may come next.",
      "creative_id": "cr_persona_004",
-     "cta": "Add it to your cat cart",
+     "cta": "Add a starter box",
      "fact_violations": [],
-     "headline": "Feel ready for your new cat’s first months",
+     "headline": "Help your new cat feel like family",
      "persona_id": "persona_004",
      "publisher_id": "pub_007",
      "why": "Leans on pet supplies, subscription boxes, and emotional connection."
     },
     {
-     "body": "One box brings toys, food samples, and a short guide for the first months with your new cat.",
-     "creative_id": "cr_persona_008",
-     "cta": "Add value to your pet cart",
+     "body": "A starter box for your cat’s first three months, with toys, food samples, and a small guide to what to expect.",
+     "creative_id": "cr_persona_001",
+     "cta": "Add a starter cat box",
      "fact_violations": [],
-     "headline": "Get more into early cat care",
-     "persona_id": "persona_008",
+     "headline": "Make early cat care feel planned",
+     "persona_id": "persona_001",
      "publisher_id": "pub_009",
-     "why": "Leans on groceries and family products affinities with clear value props and bundle offers."
+     "why": "Leans on wellness planning and transparent details for outcome-focused shoppers."
     },
     {
-     "body": "Get a box for the first three months with toys, food samples, and a short guide on what to expect as your cat settles in.",
-     "creative_id": "cr_persona_001",
-     "cta": "Add kitten care to cart",
+     "body": "Get a box for your cat’s first three months, with toys, food samples, and a small guide to what’s ahead.",
+     "creative_id": "cr_persona_002",
+     "cta": "Add cat basics to your cart",
      "fact_violations": [],
-     "headline": "Make early cat care feel more planned",
-     "persona_id": "persona_001",
+     "headline": "Make new-cat days easier",
+     "persona_id": "persona_002",
      "publisher_id": "pub_018",
-     "why": "Leans on wellness and outcome-focused planning."
+     "why": "Leans on subscriptions, pet food, convenience, and time-saving for a busy household."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "subscription_boxes",
-      "family_products"
+      "subscription_boxes"
      ],
      "age_max": null,
      "age_min": null,
@@ -882,7 +921,7 @@
      "describes_business": true,
      "facts": [
       "for new cat owners",
-      "first three months of their cat's life",
+      "for the first three months of their cat's life",
       "includes toys",
       "includes food samples",
       "includes a little booklet about what to expect"
@@ -894,7 +933,7 @@
      "self_confidence": 0.98,
      "unknowns": [
       "price",
-      "whether it is for kittens specifically"
+      "whether it ships monthly or on another schedule"
      ]
     },
     "budget_usd": null,
@@ -945,8 +984,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: family_products",
-        "score": 0.5
+        "note": "No affinity overlap",
+        "score": 0.0
        },
        {
         "name": "price",
@@ -959,11 +998,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.55,
-      "name": "The Value-Conscious Shopper",
+      "fit": 0.3,
+      "name": "The Wellness Optimizer",
       "path": [],
-      "persona_id": "persona_008",
-      "stretch": false
+      "persona_id": "persona_001",
+      "stretch": true
      },
      {
       "factors": [
@@ -984,9 +1023,9 @@
        }
       ],
       "fit": 0.3,
-      "name": "The Wellness Optimizer",
+      "name": "The Busy Parent",
       "path": [],
-      "persona_id": "persona_001",
+      "persona_id": "persona_002",
       "stretch": true
      }
     ],
@@ -1615,9 +1654,72 @@
    }
   },
   "A sustainable activewear brand for women. Made from recycled ocean plastic. Price point sits between Lululemon and Girlfriend Collective.": {
+   "agent_notes": [
+    "The Fitness Enthusiast ad: the critic reviewed it once.",
+    "The Sustainability Buyer ad: the critic reviewed it twice.",
+    "The Gen Z Aesthete ad: the critic reviewed it once."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Choose activewear with a clearer footprint\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Wear a fit with a point of view\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Workout gear that matches your pace\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Choose activewear with a clearer footprint…",
+     "ms": 4354,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Make the CTA more concrete and shopping-specific for this page, such as a cart-focused prompt instead of a vague phrase.\",\"The body r…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Workout gear that matches your pace\"}",
+     "ms": 4090,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Wear a fit with a point of view\"}",
+     "ms": 4697,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Choose activewear with a clearer footprint\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Choose activewear with a clearer footprint…",
+     "ms": 4477,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Make the call to action more specific than a generic cart prompt; tie it to choosing this piece while browsing apparel on the page.\",…",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
-     "target_usd": 36.0,
+     "target_usd": 35.0,
      "type": "target_cpa"
     },
     "budget": {
@@ -1628,25 +1730,23 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_women-s-activewear_a03fa9",
+    "campaign_id": "cmp_women-s-activewear_0b6135",
     "conversion_event": "purchase",
     "decision_trace": {
-     "gate_confidence": 0.98,
+     "gate_confidence": 0.97,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_001": 0.58,
-      "persona_006": 0.58,
-      "persona_008": 0.73,
-      "persona_009": 0.88,
-      "persona_010": 0.83
+      "persona_003": 0.53,
+      "persona_006": 0.83,
+      "persona_009": 0.88
      },
      "publisher_fits": {
-      "pub_002": 0.816,
-      "pub_004": 0.824,
-      "pub_005": 0.825,
-      "pub_010": 0.801,
-      "pub_016": 0.823
+      "pub_002": 0.748,
+      "pub_004": 0.757,
+      "pub_005": 0.758,
+      "pub_012": 0.752,
+      "pub_016": 0.755
      },
      "weak_fit": false
     },
@@ -1655,155 +1755,128 @@
      "per_days": 14
     },
     "guardrails": {
-     "cpa_limit_usd": 54.0,
+     "cpa_limit_usd": 53.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
     "line_items": [
      {
-      "budget_usd": 1815.85,
-      "creative_id": "cr_persona_010",
+      "budget_usd": 1809.55,
+      "creative_id": "cr_persona_006",
       "extra_creative_ids": [],
       "publisher_id": "pub_005",
-      "share": 0.20176082171680118
+      "share": 0.20106100795755968
      },
      {
-      "budget_usd": 1813.65,
-      "creative_id": "cr_persona_008",
+      "budget_usd": 1807.16,
+      "creative_id": "cr_persona_003",
       "extra_creative_ids": [],
       "publisher_id": "pub_004",
-      "share": 0.20151626314502324
+      "share": 0.20079575596816976
      },
      {
-      "budget_usd": 1811.45,
-      "creative_id": "cr_persona_001",
+      "budget_usd": 1802.39,
+      "creative_id": "cr_persona_009",
       "extra_creative_ids": [],
       "publisher_id": "pub_016",
-      "share": 0.2012717045732453
+      "share": 0.2002652519893899
      },
      {
-      "budget_usd": 1796.04,
+      "budget_usd": 1795.23,
+      "creative_id": "cr_persona_009",
+      "extra_creative_ids": [],
+      "publisher_id": "pub_012",
+      "share": 0.19946949602122016
+     },
+     {
+      "budget_usd": 1785.68,
       "creative_id": "cr_persona_009",
       "extra_creative_ids": [],
       "publisher_id": "pub_002",
-      "share": 0.19955979457079973
-     },
-     {
-      "budget_usd": 1763.02,
-      "creative_id": "cr_persona_006",
-      "extra_creative_ids": [],
-      "publisher_id": "pub_010",
-      "share": 0.19589141599413062
+      "share": 0.1984084880636605
      }
     ],
     "objective": "conversions",
     "rationales": {
-     "bid_strategy": "35% of $103 order value (fit-weighted publisher AOV) = $36 target CPA",
-     "budget": "Recommended $9,000/mo: $36 target CPA × 50 conversions per line item (enough to optimise the bid) across 5 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
+     "bid_strategy": "35% of $100 order value (fit-weighted publisher AOV) = $35 target CPA",
+     "budget": "Recommended $9,000/mo: $35 target CPA × 50 conversions per line item (enough to optimise the bid) across 5 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
-     "guardrails": "Pause if CPA exceeds $54 (1.5× target) after 2,000 impressions",
-     "line_items": "5 publishers, budget share proportional to fit with a 10% floor",
+     "guardrails": "Pause if CPA exceeds $53 (1.5× target) after 2,000 impressions",
+     "line_items": "5 publishers, budget share proportional to fit with a 10% floor; Stride & Stem reuses the Fitness Enthusiast ad written for Daily Form, Movewell reuses the Fitness Enthusiast ad written for Daily Form",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
-     "targeting": "5 personas, interests apparel, activewear, women, sustainable, fashion, fitness, sustainable_apparel, ages 22-60, gender female, US"
+     "targeting": "3 personas, interests activewear, sustainable_apparel, women, fashion, ages 19-45, gender female, US"
     },
     "targeting": {
      "age_range": [
-      22,
-      60
+      19,
+      45
      ],
      "gender": "female",
      "geo": [
       "US"
      ],
      "interests": [
-      "apparel",
       "activewear",
+      "sustainable_apparel",
       "women",
-      "sustainable",
-      "fashion",
-      "fitness",
-      "sustainable_apparel"
+      "fashion"
      ],
      "personas": [
       "persona_009",
-      "persona_010",
-      "persona_008",
-      "persona_001",
-      "persona_006"
+      "persona_006",
+      "persona_003"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Women's activewear made using recycled ocean plastic, built for workouts without making it only about style.",
+     "body": "Activewear for frequent training, made with fabric from recycled ocean plastic.",
      "creative_id": "cr_persona_009",
-     "cta": "Browse workout sets",
+     "cta": "Browse workout-ready pieces",
      "fact_violations": [],
-     "headline": "Train hard in gear with a cleaner story",
+     "headline": "Workout gear that matches your pace",
      "persona_id": "persona_009",
-     "publisher_id": "pub_002",
-     "why": "Leans on activewear affinity and performance claims messaging without fashion-only positioning."
+     "publisher_id": "pub_012",
+     "why": "Leans on activewear affinity and performance-minded gear preference."
     },
     {
-     "body": "Women's activewear made with recycled ocean plastic, with a polished feel between Lululemon and Girlfriend Collective.",
-     "creative_id": "cr_persona_010",
-     "cta": "Pick her activewear gift",
-     "fact_violations": [],
-     "headline": "A thoughtful gift she'll actually wear",
-     "persona_id": "persona_010",
-     "publisher_id": "pub_005",
-     "why": "Leans on apparel affinity with giftable, premium presentation messaging."
-    },
-    {
-     "body": "Women's workout pieces made with recycled ocean plastic, priced between Lululemon and Girlfriend Collective.",
-     "creative_id": "cr_persona_008",
-     "cta": "Compare your next set",
-     "fact_violations": [],
-     "headline": "Activewear that feels worth the spend",
-     "persona_id": "persona_008",
-     "publisher_id": "pub_004",
-     "why": "Leans on apparel affinity with clear value props for budget-aware comparison shoppers."
-    },
-    {
-     "body": "This women's activewear is made using recycled plastic from the ocean, so your kit matches the care you put into every routine.",
-     "creative_id": "cr_persona_001",
-     "cta": "Browse activewear picks",
-     "fact_violations": [],
-     "headline": "Workout gear with a cleaner input",
-     "persona_id": "persona_001",
-     "publisher_id": "pub_016",
-     "why": "Leans on wellness, fitness, and ingredient transparency for a body optimization mindset."
-    },
-    {
-     "body": "This women’s activewear is made using recycled ocean plastic, so your next pair has a more specific sustainability story.",
+     "body": "Made with recycled ocean plastic, this women’s activewear gives sustainability-minded shoppers a concrete material detail to weigh.",
      "creative_id": "cr_persona_006",
-     "cta": "Check the material story",
+     "cta": "Choose this apparel pick",
      "fact_violations": [],
-     "headline": "Activewear with a clearer footprint",
+     "headline": "Know more about what you wear",
      "persona_id": "persona_006",
-     "publisher_id": "pub_010",
-     "why": "Leans on sustainable apparel and specific sustainability claims."
+     "publisher_id": "pub_005",
+     "why": "Leans on sustainable apparel affinity and specific sustainability claims."
+    },
+    {
+     "body": "Activewear with a cleaner backstory: pieces are made using recycled plastic pulled from the ocean.",
+     "creative_id": "cr_persona_003",
+     "cta": "Browse the new set",
+     "fact_violations": [],
+     "headline": "Wear a fit with a point of view",
+     "persona_id": "persona_003",
+     "publisher_id": "pub_004",
+     "why": "Leans on fashion affinity, visual style, and values-aligned messaging."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "fashion",
-      "fitness",
-      "sustainable_apparel"
+      "fashion"
      ],
      "age_max": null,
      "age_min": null,
      "audience_type": "consumer",
      "business_model": "one_off",
      "categories": [
-      "apparel",
       "activewear",
-      "women",
-      "sustainable"
+      "sustainable_apparel",
+      "women"
      ],
      "conflicts": [],
      "describes_business": true,
@@ -1816,8 +1889,9 @@
      "price_tier": "premium",
      "price_usd": null,
      "product": "women's activewear",
-     "self_confidence": 0.98,
+     "self_confidence": 0.97,
      "unknowns": [
+      "specific product types",
       "exact price"
      ]
     },
@@ -1826,12 +1900,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.98,
+     "confidence": 0.97,
      "impl": "llm",
      "outcome": "proceed",
      "signals": {
       "business_prob": 0.0,
-      "clarity": 0.98,
+      "clarity": 0.97,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -1869,80 +1943,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Affinity: apparel",
+        "note": "Affinity: sustainable_apparel",
         "score": 1.0
-       },
-       {
-        "name": "price",
-        "note": "Low price sensitivity vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.83,
-      "name": "The Gifter",
-      "path": [],
-      "persona_id": "persona_010",
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "Affinity: apparel",
-        "score": 1.0
-       },
-       {
-        "name": "price",
-        "note": "High price sensitivity vs premium",
-        "score": 0.25
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.73,
-      "name": "The Value-Conscious Shopper",
-      "path": [],
-      "persona_id": "persona_008",
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "Adjacent affinity: fitness",
-        "score": 0.5
-       },
-       {
-        "name": "price",
-        "note": "Low price sensitivity vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.58,
-      "name": "The Wellness Optimizer",
-      "path": [],
-      "persona_id": "persona_001",
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "Adjacent affinity: sustainable_apparel",
-        "score": 0.5
        },
        {
         "name": "price",
@@ -1955,10 +1957,34 @@
         "score": 0.6
        }
       ],
-      "fit": 0.58,
+      "fit": 0.83,
       "name": "The Sustainability Buyer",
       "path": [],
       "persona_id": "persona_006",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Adjacent affinity: fashion",
+        "score": 0.5
+       },
+       {
+        "name": "price",
+        "note": "Medium-high price sensitivity vs premium",
+        "score": 0.5
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.53,
+      "name": "The Gen Z Aesthete",
+      "path": [],
+      "persona_id": "persona_003",
       "stretch": false
      }
     ],
@@ -1967,8 +1993,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Apparel category match",
-        "score": 1.0
+        "note": "Women subcategory match",
+        "score": 0.85
        },
        {
         "name": "audience",
@@ -1986,11 +2012,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.825,
+      "fit": 0.758,
       "name": "Linden Park",
       "path": [],
       "publisher_id": "pub_005",
-      "reason": "Apparel category match",
+      "reason": "Women subcategory match",
       "recommended": true,
       "stretch": false
      },
@@ -1998,8 +2024,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Apparel category match",
-        "score": 1.0
+        "note": "Women subcategory match",
+        "score": 0.85
        },
        {
         "name": "audience",
@@ -2017,11 +2043,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.824,
+      "fit": 0.757,
       "name": "Marlowe & Co.",
       "path": [],
       "publisher_id": "pub_004",
-      "reason": "Apparel category match",
+      "reason": "Women subcategory match",
       "recommended": true,
       "stretch": false
      },
@@ -2029,8 +2055,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Apparel category match",
-        "score": 1.0
+        "note": "Women subcategory match",
+        "score": 0.85
        },
        {
         "name": "audience",
@@ -2048,105 +2074,12 @@
         "score": 0.6
        }
       ],
-      "fit": 0.823,
+      "fit": 0.755,
       "name": "Stride & Stem",
       "path": [],
       "publisher_id": "pub_016",
-      "reason": "Apparel category match",
+      "reason": "Women subcategory match",
       "recommended": true,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Apparel category match",
-        "score": 1.0
-       },
-       {
-        "name": "audience",
-        "note": "Skews 25-44, 82% women",
-        "score": 0.6659999999999999
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.816,
-      "name": "Movewell",
-      "path": [],
-      "publisher_id": "pub_002",
-      "reason": "Apparel category match",
-      "recommended": true,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Apparel category match",
-        "score": 1.0
-       },
-       {
-        "name": "audience",
-        "note": "Skews 25-54, 58% women",
-        "score": 0.594
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.801,
-      "name": "Heartfoot",
-      "path": [],
-      "publisher_id": "pub_010",
-      "reason": "Apparel category match",
-      "recommended": true,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Apparel category match",
-        "score": 1.0
-       },
-       {
-        "name": "audience",
-        "note": "Skews 25-45, 52% women",
-        "score": 0.576
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.798,
-      "name": "Cloudfoot",
-      "path": [],
-      "publisher_id": "pub_017",
-      "reason": "Skews 25-45, 52% women",
-      "recommended": false,
       "stretch": false
      },
      {
@@ -2176,7 +2109,69 @@
       "name": "Daily Form",
       "path": [],
       "publisher_id": "pub_012",
-      "reason": "Skews 22-42, 89% women",
+      "reason": "Women subcategory match",
+      "recommended": true,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "Activewear subcategory match",
+        "score": 0.85
+       },
+       {
+        "name": "audience",
+        "note": "Skews 25-44, 82% women",
+        "score": 0.6659999999999999
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.748,
+      "name": "Movewell",
+      "path": [],
+      "publisher_id": "pub_002",
+      "reason": "Activewear subcategory match",
+      "recommended": true,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "Activewear subcategory match",
+        "score": 0.85
+       },
+       {
+        "name": "audience",
+        "note": "Skews 25-45, 52% women",
+        "score": 0.576
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.73,
+      "name": "Cloudfoot",
+      "path": [],
+      "publisher_id": "pub_017",
+      "reason": "Skews 25-45, 52% women",
       "recommended": false,
       "stretch": false
      },
@@ -2184,8 +2179,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Apparel category match",
-        "score": 1.0
+        "note": "Women subcategory match",
+        "score": 0.85
        },
        {
         "name": "audience",
@@ -2203,11 +2198,42 @@
         "score": 0.6
        }
       ],
-      "fit": 0.751,
+      "fit": 0.683,
       "name": "Everbody",
       "path": [],
       "publisher_id": "pub_006",
       "reason": "Income tier mid vs premium",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "Same category: apparel",
+        "score": 0.7
+       },
+       {
+        "name": "audience",
+        "note": "Skews 25-54, 58% women",
+        "score": 0.594
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.666,
+      "name": "Heartfoot",
+      "path": [],
+      "publisher_id": "pub_010",
+      "reason": "Skews 25-54, 58% women",
       "recommended": false,
       "stretch": false
      },
@@ -2587,8 +2613,11 @@
    }
   },
   "B2B SaaS for dental practices. We automate their patient recall workflow.": {
+   "agent_notes": [],
+   "agent_trace": [],
    "config": null,
    "creatives": [],
+   "mode": "code",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
@@ -2609,11 +2638,11 @@
      "price_tier": "unknown",
      "price_usd": null,
      "product": "patient recall workflow automation software for dental practices",
-     "self_confidence": 0.96,
+     "self_confidence": 0.97,
      "unknowns": [
       "price",
       "specific features",
-      "whether pricing is per practice or per seat"
+      "company size or practice type targeted"
      ]
     },
     "budget_usd": null,
@@ -2621,12 +2650,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.96,
+     "confidence": 0.97,
      "impl": "llm",
      "outcome": "out_of_scope",
      "signals": {
       "business_prob": 1.0,
-      "clarity": 0.96,
+      "clarity": 0.97,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -3261,23 +3290,86 @@
    }
   },
   "Bedding. Linen. Actually-breathable stuff made in Portugal. Our customers are mostly people who got tired of the Brooklinen/Parachute aesthetic and want something a little more grown-up.": {
+   "agent_notes": [
+    "The Affluent Classic ad: the critic reviewed it once.",
+    "The Sustainability Buyer ad: the critic reviewed it once.",
+    "The Gifter ad: the critic reviewed it twice."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Give bedding that feels grown-up\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A calmer bed, made to feel grown-up\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A calmer bed, made to feel grown-up\"}",
+     "ms": 3467,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Know where your bedding is made\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Give bedding that feels grown-up\"}",
+     "ms": 5033,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Make the call to action more gift-focused and immediate, so it feels like someone on a home page is choosing a present right now.\",\"T…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Know where your bedding is made\"}",
+     "ms": 3371,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Bring a more grown-up gift to bed\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Bring a more grown-up gift to bed\"}",
+     "ms": 5196,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Start with the gift payoff first — make the headline feel more like an impressive present, not a product description.\",\"Lead the body…",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
-     "target_usd": 50.0,
+     "target_usd": 63.0,
      "type": "target_cpa"
     },
     "budget": {
-     "monthly_usd": 12500.0,
+     "monthly_usd": 6500.0,
      "pacing": "even",
-     "recommended_usd": 12500.0,
+     "recommended_usd": 6500.0,
      "source": "recommended",
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_linen-bedding_fbdf55",
+    "campaign_id": "cmp_bedding-and-linen_2b78d9",
     "conversion_event": "purchase",
     "decision_trace": {
-     "gate_confidence": 0.95,
+     "gate_confidence": 0.96,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
@@ -3286,11 +3378,8 @@
       "persona_010": 0.58
      },
      "publisher_fits": {
-      "pub_002": 0.578,
-      "pub_004": 0.578,
-      "pub_005": 0.578,
-      "pub_011": 0.802,
-      "pub_014": 0.802
+      "pub_011": 0.735,
+      "pub_014": 0.667
      },
      "weak_fit": false
     },
@@ -3299,57 +3388,38 @@
      "per_days": 14
     },
     "guardrails": {
-     "cpa_limit_usd": 75.0,
+     "cpa_limit_usd": 95.0,
      "min_impressions": 2000,
      "pause_if_cpa_over_x": 1.5
     },
     "line_items": [
      {
-      "budget_usd": 3003.3,
+      "budget_usd": 3407.63,
       "creative_id": "cr_persona_005",
-      "extra_creative_ids": [],
+      "extra_creative_ids": [
+       "cr_persona_010"
+      ],
       "publisher_id": "pub_011",
-      "share": 0.2402636309167166
+      "share": 0.5242510699001426
      },
      {
-      "budget_usd": 3003.3,
+      "budget_usd": 3092.37,
       "creative_id": "cr_persona_006",
       "extra_creative_ids": [],
       "publisher_id": "pub_014",
-      "share": 0.2402636309167166
-     },
-     {
-      "budget_usd": 2164.47,
-      "creative_id": "cr_persona_010",
-      "extra_creative_ids": [],
-      "publisher_id": "pub_002",
-      "share": 0.1731575793888556
-     },
-     {
-      "budget_usd": 2164.47,
-      "creative_id": "cr_persona_005",
-      "extra_creative_ids": [],
-      "publisher_id": "pub_004",
-      "share": 0.1731575793888556
-     },
-     {
-      "budget_usd": 2164.47,
-      "creative_id": "cr_persona_005",
-      "extra_creative_ids": [],
-      "publisher_id": "pub_005",
-      "share": 0.1731575793888556
+      "share": 0.47574893009985736
      }
     ],
     "objective": "conversions",
     "rationales": {
-     "bid_strategy": "35% of $142 order value (fit-weighted publisher AOV) = $50 target CPA",
-     "budget": "Recommended $12,500/mo: $50 target CPA × 50 conversions per line item (enough to optimise the bid) across 5 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
+     "bid_strategy": "35% of $180 order value (fit-weighted publisher AOV) = $63 target CPA",
+     "budget": "Recommended $6,500/mo: $63 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
-     "guardrails": "Pause if CPA exceeds $75 (1.5× target) after 2,000 impressions",
-     "line_items": "5 publishers, budget share proportional to fit with a 10% floor; Marlowe & Co. reuses the Affluent Classic ad written for Northbed, Linden Park reuses the Affluent Classic ad written for Northbed",
+     "guardrails": "Pause if CPA exceeds $95 (1.5× target) after 2,000 impressions",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Northbed (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
-     "targeting": "3 personas, interests home, bedding, home_textiles, premium_basics, home_goods, ages 25-68, gender all, US"
+     "targeting": "3 personas, interests bedding, home_textiles, home_goods, ages 25-68, gender all, US"
     },
     "targeting": {
      "age_range": [
@@ -3361,10 +3431,8 @@
       "US"
      ],
      "interests": [
-      "home",
       "bedding",
       "home_textiles",
-      "premium_basics",
       "home_goods"
      ],
      "personas": [
@@ -3376,43 +3444,42 @@
    },
    "creatives": [
     {
-     "body": "Linen bedding made in Portugal, with a breathable feel and a look beyond the usual startup-sheet style.",
+     "body": "Choose breathable bedding and linen made in Portugal, with an understated look beyond the usual direct-to-consumer style.",
      "creative_id": "cr_persona_005",
-     "cta": "Choose linen for your bed",
+     "cta": "Choose your linen set",
      "fact_violations": [],
-     "headline": "A quieter kind of grown-up bed",
+     "headline": "A calmer bed, made to feel grown-up",
      "persona_id": "persona_005",
      "publisher_id": "pub_011",
-     "why": "Leans on home goods, craftsmanship, and understated quality-focused taste."
+     "why": "Leans on home goods affinity with craftsmanship and understated quality."
     },
     {
-     "body": "Linen bedding made in Portugal, with a grown-up look beyond the usual direct-to-consumer bedroom style.",
+     "body": "Bedding and linen made in Portugal, with a breathable feel and a more grown-up look for a home you’re still shaping.",
      "creative_id": "cr_persona_006",
-     "cta": "Check the bedding details",
+     "cta": "Choose Portugal-made bedding",
      "fact_violations": [],
-     "headline": "Trace what touches your sleep",
+     "headline": "Know where your bedding is made",
      "persona_id": "persona_006",
      "publisher_id": "pub_014",
-     "why": "Matches home goods affinity and supply chain transparency preference."
+     "why": "Leans on home goods affinity and supply chain transparency preference."
     },
     {
-     "body": "Linen bedding made in Portugal, with a breathable feel for a gift that looks thoughtful beyond the usual basics.",
+     "body": "For a home gift that feels grown-up: breathable bedding and linen made in Portugal, with a quieter look than the usual online sheets.",
      "creative_id": "cr_persona_010",
-     "cta": "Add bedding to your gift list",
+     "cta": "Choose their bedding gift",
      "fact_violations": [],
-     "headline": "Give a bed refresh that feels grown-up",
+     "headline": "A bedding gift that looks considered",
      "persona_id": "persona_010",
-     "publisher_id": "pub_002",
+     "publisher_id": "pub_011",
      "why": "Leans on home goods affinity and giftable, premium presentation messaging."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "home_textiles",
-      "premium_basics",
       "home_goods"
      ],
      "age_max": null,
@@ -3420,8 +3487,8 @@
      "audience_type": "consumer",
      "business_model": "one_off",
      "categories": [
-      "home",
-      "bedding"
+      "bedding",
+      "home_textiles"
      ],
      "conflicts": [],
      "describes_business": true,
@@ -3431,16 +3498,14 @@
       "customers are mostly people who got tired of the Brooklinen/Parachute aesthetic",
       "want something a little more grown-up"
      ],
-     "gender_skew": "unknown",
+     "gender_skew": "balanced",
      "price_tier": "premium",
      "price_usd": null,
-     "product": "linen bedding",
-     "self_confidence": 0.95,
+     "product": "bedding and linen",
+     "self_confidence": 0.96,
      "unknowns": [
       "price",
-      "whether the bedding is sold as sheets, duvet covers, or a set",
-      "target age group",
-      "target gender"
+      "specific bedding items sold"
      ]
     },
     "budget_usd": null,
@@ -3448,12 +3513,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.95,
+     "confidence": 0.96,
      "impl": "llm",
      "outcome": "proceed",
      "signals": {
       "business_prob": 0.0,
-      "clarity": 0.95,
+      "clarity": 0.96,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -3541,8 +3606,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Home category match",
-        "score": 1.0
+        "note": "Bedding subcategory match",
+        "score": 0.85
        },
        {
         "name": "audience",
@@ -3560,11 +3625,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.802,
+      "fit": 0.735,
       "name": "Northbed",
       "path": [],
       "publisher_id": "pub_011",
-      "reason": "Home category match",
+      "reason": "Bedding subcategory match",
       "recommended": true,
       "stretch": false
      },
@@ -3572,8 +3637,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Home category match",
-        "score": 1.0
+        "note": "Same category: home",
+        "score": 0.7
        },
        {
         "name": "audience",
@@ -3591,11 +3656,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.802,
+      "fit": 0.667,
       "name": "Hearthstone Goods",
       "path": [],
       "publisher_id": "pub_014",
-      "reason": "Home category match",
+      "reason": "Income tier high vs premium",
       "recommended": true,
       "stretch": false
      },
@@ -3603,8 +3668,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Adjacent via premium basics",
-        "score": 0.5
+        "note": "No category overlap",
+        "score": 0.0
        },
        {
         "name": "audience",
@@ -3622,197 +3687,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.578,
+      "fit": 0.176,
       "name": "Movewell",
       "path": [],
       "publisher_id": "pub_002",
-      "reason": "Income tier mid-high vs premium",
-      "recommended": true,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via premium basics",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 45-65, 96% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.578,
-      "name": "Marlowe & Co.",
-      "path": [],
-      "publisher_id": "pub_004",
-      "reason": "Income tier high vs premium",
-      "recommended": true,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via premium basics",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 50-70, 98% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.578,
-      "name": "Linden Park",
-      "path": [],
-      "publisher_id": "pub_005",
-      "reason": "Income tier high vs premium",
-      "recommended": true,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via premium basics",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 25-54, 58% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.578,
-      "name": "Heartfoot",
-      "path": [],
-      "publisher_id": "pub_010",
-      "reason": "Adjacent via premium basics",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via premium basics",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 28-48, 94% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.578,
-      "name": "Stride & Stem",
-      "path": [],
-      "publisher_id": "pub_016",
-      "reason": "Adjacent via premium basics",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via premium basics",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 25-45, 52% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.578,
-      "name": "Cloudfoot",
-      "path": [],
-      "publisher_id": "pub_017",
-      "reason": "Adjacent via premium basics",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via premium basics",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 30-55, 99% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid vs premium",
-        "score": 0.25
-       },
-       {
-        "name": "aov",
-        "note": "Price unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.502,
-      "name": "Everbody",
-      "path": [],
-      "publisher_id": "pub_006",
-      "reason": "Income tier mid vs premium",
+      "reason": "No category overlap",
       "recommended": false,
       "stretch": false
      },
@@ -3843,6 +3722,68 @@
       "name": "Studiogrid",
       "path": [],
       "publisher_id": "pub_003",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 45-65, 96% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.176,
+      "name": "Marlowe & Co.",
+      "path": [],
+      "publisher_id": "pub_004",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 50-70, 98% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.176,
+      "name": "Linden Park",
+      "path": [],
+      "publisher_id": "pub_005",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -3918,6 +3859,37 @@
        },
        {
         "name": "audience",
+        "note": "Skews 25-54, 58% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.176,
+      "name": "Heartfoot",
+      "path": [],
+      "publisher_id": "pub_010",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
         "note": "Skews 22-42, 89% women",
         "score": 0.6
        },
@@ -3980,6 +3952,68 @@
        },
        {
         "name": "audience",
+        "note": "Skews 28-48, 94% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.176,
+      "name": "Stride & Stem",
+      "path": [],
+      "publisher_id": "pub_016",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 25-45, 52% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.176,
+      "name": "Cloudfoot",
+      "path": [],
+      "publisher_id": "pub_017",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
         "note": "Skews 22-42, 71% women",
         "score": 0.6
        },
@@ -4029,6 +4063,37 @@
       "name": "Swiftcart",
       "path": [],
       "publisher_id": "pub_001",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 30-55, 99% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid vs premium",
+        "score": 0.25
+       },
+       {
+        "name": "aov",
+        "note": "Price unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.139,
+      "name": "Everbody",
+      "path": [],
+      "publisher_id": "pub_006",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -4161,6 +4226,83 @@
    }
   },
   "Custom-fit leather handbags, Italian-made, handcrafted in Florence. Minimum order ships in 6 weeks. Average price point $1,200.": {
+   "agent_notes": [
+    "The Gen Z Aesthete ad: the critic reviewed it once.",
+    "The Wellness Optimizer ad: the critic reviewed it twice.",
+    "The Affluent Classic ad: the critic reviewed it twice."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Carry a bag that feels like your signature\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A bag as considered as your routine\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Carry a piece made to last\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Carry a bag that feels like your signature…",
+     "ms": 3613,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"A bag as considered as your routine\"}",
+     "ms": 4511,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The headline is a little abstract. Lead with the benefit this shopper cares about more clearly, such as a bag that feels as thoughtfu…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Carry a piece made to last\"}",
+     "ms": 4705,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Make the call to action more direct and shopping-focused; ‘Style it with workwear’ feels a bit indirect for this placement. Try a cle…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Choose a handbag with intention\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Choose a bag you’ll keep\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Choose a handbag with intention\"}",
+     "ms": 7271,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the benefit to her: make the headline about choosing a bag with purpose and confidence, not a generic instruction.\",\"The pr…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Choose a bag you’ll keep\"}",
+     "ms": 5674,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Make the CTA more direct and fitting for an apparel page; this one feels a bit abstract. Try a plain invitation to pick the bag from …",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 420.0,
@@ -4174,10 +4316,10 @@
      "test_budget": true,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_custom-fit-leather-handbags_a5e19d",
+    "campaign_id": "cmp_custom-fit-leather-handbags_eb6cb0",
     "conversion_event": "purchase",
     "decision_trace": {
-     "gate_confidence": 0.97,
+     "gate_confidence": 0.98,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
@@ -4186,9 +4328,9 @@
       "persona_005": 0.38
      },
      "publisher_fits": {
-      "pub_004": 0.207,
-      "pub_005": 0.207,
-      "pub_016": 0.206
+      "pub_004": 0.198,
+      "pub_005": 0.198,
+      "pub_016": 0.198
      },
      "weak_fit": true
     },
@@ -4203,25 +4345,25 @@
     },
     "line_items": [
      {
-      "budget_usd": 1001.61,
+      "budget_usd": 1000.0,
       "creative_id": "cr_persona_003",
       "extra_creative_ids": [],
-      "publisher_id": "pub_005",
-      "share": 0.3338709677419355
+      "publisher_id": "pub_004",
+      "share": 0.3333333333333333
      },
      {
-      "budget_usd": 1001.61,
+      "budget_usd": 1000.0,
       "creative_id": "cr_persona_001",
       "extra_creative_ids": [],
-      "publisher_id": "pub_004",
-      "share": 0.3338709677419355
+      "publisher_id": "pub_005",
+      "share": 0.3333333333333333
      },
      {
-      "budget_usd": 996.77,
+      "budget_usd": 1000.0,
       "creative_id": "cr_persona_005",
       "extra_creative_ids": [],
       "publisher_id": "pub_016",
-      "share": 0.332258064516129
+      "share": 0.3333333333333333
      }
     ],
     "objective": "conversions",
@@ -4233,14 +4375,14 @@
      "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Front-loaded: a small weak-fit test should learn fast",
-     "targeting": "3 personas, interests fashion, ages 19-68, gender female, US"
+     "targeting": "3 personas, interests fashion, ages 19-68, gender all, US"
     },
     "targeting": {
      "age_range": [
       19,
       68
      ],
-     "gender": "female",
+     "gender": "all",
      "geo": [
       "US"
      ],
@@ -4256,36 +4398,37 @@
    },
    "creatives": [
     {
-     "body": "A custom-fit leather bag made by hand in Florence adds a personal note to the looks you’re browsing now.",
+     "body": "Custom-fit leather, made by hand in Florence, brings a personal note to your Marlowe & Co. wardrobe find.",
      "creative_id": "cr_persona_003",
-     "cta": "Pair it with your look",
+     "cta": "Match it to your look",
      "fact_violations": [],
-     "headline": "Make your outfit feel more like you",
+     "headline": "Carry a bag that feels like your signature",
      "persona_id": "persona_003",
-     "publisher_id": "pub_005",
-     "why": "Leans on fashion, small batch, aesthetic-forward, values-aligned, novelty, and playful."
-    },
-    {
-     "body": "Made to your fit and crafted by hand in Florence, this leather handbag is built for a measured wardrobe choice.",
-     "creative_id": "cr_persona_001",
-     "cta": "Review the fit options",
-     "fact_violations": [],
-     "headline": "Choose a bag with considered details",
-     "persona_id": "persona_001",
      "publisher_id": "pub_004",
-     "why": "Wellness and clean beauty affinities; ingredient transparency and outcome-focused messaging."
+     "why": "Leans on fashion affinity, aesthetic-forward style, and identity-expressive appeal."
     },
     {
-     "body": "Handcrafted in Florence, each leather handbag is made for a custom fit and a lasting place in your wardrobe.",
-     "creative_id": "cr_persona_005",
-     "cta": "Plan your wardrobe piece",
+     "body": "Custom-fit leather handbag, handcrafted in Florence, with minimum orders shipping in 6 weeks.",
+     "creative_id": "cr_persona_001",
+     "cta": "Start your bag order",
      "fact_violations": [],
-     "headline": "Carry something made to stay with you",
+     "headline": "Carry a bag chosen with confidence",
+     "persona_id": "persona_001",
+     "publisher_id": "pub_005",
+     "why": "Leans on wellness-style intentional choices and transparent, outcome-focused proof."
+    },
+    {
+     "body": "Your leather handbag is fitted to order and crafted by hand in Florence.",
+     "creative_id": "cr_persona_005",
+     "cta": "Pick your leather bag",
+     "fact_violations": [],
+     "headline": "Choose a bag you’ll keep",
      "persona_id": "persona_005",
      "publisher_id": "pub_016",
-     "why": "Classic apparel affinity with craftsmanship, heritage, quality-focused, understated messaging."
+     "why": "Leans on classic apparel affinity, craftsmanship, heritage, and understated quality."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
@@ -4308,13 +4451,14 @@
       "minimum order ships in 6 weeks",
       "average price point $1,200"
      ],
-     "gender_skew": "female",
+     "gender_skew": "unknown",
      "price_tier": "luxury",
      "price_usd": 1200.0,
      "product": "custom-fit leather handbags",
-     "self_confidence": 0.97,
+     "self_confidence": 0.98,
      "unknowns": [
-      "target age group"
+      "target age group",
+      "target gender"
      ]
     },
     "budget_usd": null,
@@ -4322,12 +4466,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.97,
+     "confidence": 0.98,
      "impl": "llm",
      "outcome": "proceed",
      "signals": {
       "business_prob": 0.0,
-      "clarity": 0.97,
+      "clarity": 0.98,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -4420,39 +4564,8 @@
        },
        {
         "name": "audience",
-        "note": "Skews 50-70, 98% women",
-        "score": 0.714
-       },
-       {
-        "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
-       },
-       {
-        "name": "aov",
-        "note": "AOV $128 vs $1200 price",
-        "score": 0.0
-       }
-      ],
-      "fit": 0.207,
-      "name": "Linden Park",
-      "path": [],
-      "publisher_id": "pub_005",
-      "reason": "AOV $128 vs $1200 price",
-      "recommended": true,
-      "stretch": true
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
         "note": "Skews 45-65, 96% women",
-        "score": 0.708
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4465,7 +4578,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.207,
+      "fit": 0.198,
       "name": "Marlowe & Co.",
       "path": [],
       "publisher_id": "pub_004",
@@ -4482,8 +4595,39 @@
        },
        {
         "name": "audience",
+        "note": "Skews 50-70, 98% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier high vs luxury",
+        "score": 1.0
+       },
+       {
+        "name": "aov",
+        "note": "AOV $128 vs $1200 price",
+        "score": 0.0
+       }
+      ],
+      "fit": 0.198,
+      "name": "Linden Park",
+      "path": [],
+      "publisher_id": "pub_005",
+      "reason": "AOV $128 vs $1200 price",
+      "recommended": true,
+      "stretch": true
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "Adjacent via fashion",
+        "score": 0.5
+       },
+       {
+        "name": "audience",
         "note": "Skews 28-48, 94% women",
-        "score": 0.702
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4496,7 +4640,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.206,
+      "fit": 0.198,
       "name": "Stride & Stem",
       "path": [],
       "publisher_id": "pub_016",
@@ -4514,7 +4658,7 @@
        {
         "name": "audience",
         "note": "Skews 25-44, 82% women",
-        "score": 0.6659999999999999
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4527,7 +4671,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.173,
+      "fit": 0.168,
       "name": "Movewell",
       "path": [],
       "publisher_id": "pub_002",
@@ -4545,7 +4689,7 @@
        {
         "name": "audience",
         "note": "Skews 25-54, 58% women",
-        "score": 0.594
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4576,7 +4720,7 @@
        {
         "name": "audience",
         "note": "Skews 25-45, 52% women",
-        "score": 0.576
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4589,7 +4733,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.166,
+      "fit": 0.168,
       "name": "Cloudfoot",
       "path": [],
       "publisher_id": "pub_017",
@@ -4607,7 +4751,7 @@
        {
         "name": "audience",
         "note": "Skews 30-55, 99% women",
-        "score": 0.717
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4620,7 +4764,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.147,
+      "fit": 0.138,
       "name": "Everbody",
       "path": [],
       "publisher_id": "pub_006",
@@ -4637,39 +4781,8 @@
        },
        {
         "name": "audience",
-        "note": "Skews 28-48, 78% women",
-        "score": 0.6539999999999999
-       },
-       {
-        "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
-       },
-       {
-        "name": "aov",
-        "note": "AOV $198 vs $1200 price",
-        "score": 0.0
-       }
-      ],
-      "fit": 0.056,
-      "name": "Hearthstone Goods",
-      "path": [],
-      "publisher_id": "pub_014",
-      "reason": "No category overlap",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "No category overlap",
-        "score": 0.0
-       },
-       {
-        "name": "audience",
         "note": "Skews 28-50, 74% women",
-        "score": 0.642
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4682,7 +4795,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.056,
+      "fit": 0.054,
       "name": "Studiogrid",
       "path": [],
       "publisher_id": "pub_003",
@@ -4700,7 +4813,7 @@
        {
         "name": "audience",
         "note": "Skews 28-48, 71% women",
-        "score": 0.633
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4713,7 +4826,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.055,
+      "fit": 0.054,
       "name": "Pantrygood",
       "path": [],
       "publisher_id": "pub_008",
@@ -4731,7 +4844,7 @@
        {
         "name": "audience",
         "note": "Skews 28-48, 69% women",
-        "score": 0.627
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4744,7 +4857,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.055,
+      "fit": 0.054,
       "name": "Northbed",
       "path": [],
       "publisher_id": "pub_011",
@@ -4761,86 +4874,24 @@
        },
        {
         "name": "audience",
-        "note": "Skews 22-42, 89% women",
-        "score": 0.687
+        "note": "Skews 28-48, 78% women",
+        "score": 0.6
        },
        {
         "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
+        "note": "Income tier high vs luxury",
+        "score": 1.0
        },
        {
         "name": "aov",
-        "note": "AOV $38 vs $1200 price",
+        "note": "AOV $198 vs $1200 price",
         "score": 0.0
        }
       ],
-      "fit": 0.042,
-      "name": "Daily Form",
+      "fit": 0.054,
+      "name": "Hearthstone Goods",
       "path": [],
-      "publisher_id": "pub_012",
-      "reason": "No category overlap",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "No category overlap",
-        "score": 0.0
-       },
-       {
-        "name": "audience",
-        "note": "Skews 22-42, 71% women",
-        "score": 0.633
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
-       },
-       {
-        "name": "aov",
-        "note": "AOV $42 vs $1200 price",
-        "score": 0.0
-       }
-      ],
-      "fit": 0.04,
-      "name": "Pop & Sip",
-      "path": [],
-      "publisher_id": "pub_020",
-      "reason": "No category overlap",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "No category overlap",
-        "score": 0.0
-       },
-       {
-        "name": "audience",
-        "note": "Skews 28-52, 67% women",
-        "score": 0.621
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
-       },
-       {
-        "name": "aov",
-        "note": "AOV $74 vs $1200 price",
-        "score": 0.0
-       }
-      ],
-      "fit": 0.04,
-      "name": "Kitchenly",
-      "path": [],
-      "publisher_id": "pub_015",
+      "publisher_id": "pub_014",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -4855,7 +4906,7 @@
        {
         "name": "audience",
         "note": "Skews 30-55, 62% women",
-        "score": 0.606
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4885,24 +4936,24 @@
        },
        {
         "name": "audience",
-        "note": "Skews 18-38, 93% women",
-        "score": 0.6990000000000001
+        "note": "Skews 22-42, 89% women",
+        "score": 0.6
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid-high vs luxury",
+        "score": 0.5
        },
        {
         "name": "aov",
-        "note": "AOV $48 vs $1200 price",
+        "note": "AOV $38 vs $1200 price",
         "score": 0.0
        }
       ],
-      "fit": 0.028,
-      "name": "Strandlab",
+      "fit": 0.039,
+      "name": "Daily Form",
       "path": [],
-      "publisher_id": "pub_019",
+      "publisher_id": "pub_012",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -4916,24 +4967,24 @@
        },
        {
         "name": "audience",
-        "note": "Skews 18-34, 91% women",
-        "score": 0.6930000000000001
+        "note": "Skews 28-52, 67% women",
+        "score": 0.6
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid-high vs luxury",
+        "score": 0.5
        },
        {
         "name": "aov",
-        "note": "AOV $61 vs $1200 price",
+        "note": "AOV $74 vs $1200 price",
         "score": 0.0
        }
       ],
-      "fit": 0.028,
-      "name": "Velvetline",
+      "fit": 0.039,
+      "name": "Kitchenly",
       "path": [],
-      "publisher_id": "pub_013",
+      "publisher_id": "pub_015",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -4947,8 +4998,39 @@
        },
        {
         "name": "audience",
-        "note": "Skews 25-45, 73% women",
-        "score": 0.639
+        "note": "Skews 22-42, 71% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid-high vs luxury",
+        "score": 0.5
+       },
+       {
+        "name": "aov",
+        "note": "AOV $42 vs $1200 price",
+        "score": 0.0
+       }
+      ],
+      "fit": 0.039,
+      "name": "Pop & Sip",
+      "path": [],
+      "publisher_id": "pub_020",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 18-34, 51% men",
+        "score": 0.6
        },
        {
         "name": "income",
@@ -4957,14 +5039,14 @@
        },
        {
         "name": "aov",
-        "note": "AOV $35 vs $1200 price",
+        "note": "AOV $28 vs $1200 price",
         "score": 0.0
        }
       ],
-      "fit": 0.026,
-      "name": "Tailcrate",
+      "fit": 0.024,
+      "name": "Swiftcart",
       "path": [],
-      "publisher_id": "pub_018",
+      "publisher_id": "pub_001",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -4979,7 +5061,7 @@
        {
         "name": "audience",
         "note": "Skews 25-55, 64% women",
-        "score": 0.612
+        "score": 0.6
        },
        {
         "name": "income",
@@ -5009,8 +5091,8 @@
        },
        {
         "name": "audience",
-        "note": "Skews 18-34, 51% men",
-        "score": 0.564
+        "note": "Skews 18-34, 91% women",
+        "score": 0.6
        },
        {
         "name": "income",
@@ -5019,14 +5101,76 @@
        },
        {
         "name": "aov",
-        "note": "AOV $28 vs $1200 price",
+        "note": "AOV $61 vs $1200 price",
         "score": 0.0
        }
       ],
-      "fit": 0.023,
-      "name": "Swiftcart",
+      "fit": 0.024,
+      "name": "Velvetline",
       "path": [],
-      "publisher_id": "pub_001",
+      "publisher_id": "pub_013",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 25-45, 73% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid vs luxury",
+        "score": 0.0
+       },
+       {
+        "name": "aov",
+        "note": "AOV $35 vs $1200 price",
+        "score": 0.0
+       }
+      ],
+      "fit": 0.024,
+      "name": "Tailcrate",
+      "path": [],
+      "publisher_id": "pub_018",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 18-38, 93% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid vs luxury",
+        "score": 0.0
+       },
+       {
+        "name": "aov",
+        "note": "AOV $48 vs $1200 price",
+        "score": 0.0
+       }
+      ],
+      "fit": 0.024,
+      "name": "Strandlab",
+      "path": [],
+      "publisher_id": "pub_019",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -5035,6 +5179,55 @@
    }
   },
   "Refillable, concentrated cleaning products. Skip the single-use plastic bottles. Works as well as the big brands. We want to show up where people who already care about sustainability are checking out.": {
+   "agent_notes": [
+    "The Sustainability Buyer ad: the critic reviewed it once.",
+    "The Wellness Optimizer ad: the critic reviewed it once.",
+    "The Busy Parent ad: the critic reviewed it once."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Restock cleaning without the clutter\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Clean your home with less throwaway plastic\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Tune up your home-cleaning routine\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Restock cleaning without the clutter\"}",
+     "ms": 3932,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Tune up your home-cleaning routine\"}",
+     "ms": 4569,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_006\",\"headline\":\"Clean your home with less throwaway plasti…",
+     "ms": 6412,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 63.0,
@@ -5048,10 +5241,10 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_refillable-concentrated-cleaning_2f3e29",
+    "campaign_id": "cmp_refillable-cleaning-products_99e1e8",
     "conversion_event": "purchase",
     "decision_trace": {
-     "gate_confidence": 0.94,
+     "gate_confidence": 0.98,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
@@ -5127,36 +5320,37 @@
    },
    "creatives": [
     {
-     "body": "Concentrated refills help you avoid single-use bottles, while cleaning as well as the big names.",
+     "body": "Refillable concentrates help you avoid single-use bottles, while cleaning on par with major brands.",
      "creative_id": "cr_persona_006",
-     "cta": "Add refills to your home",
+     "cta": "Add a refill to your home",
      "fact_violations": [],
-     "headline": "A cleaner routine with less throwaway plastic",
+     "headline": "Clean your home with less throwaway plastic",
      "persona_id": "persona_006",
      "publisher_id": "pub_011",
-     "why": "Leans on refillable products affinity and specific sustainability claims messaging."
+     "why": "Leans on refillable products affinity and specific sustainability claims."
     },
     {
-     "body": "Concentrated refills help you avoid disposable plastic bottles, with cleaning power that matches familiar major brands.",
+     "body": "Concentrated refills help you avoid throwaway plastic bottles while cleaning on par with leading brands.",
      "creative_id": "cr_persona_001",
-     "cta": "Add to your home order",
+     "cta": "Add refills to your kitchen",
      "fact_violations": [],
-     "headline": "Clean that fits your system",
+     "headline": "Tune up your home-cleaning routine",
      "persona_id": "persona_001",
      "publisher_id": "pub_014",
-     "why": "Leans on wellness, clean beauty, and outcome-focused preferences."
+     "why": "Leans on wellness optimization, sustainability, and outcome-focused proof."
     },
     {
-     "body": "Concentrated refills help you avoid throwaway bottles, with cleaning power that stands up to major brands.",
+     "body": "Concentrated refills help you keep home cleanup ready while skipping single-use plastic bottles.",
      "creative_id": "cr_persona_002",
-     "cta": "Add refills for home",
+     "cta": "Add refills to your home order",
      "fact_violations": [],
-     "headline": "Keep cleanup simple on busy days",
+     "headline": "Restock cleaning without the clutter",
      "persona_id": "persona_002",
      "publisher_id": "pub_011",
-     "why": "Leans on household and convenience with time-saving, family-friendly messaging."
+     "why": "Leans on household convenience and time-saving for a busy family routine."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
@@ -5168,7 +5362,7 @@
      "age_max": null,
      "age_min": null,
      "audience_type": "consumer",
-     "business_model": "unknown",
+     "business_model": "one_off",
      "categories": [
       "home",
       "non_toxic"
@@ -5176,18 +5370,19 @@
      "conflicts": [],
      "describes_business": true,
      "facts": [
-      "refillable, concentrated cleaning products",
+      "refillable",
+      "concentrated cleaning products",
       "skip the single-use plastic bottles",
       "works as well as the big brands"
      ],
      "gender_skew": "unknown",
      "price_tier": "unknown",
      "price_usd": null,
-     "product": "refillable concentrated cleaning products",
-     "self_confidence": 0.94,
+     "product": "refillable cleaning products",
+     "self_confidence": 0.98,
      "unknowns": [
       "price",
-      "business model",
+      "whether purchases are one-time or recurring",
       "target age group",
       "target gender"
      ]
@@ -5197,12 +5392,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.94,
+     "confidence": 0.98,
      "impl": "llm",
      "outcome": "proceed",
      "signals": {
       "business_prob": 0.0,
-      "clarity": 0.94,
+      "clarity": 0.98,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -5910,6 +6105,55 @@
    }
   },
   "Small-batch candles poured by hand in Vermont. Natural soy wax, no synthetic fragrances. Mostly bought as gifts.": {
+   "agent_notes": [
+    "The Gen Z Aesthete ad: the critic reviewed it once.",
+    "The Pet Parent ad: the critic reviewed it once.",
+    "The Fitness Enthusiast ad: the critic reviewed it once."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A thoughtful glow for your whole home\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Make recovery time feel intentional\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Give their space a softer signature\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Make recovery time feel intentional\"}",
+     "ms": 3944,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Give their space a softer signature\"}",
+     "ms": 3703,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"A thoughtful glow for your whole home\"}",
+     "ms": 4584,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 63.0,
@@ -5923,17 +6167,16 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_hand-poured-soy-candles_37200b",
+    "campaign_id": "cmp_candles_7789d5",
     "conversion_event": "purchase",
     "decision_trace": {
-     "gate_confidence": 0.96,
+     "gate_confidence": 0.98,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
       "persona_003": 0.53,
-      "persona_005": 0.58,
-      "persona_006": 0.58,
-      "persona_010": 0.58
+      "persona_004": 0.38,
+      "persona_009": 0.38
      },
      "publisher_fits": {
       "pub_011": 0.802,
@@ -5953,17 +6196,16 @@
     "line_items": [
      {
       "budget_usd": 3250.0,
-      "creative_id": "cr_persona_005",
+      "creative_id": "cr_persona_003",
       "extra_creative_ids": [
-       "cr_persona_010",
-       "cr_persona_003"
+       "cr_persona_009"
       ],
       "publisher_id": "pub_011",
       "share": 0.5
      },
      {
       "budget_usd": 3250.0,
-      "creative_id": "cr_persona_006",
+      "creative_id": "cr_persona_004",
       "extra_creative_ids": [],
       "publisher_id": "pub_014",
       "share": 0.5
@@ -5975,15 +6217,15 @@
      "budget": "Recommended $6,500/mo: $63 target CPA × 50 conversions per line item (enough to optimise the bid) across 2 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 14 days (premium price tier: 3 per 14 days)",
      "guardrails": "Pause if CPA exceeds $95 (1.5× target) after 2,000 impressions",
-     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Northbed (each written for that publisher)",
+     "line_items": "2 publishers, budget share proportional to fit with a 10% floor; 2 ads rotate on Northbed (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
-     "targeting": "4 personas, interests home, gifting, small_batch, home_goods, ages 19-68, gender all, US"
+     "targeting": "3 personas, interests home, gifting, small_batch, ages 19-50, gender all, US"
     },
     "targeting": {
      "age_range": [
       19,
-      68
+      50
      ],
      "gender": "all",
      "geo": [
@@ -5992,74 +6234,62 @@
      "interests": [
       "home",
       "gifting",
-      "small_batch",
-      "home_goods"
+      "small_batch"
      ],
      "personas": [
-      "persona_005",
-      "persona_006",
-      "persona_010",
-      "persona_003"
+      "persona_003",
+      "persona_004",
+      "persona_009"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Each soy candle is made by hand in small batches in Vermont, with no synthetic scent added.",
-     "creative_id": "cr_persona_005",
-     "cta": "Add one to your home edit",
-     "fact_violations": [],
-     "headline": "A quiet finish for a well-chosen home",
-     "persona_id": "persona_005",
-     "publisher_id": "pub_011",
-     "why": "Leans on home goods affinity with craftsmanship and understated quality-focused messaging."
-    },
-    {
-     "body": "Poured in small batches in Vermont with natural soy wax and no synthetic scents, for a home good you can choose with less guesswork.",
-     "creative_id": "cr_persona_006",
-     "cta": "Check the candle details",
-     "fact_violations": [],
-     "headline": "A candle gift with clearer ingredients",
-     "persona_id": "persona_006",
-     "publisher_id": "pub_014",
-     "why": "Home goods affinity with specific sustainability claims and supply chain transparency."
-    },
-    {
-     "body": "These Vermont-made soy candles are poured in small batches and chosen most often as gifts.",
-     "creative_id": "cr_persona_010",
-     "cta": "Pick a candle to gift",
-     "fact_violations": [],
-     "headline": "Bring a thoughtful gift to the room",
-     "persona_id": "persona_010",
-     "publisher_id": "pub_011",
-     "why": "Leans on home goods affinity with giftable messaging."
-    },
-    {
-     "body": "Hand-poured in Vermont with natural soy wax and scents made without synthetic fragrance.",
+     "body": "Each candle is hand-poured in Vermont with natural soy wax and no synthetic fragrances—an easy add-on when your cart needs a thoughtful gift.",
      "creative_id": "cr_persona_003",
-     "cta": "Add a candle to the cart",
+     "cta": "Add a gift to your cart",
      "fact_violations": [],
-     "headline": "Make your shelf feel more you",
+     "headline": "Give their space a softer signature",
      "persona_id": "persona_003",
      "publisher_id": "pub_011",
-     "why": "Leans on home decor, small batch, aesthetic-forward, values-aligned, and playful preferences."
+     "why": "Leans on home decor, small batch, aesthetic-forward, values-aligned gifting."
+    },
+    {
+     "body": "Made with natural soy wax and without synthetic scents, these Vermont hand-poured candles make a considerate gift for scent-aware homes.",
+     "creative_id": "cr_persona_004",
+     "cta": "Add a mindful home gift",
+     "fact_violations": [],
+     "headline": "A thoughtful glow for your whole home",
+     "persona_id": "persona_004",
+     "publisher_id": "pub_014",
+     "why": "Leans on pet supplies affinity, ingredient transparency, and emotional connection."
+    },
+    {
+     "body": "After the workout, set a calmer mood with a Vermont-made candle poured in small batches using natural soy wax and no synthetic fragrance.",
+     "creative_id": "cr_persona_009",
+     "cta": "Add to your recovery corner",
+     "fact_violations": [],
+     "headline": "Make recovery time feel intentional",
+     "persona_id": "persona_009",
+     "publisher_id": "pub_011",
+     "why": "Leans on recovery affinity and performance-minded routines with a concrete ingredient proof."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "gifting",
-      "small_batch",
-      "home_goods"
+      "small_batch"
      ],
      "age_max": null,
      "age_min": null,
      "audience_type": "consumer",
      "business_model": "one_off",
      "categories": [
-      "home"
+      "home",
+      "gifting"
      ],
      "conflicts": [],
      "describes_business": true,
@@ -6069,13 +6299,14 @@
       "no synthetic fragrances",
       "mostly bought as gifts"
      ],
-     "gender_skew": "unknown",
+     "gender_skew": "balanced",
      "price_tier": "premium",
      "price_usd": null,
-     "product": "hand-poured soy candles",
-     "self_confidence": 0.96,
+     "product": "candles",
+     "self_confidence": 0.98,
      "unknowns": [
-      "price"
+      "price",
+      "target age group"
      ]
     },
     "budget_usd": null,
@@ -6083,12 +6314,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.96,
+     "confidence": 0.98,
      "impl": "llm",
      "outcome": "proceed",
      "signals": {
       "business_prob": 0.0,
-      "clarity": 0.96,
+      "clarity": 0.98,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -6098,78 +6329,6 @@
     "mode": null,
     "outcome": "proceed",
     "personas": [
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "Adjacent affinity: home_goods",
-        "score": 0.5
-       },
-       {
-        "name": "price",
-        "note": "Low price sensitivity vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.58,
-      "name": "The Affluent Classic",
-      "path": [],
-      "persona_id": "persona_005",
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "Adjacent affinity: home_goods",
-        "score": 0.5
-       },
-       {
-        "name": "price",
-        "note": "Medium price sensitivity vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.58,
-      "name": "The Sustainability Buyer",
-      "path": [],
-      "persona_id": "persona_006",
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "Adjacent affinity: home_goods",
-        "score": 0.5
-       },
-       {
-        "name": "price",
-        "note": "Low price sensitivity vs premium",
-        "score": 0.75
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.58,
-      "name": "The Gifter",
-      "path": [],
-      "persona_id": "persona_010",
-      "stretch": false
-     },
      {
       "factors": [
        {
@@ -6193,6 +6352,54 @@
       "path": [],
       "persona_id": "persona_003",
       "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "No affinity overlap",
+        "score": 0.0
+       },
+       {
+        "name": "price",
+        "note": "Low-medium price sensitivity vs premium",
+        "score": 1.0
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.38,
+      "name": "The Pet Parent",
+      "path": [],
+      "persona_id": "persona_004",
+      "stretch": true
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "No affinity overlap",
+        "score": 0.0
+       },
+       {
+        "name": "price",
+        "note": "Low-medium price sensitivity vs premium",
+        "score": 1.0
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.38,
+      "name": "The Fitness Enthusiast",
+      "path": [],
+      "persona_id": "persona_009",
+      "stretch": true
      }
     ],
     "publishers": [
@@ -6820,6 +7027,155 @@
    }
   },
   "Technical outerwear for serious backcountry skiers. Our shells are what patrollers wear. Starts at $650, goes up from there.": {
+   "agent_notes": [
+    "The Fitness Enthusiast ad: the critic reviewed it twice.",
+    "The Gifter ad: the critic reviewed it twice.",
+    "The Value-Conscious Shopper ad: the critic reviewed it twice.",
+    "The Wellness Optimizer ad: the critic reviewed it twice.",
+    "The Affluent Classic ad: the critic reviewed it twice."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Gear that keeps up off the groomers\"}",
+     "ms": 1,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Choose gear with staying power\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Buy the shell you can justify\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Give a serious skier something substantial\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Choose gear with a proof point\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Gear that keeps up off the groomers\"}",
+     "ms": 4382,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the fitness/performance payoff first, not the skiing setting. Make the headline about how the gear helps them train or move…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Buy the shell you can justify\"}",
+     "ms": 3862,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s payoff, not the product itself. Right now the headline sounds like a product pitch; lead with the reason a ca…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Choose gear with staying power\"}",
+     "ms": 4996,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The CTA feels awkward and not quite tied to the Movewell shopping moment. Make it sound like a natural next step on the page, such as…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"Give a serious skier something substantial…",
+     "ms": 4832,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the gift angle more clearly. This starts with the skier instead of the shopper’s need for an impressive present.\",\"Add a cl…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Choose gear with a proof point\"}",
+     "ms": 4236,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the benefit she wants, not a product-style phrase. The headline should say what the shell does for her, like reliable perfo…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Choose gear with staying power\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Bring performance standards outside\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Know what your money gets\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"An impressive gift for serious snow days\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"Choose gear with staying power\"}",
+     "ms": 3785,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Bring performance standards outside\"}",
+     "ms": 4012,
+     "result_summary": "{\"accept\":true,\"notes\":[\"The draft fits the persona and publisher well: it leads with the benefit, uses a concrete proof point, and ends with a specific action…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Feel sure about your shell choice\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_010\",\"headline\":\"An impressive gift for serious snow days\"}",
+     "ms": 4314,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the gifting angle more clearly; right now it reads like a ski-performance ad, not something chosen to impress as a gift.\",\"…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Know what your money gets\"}",
+     "ms": 5671,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s payoff more directly: lead with getting strong shell performance for the money, rather than starting with the…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Feel sure about your shell choice\"}",
+     "ms": 3565,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 227.0,
@@ -6833,26 +7189,28 @@
      "test_budget": true,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_technical-outerwear-shells_0c1057",
+    "campaign_id": "cmp_technical-outerwear-shells_78d025",
     "conversion_event": "purchase",
     "decision_trace": {
-     "gate_confidence": 0.95,
+     "gate_confidence": 0.97,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_001": 0.38,
-      "persona_003": 0.48,
-      "persona_005": 0.38
+      "persona_001": 0.58,
+      "persona_005": 0.58,
+      "persona_008": 0.73,
+      "persona_009": 0.88,
+      "persona_010": 0.83
      },
      "publisher_fits": {
-      "pub_004": 0.198,
-      "pub_005": 0.198,
-      "pub_016": 0.198
+      "pub_002": 0.273,
+      "pub_004": 0.273,
+      "pub_005": 0.273
      },
      "weak_fit": true
     },
     "frequency_cap": {
-     "impressions": 1,
+     "impressions": 2,
      "per_days": 14
     },
     "guardrails": {
@@ -6863,23 +7221,26 @@
     "line_items": [
      {
       "budget_usd": 1000.0,
-      "creative_id": "cr_persona_003",
+      "creative_id": "cr_persona_009",
+      "extra_creative_ids": [
+       "cr_persona_001",
+       "cr_persona_005"
+      ],
+      "publisher_id": "pub_002",
+      "share": 0.3333333333333333
+     },
+     {
+      "budget_usd": 1000.0,
+      "creative_id": "cr_persona_010",
       "extra_creative_ids": [],
       "publisher_id": "pub_004",
       "share": 0.3333333333333333
      },
      {
       "budget_usd": 1000.0,
-      "creative_id": "cr_persona_001",
+      "creative_id": "cr_persona_008",
       "extra_creative_ids": [],
       "publisher_id": "pub_005",
-      "share": 0.3333333333333333
-     },
-     {
-      "budget_usd": 1000.0,
-      "creative_id": "cr_persona_005",
-      "extra_creative_ids": [],
-      "publisher_id": "pub_016",
       "share": 0.3333333333333333
      }
     ],
@@ -6887,16 +7248,16 @@
     "rationales": {
      "bid_strategy": "35% of $650 order value (your price) = $227 target CPA",
      "budget": "Recommended $3,000/mo: $227 target CPA × 50 conversions per line item (enough to optimise the bid) across 3 publishers, rounded to $500 within $500–$5,000,000, then a test because fit is weak: 20% of $34,000, capped at $3,000, rounded to $500. Split by fit, capped at each publisher's reach at $12 CPM",
-     "frequency_cap": "At most 1 impression per person every 14 days (luxury price tier: 2 per 21 days, −1 for a weak-fit test, window shortened to 14 days so the test learns fast)",
+     "frequency_cap": "At most 2 impressions per person every 14 days (premium price tier: 3 per 14 days, −1 for a weak-fit test)",
      "guardrails": "Pause if CPA exceeds $341 (1.5× target) after 2,000 impressions",
-     "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
+     "line_items": "3 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Movewell (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Front-loaded: a small weak-fit test should learn fast",
-     "targeting": "3 personas, interests fashion, ages 19-68, gender all, US"
+     "targeting": "5 personas, interests apparel, activewear, fitness, travel, ages 22-68, gender all, US"
     },
     "targeting": {
      "age_range": [
-      19,
+      22,
       68
      ],
      "gender": "all",
@@ -6904,10 +7265,15 @@
       "US"
      ],
      "interests": [
-      "fashion"
+      "apparel",
+      "activewear",
+      "fitness",
+      "travel"
      ],
      "personas": [
-      "persona_003",
+      "persona_009",
+      "persona_010",
+      "persona_008",
       "persona_001",
       "persona_005"
      ]
@@ -6915,48 +7281,73 @@
    },
    "creatives": [
     {
-     "body": "Technical shells for serious backcountry skiers, with the same kind worn by ski patrollers. Prices start at $650.",
-     "creative_id": "cr_persona_003",
-     "cta": "Add the shell to your cart",
+     "body": "When your day moves beyond the gym, choose technical shells trusted by ski patrollers and made for serious backcountry skiing.",
+     "creative_id": "cr_persona_009",
+     "cta": "Browse outerwear shells",
      "fact_violations": [],
-     "headline": "Make your mountain look mean something",
-     "persona_id": "persona_003",
+     "headline": "Bring performance standards outside",
+     "persona_id": "persona_009",
+     "publisher_id": "pub_002",
+     "why": "Leans on activewear affinity and performance apparel preference."
+    },
+    {
+     "body": "For the skier on your list: technical outerwear worn by patrollers and made for serious backcountry days. Pricing starts at $650.",
+     "creative_id": "cr_persona_010",
+     "cta": "Find their gift shell",
+     "fact_violations": [],
+     "headline": "Gift a shell with real ski cred",
+     "persona_id": "persona_010",
      "publisher_id": "pub_004",
-     "why": "Leans on fashion, aesthetic-forward style, and values-aligned identity."
+     "why": "Leans on apparel affinity and giftable, premium presentation messaging."
     },
     {
-     "body": "Technical shells built for serious backcountry skiing, with the same kind worn by ski patrollers. Prices start at $650.",
-     "creative_id": "cr_persona_001",
-     "cta": "Compare shells for ski days",
+     "body": "Starting at $650, these technical shells are made for backcountry skiing and worn by ski patrollers.",
+     "creative_id": "cr_persona_008",
+     "cta": "Compare shell options",
      "fact_violations": [],
-     "headline": "Gear that keeps up with your mountain routine",
-     "persona_id": "persona_001",
+     "headline": "Get serious shell value",
+     "persona_id": "persona_008",
      "publisher_id": "pub_005",
-     "why": "Leans on fitness affinity and science-backed claims messaging preference."
+     "why": "Apparel affinity with clear value and comparison shopping cues."
     },
     {
-     "body": "Technical shells for serious backcountry skiers, worn by ski patrollers. Starting at $650.",
-     "creative_id": "cr_persona_005",
-     "cta": "Choose your shell",
+     "body": "When every piece of kit has to earn its place, start with technical shells—the kind ski patrollers wear for serious backcountry skiing.",
+     "creative_id": "cr_persona_001",
+     "cta": "Compare technical shells",
      "fact_violations": [],
-     "headline": "Buy once for seasons beyond trends",
+     "headline": "Feel sure about your shell choice",
+     "persona_id": "persona_001",
+     "publisher_id": "pub_002",
+     "why": "Leans on fitness affinity and science-backed proof preferences."
+    },
+    {
+     "body": "Technical shells made for serious backcountry skiing, trusted by ski patrol teams. Pricing begins at $650.",
+     "creative_id": "cr_persona_005",
+     "cta": "Browse technical shells",
+     "fact_violations": [],
+     "headline": "Choose gear with staying power",
      "persona_id": "persona_005",
-     "publisher_id": "pub_016",
-     "why": "Leans on classic apparel affinity with craftsmanship and quality-focused messaging."
+     "publisher_id": "pub_002",
+     "why": "Leans on classic apparel affinity with craftsmanship and quality-focused restraint."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "fashion"
+      "fitness",
+      "travel"
      ],
      "age_max": null,
      "age_min": null,
      "audience_type": "consumer",
      "business_model": "one_off",
-     "categories": [],
+     "categories": [
+      "apparel",
+      "activewear"
+     ],
      "conflicts": [],
      "describes_business": true,
      "facts": [
@@ -6965,14 +7356,13 @@
       "starts at $650"
      ],
      "gender_skew": "unknown",
-     "price_tier": "luxury",
+     "price_tier": "premium",
      "price_usd": 650.0,
      "product": "technical outerwear shells",
-     "self_confidence": 0.95,
+     "self_confidence": 0.97,
      "unknowns": [
-      "specific product type beyond shells",
       "gender target",
-      "age target"
+      "age group"
      ]
     },
     "budget_usd": null,
@@ -6980,12 +7370,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.95,
+     "confidence": 0.97,
      "impl": "llm",
      "outcome": "proceed",
      "signals": {
       "business_prob": 0.0,
-      "clarity": 0.95,
+      "clarity": 0.97,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -6999,12 +7389,60 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: fashion",
-        "score": 0.5
+        "note": "Affinity: activewear",
+        "score": 1.0
        },
        {
         "name": "price",
-        "note": "Medium-high price sensitivity vs luxury",
+        "note": "Low-medium price sensitivity vs premium",
+        "score": 1.0
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.88,
+      "name": "The Fitness Enthusiast",
+      "path": [],
+      "persona_id": "persona_009",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: apparel",
+        "score": 1.0
+       },
+       {
+        "name": "price",
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.83,
+      "name": "The Gifter",
+      "path": [],
+      "persona_id": "persona_010",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Affinity: apparel",
+        "score": 1.0
+       },
+       {
+        "name": "price",
+        "note": "High price sensitivity vs premium",
         "score": 0.25
        },
        {
@@ -7013,23 +7451,23 @@
         "score": 0.6
        }
       ],
-      "fit": 0.48,
-      "name": "The Gen Z Aesthete",
+      "fit": 0.73,
+      "name": "The Value-Conscious Shopper",
       "path": [],
-      "persona_id": "persona_003",
+      "persona_id": "persona_008",
       "stretch": false
      },
      {
       "factors": [
        {
         "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
+        "note": "Adjacent affinity: fitness",
+        "score": 0.5
        },
        {
         "name": "price",
-        "note": "Low price sensitivity vs luxury",
-        "score": 1.0
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
        },
        {
         "name": "age",
@@ -7037,23 +7475,23 @@
         "score": 0.6
        }
       ],
-      "fit": 0.38,
+      "fit": 0.58,
       "name": "The Wellness Optimizer",
       "path": [],
       "persona_id": "persona_001",
-      "stretch": true
+      "stretch": false
      },
      {
       "factors": [
        {
         "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
+        "note": "Adjacent affinity: travel",
+        "score": 0.5
        },
        {
         "name": "price",
-        "note": "Low price sensitivity vs luxury",
-        "score": 1.0
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
        },
        {
         "name": "age",
@@ -7061,11 +7499,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.38,
+      "fit": 0.58,
       "name": "The Affluent Classic",
       "path": [],
       "persona_id": "persona_005",
-      "stretch": true
+      "stretch": false
      }
     ],
     "publishers": [
@@ -7073,8 +7511,39 @@
       "factors": [
        {
         "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
+        "note": "Apparel category match",
+        "score": 1.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 25-44, 82% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "AOV $78 vs $650 price",
+        "score": 0.0
+       }
+      ],
+      "fit": 0.273,
+      "name": "Movewell",
+      "path": [],
+      "publisher_id": "pub_002",
+      "reason": "AOV $78 vs $650 price",
+      "recommended": true,
+      "stretch": true
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "Apparel category match",
+        "score": 1.0
        },
        {
         "name": "audience",
@@ -7083,8 +7552,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
+        "note": "Income tier high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7092,7 +7561,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.198,
+      "fit": 0.273,
       "name": "Marlowe & Co.",
       "path": [],
       "publisher_id": "pub_004",
@@ -7104,8 +7573,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
+        "note": "Apparel category match",
+        "score": 1.0
        },
        {
         "name": "audience",
@@ -7114,8 +7583,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
+        "note": "Income tier high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7123,7 +7592,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.198,
+      "fit": 0.273,
       "name": "Linden Park",
       "path": [],
       "publisher_id": "pub_005",
@@ -7135,70 +7604,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 28-48, 94% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier high vs luxury",
+        "note": "Apparel category match",
         "score": 1.0
-       },
-       {
-        "name": "aov",
-        "note": "AOV $142 vs $650 price",
-        "score": 0.0
-       }
-      ],
-      "fit": 0.198,
-      "name": "Stride & Stem",
-      "path": [],
-      "publisher_id": "pub_016",
-      "reason": "AOV $142 vs $650 price",
-      "recommended": true,
-      "stretch": true
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
-       },
-       {
-        "name": "audience",
-        "note": "Skews 25-44, 82% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
-       },
-       {
-        "name": "aov",
-        "note": "AOV $78 vs $650 price",
-        "score": 0.0
-       }
-      ],
-      "fit": 0.168,
-      "name": "Movewell",
-      "path": [],
-      "publisher_id": "pub_002",
-      "reason": "AOV $78 vs $650 price",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
        },
        {
         "name": "audience",
@@ -7207,8 +7614,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7216,7 +7623,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.168,
+      "fit": 0.273,
       "name": "Heartfoot",
       "path": [],
       "publisher_id": "pub_010",
@@ -7228,8 +7635,39 @@
       "factors": [
        {
         "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
+        "note": "Apparel category match",
+        "score": 1.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 28-48, 94% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "AOV $142 vs $650 price",
+        "score": 0.0
+       }
+      ],
+      "fit": 0.273,
+      "name": "Stride & Stem",
+      "path": [],
+      "publisher_id": "pub_016",
+      "reason": "AOV $142 vs $650 price",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "Apparel category match",
+        "score": 1.0
        },
        {
         "name": "audience",
@@ -7238,8 +7676,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7247,7 +7685,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.168,
+      "fit": 0.273,
       "name": "Cloudfoot",
       "path": [],
       "publisher_id": "pub_017",
@@ -7259,8 +7697,8 @@
       "factors": [
        {
         "name": "category",
-        "note": "Adjacent via fashion",
-        "score": 0.5
+        "note": "Apparel category match",
+        "score": 1.0
        },
        {
         "name": "audience",
@@ -7269,8 +7707,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid vs premium",
+        "score": 0.25
        },
        {
         "name": "aov",
@@ -7278,11 +7716,11 @@
         "score": 0.0
        }
       ],
-      "fit": 0.138,
+      "fit": 0.243,
       "name": "Everbody",
       "path": [],
       "publisher_id": "pub_006",
-      "reason": "Income tier mid vs luxury",
+      "reason": "AOV $89 vs $650 price",
       "recommended": false,
       "stretch": false
      },
@@ -7300,8 +7738,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
+        "note": "Income tier high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7309,7 +7747,7 @@
         "score": 0.14253035608189635
        }
       ],
-      "fit": 0.072,
+      "fit": 0.063,
       "name": "Hearthstone Goods",
       "path": [],
       "publisher_id": "pub_014",
@@ -7331,8 +7769,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
+        "note": "Income tier high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7340,7 +7778,7 @@
         "score": 0.006628048351133398
        }
       ],
-      "fit": 0.055,
+      "fit": 0.047,
       "name": "Northbed",
       "path": [],
       "publisher_id": "pub_011",
@@ -7362,8 +7800,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
+        "note": "Income tier high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7371,41 +7809,10 @@
         "score": 0.0
        }
       ],
-      "fit": 0.054,
+      "fit": 0.046,
       "name": "Studiogrid",
       "path": [],
       "publisher_id": "pub_003",
-      "reason": "No category overlap",
-      "recommended": false,
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "category",
-        "note": "No category overlap",
-        "score": 0.0
-       },
-       {
-        "name": "audience",
-        "note": "Skews 28-48, 71% women",
-        "score": 0.6
-       },
-       {
-        "name": "income",
-        "note": "Income tier high vs luxury",
-        "score": 1.0
-       },
-       {
-        "name": "aov",
-        "note": "AOV $86 vs $650 price",
-        "score": 0.0
-       }
-      ],
-      "fit": 0.054,
-      "name": "Pantrygood",
-      "path": [],
-      "publisher_id": "pub_008",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -7424,8 +7831,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7433,10 +7840,41 @@
         "score": 0.0
        }
       ],
-      "fit": 0.039,
+      "fit": 0.046,
       "name": "Pawline",
       "path": [],
       "publisher_id": "pub_007",
+      "reason": "No category overlap",
+      "recommended": false,
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "category",
+        "note": "No category overlap",
+        "score": 0.0
+       },
+       {
+        "name": "audience",
+        "note": "Skews 28-48, 71% women",
+        "score": 0.6
+       },
+       {
+        "name": "income",
+        "note": "Income tier high vs premium",
+        "score": 0.75
+       },
+       {
+        "name": "aov",
+        "note": "AOV $86 vs $650 price",
+        "score": 0.0
+       }
+      ],
+      "fit": 0.046,
+      "name": "Pantrygood",
+      "path": [],
+      "publisher_id": "pub_008",
       "reason": "No category overlap",
       "recommended": false,
       "stretch": false
@@ -7455,8 +7893,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7464,7 +7902,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.039,
+      "fit": 0.046,
       "name": "Daily Form",
       "path": [],
       "publisher_id": "pub_012",
@@ -7486,8 +7924,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7495,7 +7933,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.039,
+      "fit": 0.046,
       "name": "Kitchenly",
       "path": [],
       "publisher_id": "pub_015",
@@ -7517,8 +7955,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid-high vs luxury",
-        "score": 0.5
+        "note": "Income tier mid-high vs premium",
+        "score": 0.75
        },
        {
         "name": "aov",
@@ -7526,7 +7964,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.039,
+      "fit": 0.046,
       "name": "Pop & Sip",
       "path": [],
       "publisher_id": "pub_020",
@@ -7548,8 +7986,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid vs premium",
+        "score": 0.25
        },
        {
         "name": "aov",
@@ -7557,7 +7995,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.024,
+      "fit": 0.032,
       "name": "Swiftcart",
       "path": [],
       "publisher_id": "pub_001",
@@ -7579,8 +8017,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid vs premium",
+        "score": 0.25
        },
        {
         "name": "aov",
@@ -7588,7 +8026,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.024,
+      "fit": 0.032,
       "name": "Ruffco",
       "path": [],
       "publisher_id": "pub_009",
@@ -7610,8 +8048,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid vs premium",
+        "score": 0.25
        },
        {
         "name": "aov",
@@ -7619,7 +8057,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.024,
+      "fit": 0.032,
       "name": "Velvetline",
       "path": [],
       "publisher_id": "pub_013",
@@ -7641,8 +8079,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid vs premium",
+        "score": 0.25
        },
        {
         "name": "aov",
@@ -7650,7 +8088,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.024,
+      "fit": 0.032,
       "name": "Tailcrate",
       "path": [],
       "publisher_id": "pub_018",
@@ -7672,8 +8110,8 @@
        },
        {
         "name": "income",
-        "note": "Income tier mid vs luxury",
-        "score": 0.0
+        "note": "Income tier mid vs premium",
+        "score": 0.25
        },
        {
         "name": "aov",
@@ -7681,7 +8119,7 @@
         "score": 0.0
        }
       ],
-      "fit": 0.024,
+      "fit": 0.032,
       "name": "Strandlab",
       "path": [],
       "publisher_id": "pub_019",
@@ -7693,8 +8131,11 @@
    }
   },
   "We help people feel better.": {
+   "agent_notes": [],
+   "agent_trace": [],
    "config": null,
    "creatives": [],
+   "mode": "code",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
@@ -7710,18 +8151,17 @@
      "conflicts": [],
      "describes_business": true,
      "facts": [
-      "we help people feel better"
+      "We help people feel better."
      ],
      "gender_skew": "unknown",
      "price_tier": "unknown",
      "price_usd": null,
-     "product": "wellness services or products",
+     "product": "wellness offering",
      "self_confidence": 0.36,
      "unknowns": [
       "what is being sold",
-      "whether it is a product or service",
+      "whether it is a product or a service",
       "price",
-      "business model",
       "target age group",
       "target gender"
      ]
@@ -7735,23 +8175,24 @@
        "Beauty",
        "Other…"
       ],
-      "question": "What are you selling?"
+      "question": "What type of wellness offering is it?"
      },
      {
       "options": [
        "Under $25",
-       "$25–$100",
-       "$100+",
-       "Not sure"
+       "$25-$100",
+       "Over $100",
+       "Subscription"
       ],
-      "question": "What’s your usual price?"
+      "question": "What price range is it?"
      },
      {
       "options": [
+       "Women",
+       "Men",
        "Adults",
        "Teens",
-       "Kids",
-       "All ages"
+       "Other…"
       ],
       "question": "Who is it for?"
      }
@@ -8424,6 +8865,84 @@
    }
   },
   "We make a non-alcoholic sparkling drink with adaptogens. It's for people who want to feel good without a hangover, kind of like a functional cocktail alternative.": {
+   "agent_notes": [
+    "The Gen Z Aesthete ad: the critic reviewed it once.",
+    "The Fitness Enthusiast ad: the critic reviewed it once.",
+    "The Wellness Optimizer ad: the critic reviewed it twice.",
+    "The Affluent Classic ad: the critic reviewed it once."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Keep your next-day rhythm\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Sip the vibe, skip tomorrow’s regret\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Sip for tomorrow’s routine\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_009\",\"headline\":\"Keep your next-day rhythm\"}",
+     "ms": 3548,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A refined sip for tomorrow morning\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Sip the vibe, skip tomorrow’s regret\"}",
+     "ms": 4209,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Sip for tomorrow’s routine\"}",
+     "ms": 4536,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the payoff the persona cares about: a clearer, better-feeling next day or a smarter drink choice, instead of a vague routin…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_005\",\"headline\":\"A refined sip for tomorrow morning\"}",
+     "ms": 3802,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Feel good after last call\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Feel good after last call\"}",
+     "ms": 4014,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 15.0,
@@ -8437,15 +8956,16 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_non-alcoholic-sparkling-adaptoge_dc5e71",
+    "campaign_id": "cmp_non-alcoholic-sparkling-function_db34b4",
     "conversion_event": "purchase",
     "decision_trace": {
-     "gate_confidence": 0.97,
+     "gate_confidence": 0.96,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
       "persona_001": 0.55,
       "persona_003": 0.8,
+      "persona_005": 0.55,
       "persona_009": 0.8
      },
      "publisher_fits": {
@@ -8468,7 +8988,8 @@
       "creative_id": "cr_persona_003",
       "extra_creative_ids": [
        "cr_persona_009",
-       "cr_persona_001"
+       "cr_persona_001",
+       "cr_persona_005"
       ],
       "publisher_id": "pub_020",
       "share": 1.0
@@ -8480,15 +9001,15 @@
      "budget": "Recommended $1,000/mo: $15 target CPA × 50 conversions per line item (enough to optimise the bid) across 1 publishers, rounded to $500 within $500–$5,000,000. Split by fit, capped at each publisher's reach at $12 CPM",
      "frequency_cap": "At most 3 impressions per person every 7 days (unknown price tier: 3 per 7 days)",
      "guardrails": "Pause if CPA exceeds $23 (1.5× target) after 2,000 impressions",
-     "line_items": "1 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Pop & Sip (each written for that publisher)",
+     "line_items": "1 publishers, budget share proportional to fit with a 10% floor; 4 ads rotate on Pop & Sip (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $1,000 meets the $1,000 recommendation",
-     "targeting": "3 personas, interests beverages, functional_beverages, wellness, ages 19-42, gender all, US"
+     "targeting": "4 personas, interests beverages, functional_beverages, soda_alternative, wellness, travel, ages 19-68, gender all, US"
     },
     "targeting": {
      "age_range": [
       19,
-      42
+      68
      ],
      "gender": "all",
      "geo": [
@@ -8497,61 +9018,77 @@
      "interests": [
       "beverages",
       "functional_beverages",
-      "wellness"
+      "soda_alternative",
+      "wellness",
+      "travel"
      ],
      "personas": [
       "persona_003",
       "persona_009",
-      "persona_001"
+      "persona_001",
+      "persona_005"
      ]
     }
    },
    "creatives": [
     {
-     "body": "A fizzy, alcohol-free drink with adaptogens, made for nights that feel fun now and still feel good tomorrow.",
+     "body": "A sparkling, alcohol-free drink made with adaptogens for a cocktail-style moment that still feels like you.",
      "creative_id": "cr_persona_003",
-     "cta": "Add a bottle to your sip list",
+     "cta": "Add a can to your sip list",
      "fact_violations": [],
-     "headline": "Sip something that matches the vibe",
+     "headline": "Sip the vibe, skip tomorrow’s regret",
      "persona_id": "persona_003",
      "publisher_id": "pub_020",
-     "why": "Leans on functional beverages, small batch, aesthetic-forward, playful, and novelty preferences."
+     "why": "Leans on functional beverages, playful novelty, and aesthetic-forward identity."
     },
     {
-     "body": "A bubbly alcohol-free drink with adaptogens, made for cocktail moments without the next-day hangover.",
+     "body": "A bubbly, zero-alcohol sip with adaptogens for nights when you want the cocktail feel without the hangover.",
      "creative_id": "cr_persona_009",
      "cta": "Add to your drink cart",
      "fact_violations": [],
-     "headline": "Keep tomorrow’s workout on track",
+     "headline": "Keep your next-day rhythm",
      "persona_id": "persona_009",
      "publisher_id": "pub_020",
-     "why": "Leans on functional beverages, recovery, and performance claims."
+     "why": "Leans on functional beverages and performance-minded recovery."
     },
     {
-     "body": "A bubbly non-alcoholic drink with adaptogens, made for sipping when you want the cocktail feel without tomorrow’s hangover.",
+     "body": "Choose a sparkling, alcohol-free cocktail alternative made with adaptogens for a night that fits your wellness routine.",
      "creative_id": "cr_persona_001",
-     "cta": "Add to your drink lineup",
+     "cta": "Add it to this sip order",
      "fact_violations": [],
-     "headline": "Keep your night in sync",
+     "headline": "Feel good after last call",
      "persona_id": "persona_001",
      "publisher_id": "pub_020",
-     "why": "Leans on wellness, supplements, and outcome-focused preferences."
+     "why": "Leans on wellness affinity, ingredient transparency, and outcome-focused messaging."
+    },
+    {
+     "body": "Enjoy a sparkling, alcohol-free pour with adaptogens, made for unwinding without the next-day hangover.",
+     "creative_id": "cr_persona_005",
+     "cta": "Add a refined pour",
+     "fact_violations": [],
+     "headline": "A refined sip for tomorrow morning",
+     "persona_id": "persona_005",
+     "publisher_id": "pub_020",
+     "why": "Leans on premium grocery affinity and understated, quality-focused messaging."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "wellness"
+      "wellness",
+      "travel"
      ],
      "age_max": null,
      "age_min": null,
      "audience_type": "consumer",
-     "business_model": "one_off",
+     "business_model": "unknown",
      "categories": [
       "beverages",
-      "functional_beverages"
+      "functional_beverages",
+      "soda_alternative"
      ],
      "conflicts": [],
      "describes_business": true,
@@ -8564,12 +9101,11 @@
      "gender_skew": "balanced",
      "price_tier": "unknown",
      "price_usd": null,
-     "product": "non-alcoholic sparkling adaptogen drink",
-     "self_confidence": 0.97,
+     "product": "non-alcoholic sparkling functional drink",
+     "self_confidence": 0.96,
      "unknowns": [
       "price",
-      "pack size",
-      "whether it is sold as a subscription"
+      "whether it is sold as a one-time purchase or subscription"
      ]
     },
     "budget_usd": null,
@@ -8577,12 +9113,12 @@
     "config": null,
     "creatives": [],
     "gate": {
-     "confidence": 0.97,
+     "confidence": 0.96,
      "impl": "llm",
      "outcome": "proceed",
      "signals": {
       "business_prob": 0.0,
-      "clarity": 0.97,
+      "clarity": 0.96,
       "has_content": 1.0
      },
      "threshold": 0.7
@@ -8662,6 +9198,30 @@
       "name": "The Wellness Optimizer",
       "path": [],
       "persona_id": "persona_001",
+      "stretch": false
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "Adjacent affinity: travel",
+        "score": 0.5
+       },
+       {
+        "name": "price",
+        "note": "Price tier unknown",
+        "score": 0.6
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.55,
+      "name": "The Affluent Classic",
+      "path": [],
+      "persona_id": "persona_005",
       "stretch": false
      }
     ],
@@ -9290,6 +9850,83 @@
    }
   },
   "We sell premium dog food for senior dogs, targeting owners who care about joint health and longevity. Grain-free, vet-formulated, subscription-based.": {
+   "agent_notes": [
+    "The Pet Parent ad: the critic reviewed it twice.",
+    "The Busy Parent ad: the critic reviewed it twice.",
+    "The Wellness Optimizer ad: the critic reviewed it once."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Support your dog's long-term routine\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Feed their golden years with care\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Keep senior dog food off your to-do list\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Support your dog's long-term routine\"}",
+     "ms": 4074,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Feed their golden years with care\"}",
+     "ms": 4253,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The proof leans on claims that aren’t grounded in the brief. Replace it with one fact from the provided setup, like the audience’s ve…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Keep senior dog food off your to-do list\"}",
+     "ms": 5553,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The body leans on claims that weren’t given in the brief. Swap in one proof point from the available facts, and keep it in your own w…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Feel good about every senior bowl\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_004\",\"headline\":\"Feel good about every senior bowl\"}",
+     "ms": 4016,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Keep senior dog food off your to-do list\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"Keep senior dog food off your to-do list\"}",
+     "ms": 3802,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 41.0,
@@ -9303,16 +9940,16 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_premium-dog-food_b429f2",
+    "campaign_id": "cmp_premium-dog-food-for-senior-dogs_d7db61",
     "conversion_event": "subscription_start",
     "decision_trace": {
      "gate_confidence": 0.98,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
+      "persona_001": 0.58,
       "persona_002": 0.83,
-      "persona_004": 0.88,
-      "persona_009": 0.38
+      "persona_004": 0.88
      },
      "publisher_fits": {
       "pub_007": 0.735,
@@ -9347,7 +9984,7 @@
      },
      {
       "budget_usd": 1789.74,
-      "creative_id": "cr_persona_009",
+      "creative_id": "cr_persona_001",
       "extra_creative_ids": [],
       "publisher_id": "pub_018",
       "share": 0.2982897384305835
@@ -9362,11 +9999,11 @@
      "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is subscription starts",
      "pacing": "Even: a premium-tier purchase is considered, so reminders are spread out",
-     "targeting": "3 personas, interests pet_food, subscription, pet_health, ages 22-50, gender all, US"
+     "targeting": "3 personas, interests pet_food, subscription, pet_health, wellness, ages 28-50, gender all, US"
     },
     "targeting": {
      "age_range": [
-      22,
+      28,
       50
      ],
      "gender": "all",
@@ -9376,53 +10013,56 @@
      "interests": [
       "pet_food",
       "subscription",
-      "pet_health"
+      "pet_health",
+      "wellness"
      ],
      "personas": [
       "persona_004",
       "persona_002",
-      "persona_009"
+      "persona_001"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Vet-formulated meals made for older dogs, with grain-free recipes and an easy subscription for their routine.",
+     "body": "A grain-free recipe for older dogs, formulated by vets and delivered by subscription for steady feeding.",
      "creative_id": "cr_persona_004",
-     "cta": "Add senior meals to cart",
+     "cta": "Build their senior plan",
      "fact_violations": [],
-     "headline": "Keep your senior dog feeling cared for",
+     "headline": "Feel good about every senior bowl",
      "persona_id": "persona_004",
      "publisher_id": "pub_007",
-     "why": "Leans on pet health, subscription boxes, ingredient transparency, and emotional connection."
+     "why": "Leans on pet food affinity, vet trust, subscription convenience, and emotional connection."
     },
     {
-     "body": "Senior dog food on a recurring plan, made grain-free and shaped by vets for owners focused on joints and long life.",
+     "body": "A subscription option helps keep senior dog food on the way, with grain-free, vet-formulated recipes.",
      "creative_id": "cr_persona_002",
-     "cta": "Add to your pet order",
+     "cta": "Set up pet food reorders",
      "fact_violations": [],
-     "headline": "One less pet errand on your list",
+     "headline": "Keep senior dog food off your to-do list",
      "persona_id": "persona_002",
      "publisher_id": "pub_009",
-     "why": "Leans on pet food, convenience, subscriptions, and time-saving."
+     "why": "Leans on pet food affinity, convenience, subscriptions, and time-saving."
     },
     {
-     "body": "Grain-free meals made for older dogs, with a vet-formulated recipe for owners focused on joint health and longevity.",
-     "creative_id": "cr_persona_009",
-     "cta": "Add senior fuel to cart",
+     "body": "A grain-free senior dog food shaped by vets for owners who think about joint health and more years together.",
+     "creative_id": "cr_persona_001",
+     "cta": "Add to your Tailcrate cart",
      "fact_violations": [],
-     "headline": "Fuel your senior dog's daily miles",
-     "persona_id": "persona_009",
+     "headline": "Support your dog's long-term routine",
+     "persona_id": "persona_001",
      "publisher_id": "pub_018",
-     "why": "Leans on activewear, supplements, and performance claims for a fitness-minded pet shopper."
+     "why": "Wellness and supplement mindset with science-backed, outcome-focused proof."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
-      "pet_health"
+      "pet_health",
+      "wellness"
      ],
      "age_max": null,
      "age_min": null,
@@ -9444,10 +10084,12 @@
      "gender_skew": "unknown",
      "price_tier": "premium",
      "price_usd": null,
-     "product": "premium dog food",
+     "product": "premium dog food for senior dogs",
      "self_confidence": 0.98,
      "unknowns": [
-      "price"
+      "price",
+      "exact dog age range",
+      "serving size or pack size"
      ]
     },
     "budget_usd": null,
@@ -9522,13 +10164,13 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "No affinity overlap",
-        "score": 0.0
+        "note": "Adjacent affinity: wellness",
+        "score": 0.5
        },
        {
         "name": "price",
-        "note": "Low-medium price sensitivity vs premium",
-        "score": 1.0
+        "note": "Low price sensitivity vs premium",
+        "score": 0.75
        },
        {
         "name": "age",
@@ -9536,11 +10178,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.38,
-      "name": "The Fitness Enthusiast",
+      "fit": 0.58,
+      "name": "The Wellness Optimizer",
       "path": [],
-      "persona_id": "persona_009",
-      "stretch": true
+      "persona_id": "persona_001",
+      "stretch": false
      }
     ],
     "publishers": [
@@ -10168,6 +10810,97 @@
    }
   },
   "We sell protein bars that don't taste like cardboard. That's basically the whole pitch.": {
+   "agent_notes": [
+    "The Value-Conscious Shopper ad: the critic reviewed it twice.",
+    "The Wellness Optimizer ad: the critic reviewed it twice.",
+    "The Busy Parent ad: the critic reviewed it twice."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Make your snack pick feel worth it\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A quick bite between dinner plans\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Keep your snack routine on track\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Make your snack pick feel worth it\"}",
+     "ms": 3939,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete proof point from the brief to back up the value claim; right now it sells the feeling, but gives no specific fact to…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"A quick bite between dinner plans\"}",
+     "ms": 4014,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Lead with the payoff more directly: this headline is close, but it should feel more like a shortcut for a rushed dinner routine than …",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Keep your snack routine on track\"}",
+     "ms": 4618,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Add one concrete proof point from the advertiser’s facts; right now the body makes a benefit claim without any specific evidence.\",\"M…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Get more from your snack run\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Keep your snack routine on track\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"One less snack scramble on busy nights\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Get more from your snack run\"}",
+     "ms": 4863,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the value more directly: the headline is a little vague, so make the savings or better deal feel clearer right away.\",\"Add …",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Keep your snack routine on track\"}",
+     "ms": 5831,
+     "result_summary": "{\"accept\":false,\"notes\":[\"The copy has no concrete proof point. Swap in a real fact the product can stand behind, such as a clean-ingredient or sustainability …",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_002\",\"headline\":\"One less snack scramble on busy nights\"}",
+     "ms": 4323,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the parent’s real need more directly: less mealtime chaos and one fewer thing to figure out on busy nights.\",\"There’s no co…",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 22.0,
@@ -10181,7 +10914,7 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_protein-bars_4f7ef0",
+    "campaign_id": "cmp_protein-bars_f9f727",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.97,
@@ -10240,7 +10973,7 @@
      "line_items": "3 publishers, budget share proportional to fit with a 10% floor",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $3,500 meets the $3,500 recommendation",
-     "targeting": "3 personas, interests groceries, wellness, ages 28-55, gender all, US"
+     "targeting": "3 personas, interests groceries, fitness, wellness, ages 28-55, gender all, US"
     },
     "targeting": {
      "age_range": [
@@ -10253,6 +10986,7 @@
      ],
      "interests": [
       "groceries",
+      "fitness",
       "wellness"
      ],
      "personas": [
@@ -10264,54 +10998,56 @@
    },
    "creatives": [
     {
-     "body": "Add protein bars that actually taste good, not dry and bland, while you finish your Swiftcart order.",
+     "body": "They’re protein bars, but without the cardboard-style taste that can make a bar feel like a miss.",
      "creative_id": "cr_persona_008",
-     "cta": "Add bars to this order",
+     "cta": "Add before checkout",
      "fact_violations": [],
-     "headline": "A better bar for your cart",
+     "headline": "Spend snack money on bars you’ll enjoy",
      "persona_id": "persona_008",
      "publisher_id": "pub_001",
-     "why": "Leans on groceries affinity and clear value props for a value-conscious shopper."
+     "why": "Leans on grocery affinity and clear value through better-tasting protein bars."
     },
     {
-     "body": "Add a bar to your grocery order for protein without the dry, bland bite.",
+     "body": "Stock your pantry with protein bars focused on taste, not the dry, cardboard-like bite some bars bring.",
      "creative_id": "cr_persona_001",
-     "cta": "Add bars to your cart",
+     "cta": "Add protein bars to cart",
      "fact_violations": [],
-     "headline": "Protein that fits your routine",
+     "headline": "A protein snack you’ll want to repeat",
      "persona_id": "persona_001",
      "publisher_id": "pub_008",
-     "why": "Leans on wellness, fitness, supplements, ingredient transparency, and outcome-focused preferences."
+     "why": "Leans on wellness and fitness interests with outcome-focused snack routine messaging."
     },
     {
-     "body": "Add protein bars to the pantry for between meals. They’re made to taste good, not dry and dull.",
+     "body": "These are protein bars with a simple pitch: a taste made to avoid that cardboard-like bite.",
      "creative_id": "cr_persona_002",
      "cta": "Add bars to your meal plan",
      "fact_violations": [],
-     "headline": "Keep a quick bite ready for busy days",
+     "headline": "Less mealtime chaos, one fewer snack to solve",
      "persona_id": "persona_002",
      "publisher_id": "pub_015",
-     "why": "Leans on meal kits, convenience, time-saving, and family-friendly."
+     "why": "Leans on meal kit affinity and time-saving messaging for busy family routines."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
+      "fitness",
       "wellness"
      ],
      "age_max": null,
      "age_min": null,
      "audience_type": "consumer",
-     "business_model": "unknown",
+     "business_model": "one_off",
      "categories": [
       "groceries"
      ],
      "conflicts": [],
      "describes_business": true,
      "facts": [
-      "sell protein bars",
+      "We sell protein bars",
       "don't taste like cardboard"
      ],
      "gender_skew": "unknown",
@@ -10321,7 +11057,7 @@
      "self_confidence": 0.97,
      "unknowns": [
       "price",
-      "business model"
+      "target age group"
      ]
     },
     "budget_usd": null,
@@ -10372,7 +11108,7 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Adjacent affinity: wellness",
+        "note": "Adjacent affinity: fitness",
         "score": 0.5
        },
        {
@@ -11042,6 +11778,69 @@
    }
   },
   "Workout supplements: pre-workout, creatine, protein. We compete on price, not on marketing. Same formulations as the expensive brands for half the cost.": {
+   "agent_notes": [
+    "The Wellness Optimizer ad: the critic reviewed it once.",
+    "The Value-Conscious Shopper ad: the critic reviewed it once.",
+    "The Gen Z Aesthete ad: the critic reviewed it twice."
+   ],
+   "agent_trace": [
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Know what you’re paying for\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Pay less for your workout stack\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"Less hype on your shelf\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_001\",\"headline\":\"Know what you’re paying for\"}",
+     "ms": 4217,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_008\",\"headline\":\"Pay less for your workout stack\"}",
+     "ms": 3962,
+     "result_summary": "{\"accept\":true,\"notes\":[]}",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"Less hype on your shelf\"}",
+     "ms": 5734,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s real pull here: a cleaner, more aesthetic wellness shelf with a brand that feels less try-hard and more align…",
+     "tool": "review_draft"
+    },
+    {
+     "agent": "critic",
+     "args_summary": "{\"headline\":\"A cleaner stack for your shelf\"}",
+     "ms": 0,
+     "result_summary": "No problems found by code.",
+     "tool": "check_copy"
+    },
+    {
+     "agent": "copywriter",
+     "args_summary": "{\"persona\":\"persona_003\",\"headline\":\"A cleaner stack for your shelf\"}",
+     "ms": 4928,
+     "result_summary": "{\"accept\":false,\"notes\":[\"Open with the shopper’s real motivation, like wanting wellness picks that feel more aligned with their style and values, rather than …",
+     "tool": "review_draft"
+    }
+   ],
    "config": {
     "bid_strategy": {
      "target_usd": 13.0,
@@ -11055,16 +11854,16 @@
      "test_budget": false,
      "unallocated_usd": 0.0
     },
-    "campaign_id": "cmp_workout-supplements_138a14",
+    "campaign_id": "cmp_workout-supplements_16a3ca",
     "conversion_event": "purchase",
     "decision_trace": {
      "gate_confidence": 0.97,
      "gate_impl": "llm",
      "gate_threshold": 0.7,
      "persona_fits": {
-      "persona_001": 0.68,
-      "persona_008": 0.38,
-      "persona_009": 0.73
+      "persona_001": 0.43,
+      "persona_003": 0.33,
+      "persona_008": 0.38
      },
      "publisher_fits": {
       "pub_012": 0.765
@@ -11083,10 +11882,10 @@
     "line_items": [
      {
       "budget_usd": 500.0,
-      "creative_id": "cr_persona_009",
+      "creative_id": "cr_persona_001",
       "extra_creative_ids": [
-       "cr_persona_001",
-       "cr_persona_008"
+       "cr_persona_008",
+       "cr_persona_003"
       ],
       "publisher_id": "pub_012",
       "share": 1.0
@@ -11101,11 +11900,11 @@
      "line_items": "1 publishers, budget share proportional to fit with a 10% floor; 3 ads rotate on Daily Form (each written for that publisher)",
      "objective": "Conversions: the goal is purchases",
      "pacing": "Even: $500 meets the $500 recommendation",
-     "targeting": "3 personas, interests wellness_dtc, supplements, fitness, recovery, ages 22-55, gender all, US"
+     "targeting": "3 personas, interests wellness_dtc, fitness, wellness, ages 19-55, gender all, US"
     },
     "targeting": {
      "age_range": [
-      22,
+      19,
       55
      ],
      "gender": "all",
@@ -11114,74 +11913,70 @@
      ],
      "interests": [
       "wellness_dtc",
-      "supplements",
       "fitness",
-      "recovery"
+      "wellness"
      ],
      "personas": [
-      "persona_009",
       "persona_001",
-      "persona_008"
+      "persona_008",
+      "persona_003"
      ]
     }
    },
    "creatives": [
     {
-     "body": "Pre-workout, creatine, and protein with formulas like pricier brands, at half the cost.",
-     "creative_id": "cr_persona_009",
-     "cta": "Compare your stack",
-     "fact_violations": [],
-     "headline": "Fuel hard sessions without brand hype",
-     "persona_id": "persona_009",
-     "publisher_id": "pub_012",
-     "why": "Leans on supplements affinity and performance claims, without sedentary-lifestyle or fashion-only positioning."
-    },
-    {
-     "body": "Choose pre-workout, creatine, and protein with formulations that match costly brands, without paying for hype.",
+     "body": "Pre-workout, creatine, and protein with formulas like the expensive brands, priced at half the cost.",
      "creative_id": "cr_persona_001",
-     "cta": "Compare your supplement stack",
+     "cta": "Compare formulas today",
      "fact_violations": [],
-     "headline": "Keep your stack clear and intentional",
+     "headline": "Know what you’re paying for",
      "persona_id": "persona_001",
      "publisher_id": "pub_012",
-     "why": "Leans on wellness, fitness, supplements, ingredient transparency, and science-backed claims."
+     "why": "Leans on fitness affinity, ingredient transparency, and science-minded proof."
     },
     {
-     "body": "Pre-workout, creatine, and protein with formulas like pricier brands, at half the cost.",
+     "body": "Pre-workout, creatine, and protein with formulas that match pricier brands at half the cost.",
      "creative_id": "cr_persona_008",
-     "cta": "Compare supplement value",
+     "cta": "Compare your stack",
      "fact_violations": [],
-     "headline": "Keep your supplement spend in check",
+     "headline": "Pay less for your workout stack",
      "persona_id": "persona_008",
      "publisher_id": "pub_012",
-     "why": "Leans on groceries affinity, discount-forward messaging, and clear value props."
+     "why": "Leans on wellness products affinity, clear value props, and comparison shopping."
+    },
+    {
+     "body": "Pre-workout, creatine, and protein made with formulas comparable to expensive labels at half the cost.",
+     "creative_id": "cr_persona_003",
+     "cta": "Add a Daily Form basic",
+     "fact_violations": [],
+     "headline": "Supps that match your low-hype vibe",
+     "persona_id": "persona_003",
+     "publisher_id": "pub_012",
+     "why": "Leans on functional beverage affinity with aesthetic-forward, values-aligned messaging."
     }
    ],
+   "mode": "agent",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
     "brief": {
      "adjacent_categories": [
       "fitness",
-      "recovery"
+      "wellness"
      ],
      "age_max": null,
      "age_min": null,
      "audience_type": "consumer",
-     "business_model": "one_off",
+     "business_model": "unknown",
      "categories": [
-      "wellness_dtc",
-      "supplements"
+      "wellness_dtc"
      ],
-     "conflicts": [
-      "performance claims without vibe"
-     ],
+     "conflicts": [],
      "describes_business": true,
      "facts": [
       "pre-workout, creatine, protein",
       "compete on price, not on marketing",
-      "same formulations as the expensive brands",
-      "half the cost"
+      "same formulations as the expensive brands for half the cost"
      ],
      "gender_skew": "unknown",
      "price_tier": "value",
@@ -11189,9 +11984,9 @@
      "product": "workout supplements",
      "self_confidence": 0.97,
      "unknowns": [
-      "price",
-      "brand name",
-      "whether there is a subscription option"
+      "exact product format",
+      "whether it is sold as a one-time purchase or subscription",
+      "price"
      ]
     },
     "budget_usd": null,
@@ -11218,32 +12013,8 @@
       "factors": [
        {
         "name": "affinity",
-        "note": "Affinity: supplements",
-        "score": 1.0
-       },
-       {
-        "name": "price",
-        "note": "Low-medium price sensitivity vs value",
-        "score": 0.25
-       },
-       {
-        "name": "age",
-        "note": "Brief ages unknown",
-        "score": 0.6
-       }
-      ],
-      "fit": 0.73,
-      "name": "The Fitness Enthusiast",
-      "path": [],
-      "persona_id": "persona_009",
-      "stretch": false
-     },
-     {
-      "factors": [
-       {
-        "name": "affinity",
-        "note": "Affinity: supplements",
-        "score": 1.0
+        "note": "Adjacent affinity: fitness",
+        "score": 0.5
        },
        {
         "name": "price",
@@ -11256,11 +12027,11 @@
         "score": 0.6
        }
       ],
-      "fit": 0.68,
+      "fit": 0.43,
       "name": "The Wellness Optimizer",
       "path": [],
       "persona_id": "persona_001",
-      "stretch": false
+      "stretch": true
      },
      {
       "factors": [
@@ -11284,6 +12055,30 @@
       "name": "The Value-Conscious Shopper",
       "path": [],
       "persona_id": "persona_008",
+      "stretch": true
+     },
+     {
+      "factors": [
+       {
+        "name": "affinity",
+        "note": "No affinity overlap",
+        "score": 0.0
+       },
+       {
+        "name": "price",
+        "note": "Medium-high price sensitivity vs value",
+        "score": 0.75
+       },
+       {
+        "name": "age",
+        "note": "Brief ages unknown",
+        "score": 0.6
+       }
+      ],
+      "fit": 0.33,
+      "name": "The Gen Z Aesthete",
+      "path": [],
+      "persona_id": "persona_003",
       "stretch": true
      }
     ],
@@ -11912,8 +12707,11 @@
    }
   },
   "idk just try it": {
+   "agent_notes": [],
+   "agent_trace": [],
    "config": null,
    "creatives": [],
+   "mode": "code",
    "stage1": {
     "agent_notes": [],
     "agent_trace": [],
