@@ -1,6 +1,6 @@
 # Evals
 
-A labelled set of 120 advertiser inputs that drives the gate thresholds, the scoring weights and the
+A labelled set of 121 advertiser inputs that drives the gate thresholds, the scoring weights and the
 Understand prompt, plus structural invariants checked on every case.
 
 ## What the set covers (`cases.jsonl`)
@@ -25,7 +25,8 @@ review, never `cases.jsonl`) were hand-edited and carry `origin: "llm-edited"`; 
 the 15 given examples is `synthetic: true`.
 
 `split` is `split_for(group)` (sha1, 70/30), so a paraphrase always sits with its original. Ladder
-rungs use one group each. The result is 84 train and 36 test cases.
+rungs use one group each. The result is 85 train and 36 test cases (the 85th, `precision-protein-bar`, was added
+2026-10-31 after a protein bar was read as pet treats; the results below predate it).
 
 ## How to run
 

@@ -35,10 +35,16 @@ def brief_schema(catalog: Catalog) -> type[BaseModel]:
     return _build_schema(tuple(catalog.vocab), tuple(catalog.conflict_vocab))
 
 
+def category_vocab_text(catalog: Catalog) -> str:
+    """One line per publisher category with its subcategories: '- pet: pet_food, treats, ...'."""
+    return "\n".join(f"- {c}: {', '.join(subs)}" for c, subs in catalog.vocab_groups().items())
+
+
 def understand(text: str, catalog: Catalog, llm: LLMProvider) -> Brief:
     system = render(
         "understand",
-        vocab=", ".join(catalog.vocab),
+        category_vocab=category_vocab_text(catalog),
+        interest_vocab=", ".join(catalog.interest_terms()),
         conflict_vocab=", ".join(catalog.conflict_vocab),
     )
     user = wrap_advertiser_text(text)

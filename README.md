@@ -40,9 +40,9 @@ Three stages the user steps through, stateless: each request carries back what t
 
 ## Evals
 
-120 labelled cases (given, paraphrases, ambiguity ladder, weak fit, out of scope, adversarial) split by group into 84 train / 36 held out ([details](evals/README.md)); `uv run python -m evals.run --split test` runs all three stages per case (`run_full`) and checks invariants on the full chain.
+121 labelled cases (given, paraphrases, ambiguity ladder, weak fit, out of scope, adversarial) split by group into 85 train / 36 held out ([details](evals/README.md)); `uv run python -m evals.run --split test` runs all three stages per case (`run_full`) and checks invariants on the full chain.
 
-- Train **84/84**; held out **34/36 = 94.4%** (2026-10-31 run); the 15 given examples **15/15**; 0 invariant failures.
+- Train **84/84** (before the 85th case); held out **34/36 = 94.4%** (2026-10-31 run); the 15 given examples **15/15**; 0 invariant failures.
 - Noise is about ±1 case per split. Held-out figures are post-hoc: the first run was contaminated (prompt examples copied eval wording) and I rewrote them after seeing test texts, so a fresh batch is the clean check.
 - Laya gate (`GATE_IMPL=laya`), calibrated on train only: **30/36** held out vs 34/36, plus ~2 GB RAM and 0.3–0.5 s per request. LLM gate stays default.
 

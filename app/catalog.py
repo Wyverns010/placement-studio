@@ -87,6 +87,19 @@ class Catalog(BaseModel):
             v |= set(q.category_affinities)
         return sorted(v)
 
+    def vocab_groups(self) -> dict[str, list[str]]:
+        """Publisher category -> the subcategories its publishers carry (sorted, by category)."""
+        groups: dict[str, set[str]] = {}
+        for p in self.publishers:
+            groups.setdefault(p.category, set()).update(p.subcategories)
+        return {c: sorted(groups[c]) for c in sorted(groups)}
+
+    def interest_terms(self) -> list[str]:
+        """Persona affinity terms that are not a publisher category or subcategory."""
+        groups = self.vocab_groups()
+        known = set(groups) | {t for ts in groups.values() for t in ts}
+        return sorted({a for q in self.personas for a in q.category_affinities} - known)
+
     @property
     def conflict_vocab(self) -> list[str]:
         return sorted({d for q in self.personas for d in q.disinterested_in})

@@ -62,3 +62,34 @@ def test_clamp_brief_to_input_caps():
     assert c.price_usd is None and c.age_min == 0 and c.age_max == i.brief_age_max
     ok = brief(product="dog food", facts=["a"], price_usd=60, age_min=30, age_max=50)
     assert clamp_brief(ok, T) == ok
+
+
+def test_vocab_groups_by_publisher_category_plus_interest_terms():
+    cat = load_catalog()
+    groups = cat.vocab_groups()
+    assert {"treats", "toys", "pet_food"} <= set(groups["pet"])
+    assert "supplements" in groups["wellness_dtc"] and "basics" in groups["apparel"]
+    interests = cat.interest_terms()
+    assert "pet_health" in interests and "treats" not in interests
+    # the groups and interest terms cover exactly the schema vocabulary
+    assert set(groups) | {t for ts in groups.values() for t in ts} | set(interests) == set(cat.vocab)
+
+
+def test_understand_prompt_renders_grouped_vocab_and_parent_rule():
+    from app.understand import category_vocab_text
+    cat = load_catalog()
+    text = category_vocab_text(cat)
+    pet_line = next(line for line in text.splitlines() if line.startswith("- pet:"))
+    assert "treats" in pet_line and "toys" in pet_line
+    fake = FakeProvider({"BriefSchema": brief_schema(cat)(**_payload())})
+    understand("protein bars", cat, fake)
+    system = fake.calls[0]["system"]
+    assert pet_line in system and "pet_health" in system
+    assert "only for products for animals" in system
+    assert "{" not in system
+
+
+def test_schema_vocab_unchanged_by_grouping():
+    cat = load_catalog()
+    for term in cat.vocab:
+        brief_schema(cat)(**_payload(categories=[term]))
