@@ -112,3 +112,13 @@ def test_pacing_accelerated_for_mid_tier_below_recommendation():
     cfg, pubs, _ = _build(b=b, monthly=500)
     assert recommended_budget(b, pubs, CAT, False, T).usd > 500
     assert cfg.budget["pacing"] == "accelerated" and "below" in cfg.rationales["pacing"]
+
+
+def test_weak_fit_rationale_names_the_minimum_floor():
+    b = B.model_copy(update={"price_usd": 10, "business_model": "one_off"})
+    cfg, pubs, _ = _build(weak_fit=True, monthly=None, b=b)
+    rec = recommended_budget(b, pubs, CAT, True, T)
+    assert rec.full_usd * T.budget.weak_fit_test_fraction < T.budget.min_usd == rec.usd
+    assert "raised to the $500 minimum" in cfg.rationales["budget"]
+    plain, _, _ = _build(weak_fit=True, monthly=None)
+    assert "minimum" not in plain.rationales["budget"]

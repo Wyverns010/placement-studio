@@ -122,6 +122,8 @@ def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, 
            + f", rounded to ${b.round_to_usd:,.0f} within ${b.min_usd:,.0f}–${b.max_usd:,.0f}")
     if weak_fit:
         why += f", then {b.weak_fit_test_fraction:.0%} of ${rec.full_usd:,.0f} as a test because fit is weak"
+        if rec.full_usd * b.weak_fit_test_fraction < b.min_usd:
+            why += f" (raised to the ${b.min_usd:,.0f} minimum)"
     if source == "user":
         why += f". You set ${monthly_usd:,.0f}/mo, which is used instead"
     why += f". Split by fit, capped at each publisher's reach at ${b.assumed_cpm_usd:g} CPM"
