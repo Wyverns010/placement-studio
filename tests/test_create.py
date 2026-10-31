@@ -395,3 +395,74 @@ def test_every_feedback_key_requested_by_code_exists_in_yaml():
     src = (Path(__file__).resolve().parent.parent / "app/create.py").read_text()
     used = set(re.findall(r'feedback\(\s*"(\w+)"', src))
     assert used and used <= set(keys), used - set(keys)
+
+
+# ---- copywriting playbook and the generic-copy check ----
+
+from app.create import generic_problems  # noqa: E402
+
+
+def kinds(c, text):
+    return [p.message for p in generic_problems(c, text, T)]
+
+
+@pytest.mark.parametrize("copy,text,n", [
+    pytest.param(dict(headline="Leggings for women 18-24"), "Recycled leggings", 2, id="age-range-and-audience"),
+    pytest.param(dict(body="Made for ages 25 and up"), "Bedding", 1, id="ages-n"),
+    pytest.param(dict(body="Built for 25–34 year olds"), "Bedding", 1, id="en-dash-range"),
+    pytest.param(dict(headline="A gift for moms"), "Candles", 1, id="for-moms"),
+    pytest.param(dict(body="Sheets under $100"), "Linen sheets", 1, id="under-price-band"),
+    pytest.param(dict(body="Look no further: high-quality treats"), "Dog treats", 2, id="banned-filler"),
+    pytest.param(dict(headline="Elevate your mornings"), "Coffee", 1, id="elevate"),
+    pytest.param(dict(headline="A real game-changer"), "Coffee", 1, id="game-changer"),
+    pytest.param(dict(headline="Unlock calmer evenings"), "Tea", 1, id="unlock"),
+    pytest.param(dict(body="Perfect for long walks"), "Shoes", 1, id="perfect-for"),
+    pytest.param(dict(cta="Learn more"), "Shoes", 0, id="cta-not-checked"),
+    pytest.param(dict(body="Elevated comfort"), "Shoes", 0, id="word-boundary"),
+    pytest.param(dict(body="Women's cut, recycled yarn"), "Leggings", 0, id="womens-is-product-detail"),
+    pytest.param(dict(headline="Activewear for women"), "Activewear brand for women", 0, id="advertiser-wrote-audience"),
+    pytest.param(dict(body="High-quality candles, under $40"), "High-quality candles under $40", 0,
+                 id="advertiser-wrote-phrases"),
+    pytest.param(dict(body="Ages 50-70 love it"), "For ages 50-70", 0, id="advertiser-wrote-ages"),
+])
+def test_generic_copy_table(copy, text, n):
+    assert len(kinds(cr(**copy), text)) == n
+
+
+def test_generic_copy_messages_name_the_phrase():
+    msgs = kinds(cr(headline="Leggings for women 18-24", body="Look no further"), "Leggings")
+    assert any("'18-24'" in m for m in msgs) and any("'for women'" in m for m in msgs)
+    assert any("'look no further'" in m for m in msgs)
+
+
+def test_banned_phrases_live_in_tuning():
+    assert {"high-quality", "perfect for", "look no further", "elevate", "unlock",
+            "game-changer"} <= set(T.creative.banned_phrases)
+
+
+def test_generic_copy_retried_with_reason():
+    llm = FakeProvider({"CreativeBatch": per_persona(
+        lambda pid, n: item(pid, body="Perfect for senior dogs" if n == 1 else "Soft kibble, easy to chew"))})
+    out = write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
+    assert len(llm.calls) == 2
+    assert "'perfect for'" in llm.calls[1]["user"] and "filler" in llm.calls[1]["user"]
+    assert out[0].body == "Soft kibble, easy to chew" and out[0].fact_violations == []
+
+
+def test_generic_copy_kept_as_violation_after_one_retry():
+    llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid, headline="Treats for moms"))})
+    out = write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
+    assert len(llm.calls) == 2 and any("'for moms'" in v for v in out[0].fact_violations)
+
+
+def test_prompt_includes_playbook_and_publisher_context():
+    llm = FakeProvider({"CreativeBatch": batch(item("persona_004"))})
+    write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
+    system = llm.calls[0]["system"]
+    p = CAT.publisher("pub_007")
+    assert "Copywriting playbook" in system and "three angles" in system
+    for phrase in T.creative.banned_phrases:
+        assert phrase in system
+    assert p.name in system and p.notes in system and f"${p.avg_order_value_usd:,.0f}" in system
+    assert f"{p.age_min}-{p.age_max}" in system and p.audience.income_tier in system
+    assert "{" not in system  # every slot rendered

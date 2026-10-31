@@ -8,6 +8,10 @@ headline_product: "headline is just the product name"
 fact_number: "number '{number}' is not in the advertiser's text"
 fact_claim: "claim '{word}' is not in the advertiser's text"
 length: "{field} is {n} characters; the limit is {limit}"
+generic_age: "'{phrase}' restates the targeting (an age range); speak to what this persona wants instead"
+generic_audience: "'{phrase}' restates the targeting; the persona knows who they are, so speak to what they want"
+generic_price_band: "'{phrase}' is a price band, not a benefit; use a concrete detail from the facts instead"
+generic_phrase: "'{phrase}' is filler; replace it with a concrete detail from the facts"
 
 # Labels and slot defaults used when filling creative.md and clarify.md
 none: "none"
@@ -22,4 +26,9 @@ persona_block: |-
   Category affinities: {affinities}
   Messaging preferences: {preferences}
   Disinterested in: {disinterested}
-  Publisher: {publisher}. Notes: {notes}
+publisher_block: |-
+  ## Publisher: {name}
+  Category: {category}
+  Audience: ages {age_min}-{age_max}, {gender}, {income} income
+  Average order value: ${aov}
+  Notes: {notes}

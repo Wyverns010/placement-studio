@@ -44,7 +44,7 @@ HEADLINE_KINDS = {"headline_duplicate", "headline_product"}
 
 class Problem(NamedTuple):
     """One thing code rejected in an ad; `kind` drives retry behaviour, `message` is the text."""
-    kind: str  # fact_number | fact_claim | length | headline_duplicate | headline_product | missing
+    kind: str  # fact_number | fact_claim | length | generic_copy | headline_duplicate | headline_product | missing
     message: str
 
 
@@ -84,6 +84,41 @@ def fact_problems(creative: Creative, input_text: str, t: Tuning) -> list[Proble
         if n > limit:
             violations.append(Problem("length", feedback("length", field=field, n=n, limit=limit)))
     return violations
+
+
+_AGE = re.compile(r"\b(?:ages?|aged)\s+\d{1,2}\b|\b\d{2}\s*(?:-|–|—|to)\s*\d{2}\b", re.IGNORECASE)
+_UNDER = re.compile(r"\bunder\s+\$\s?\d[\d,]*", re.IGNORECASE)
+
+
+def _plain(text: str) -> str:
+    """Lowercase, dashes unified and whitespace collapsed, for 'did the advertiser write it'."""
+    text = re.sub(r"\s*[–—-]\s*", "-", text.lower())
+    return " ".join(text.split())
+
+
+def generic_problems(creative: Creative, input_text: str, t: Tuning) -> list[Problem]:
+    """Headline/body copy that restates targeting (age ranges, "for women"), uses a price band
+    ("under $50") or a banned filler phrase. Anything the advertiser wrote themselves is allowed."""
+    copy = f"{creative.headline} {creative.body}"
+    source = _plain(input_text)
+    audience = re.compile(r"\bfor\s+(?:" + "|".join(re.escape(w) for w in t.creative.audience_words)
+                          + r")\b", re.IGNORECASE)
+    found: list[tuple[str, str]] = []  # (feedback key, phrase as written)
+    found += [("generic_age", m.group(0)) for m in _AGE.finditer(copy)]
+    found += [("generic_audience", m.group(0)) for m in audience.finditer(copy)]
+    found += [("generic_price_band", m.group(0)) for m in _UNDER.finditer(copy)]
+    found += [("generic_phrase", w) for w in t.creative.banned_phrases if _has_word(w, copy)]
+    out: list[Problem] = []
+    for key, phrase in found:
+        p = _plain(phrase)
+        if p not in source:
+            out.append(Problem("generic_copy", feedback(key, phrase=p)))
+    return out
+
+
+def ad_problems(creative: Creative, input_text: str, t: Tuning) -> list[Problem]:
+    """Everything code checks on one ad: facts, lengths and generic copy."""
+    return fact_problems(creative, input_text, t) + generic_problems(creative, input_text, t)
 
 
 def normalise_headline(text: str) -> str:
@@ -143,16 +178,33 @@ def _pick_publisher(
     return best[2]
 
 
-def _persona_block(persona: Persona, pub: PublisherScore, catalog: Catalog) -> str:
+def _persona_block(persona: Persona) -> str:
     return feedback(
         "persona_block",
         id=persona.id, name=persona.name, description=persona.description,
         affinities=", ".join(persona.category_affinities),
         preferences="; ".join(persona.messaging_preferences),
         disinterested="; ".join(persona.disinterested_in),
-        publisher=pub.name,
-        notes=catalog.publisher(pub.publisher_id).notes or feedback("none"),
     )
+
+
+def _publisher_block(pub: PublisherScore, catalog: Catalog) -> str:
+    p = catalog.publisher(pub.publisher_id)
+    gender = ", ".join(f"{v:.0%} {k}" for k, v in sorted(p.audience.gender_split.items(),
+                                                         key=lambda kv: -kv[1]) if v > 0)
+    return feedback(
+        "publisher_block",
+        name=p.name, category=_CATEGORY_WORDS.get(p.category, p.category.replace("_", " ")),
+        age_min=p.age_min, age_max=p.age_max, gender=gender, income=p.audience.income_tier,
+        aov=f"{p.avg_order_value_usd:,.0f}", notes=p.notes or feedback("none"),
+    )
+
+
+def _playbook(t: Tuning) -> str:
+    return render("copywriting_playbook",
+                  banned_phrases=", ".join(f'"{w}"' for w in t.creative.banned_phrases),
+                  headline_max=t.creative.headline_max_chars, body_max=t.creative.body_max_chars,
+                  cta_max=t.creative.cta_max_chars).strip()
 
 
 def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Problem] | None = None,
@@ -166,7 +218,9 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Pro
         headline_max=t.creative.headline_max_chars,
         body_max=t.creative.body_max_chars,
         cta_max=t.creative.cta_max_chars,
-        personas=_persona_block(persona, pub, catalog),
+        personas=_persona_block(persona),
+        publisher=_publisher_block(pub, catalog),
+        playbook=_playbook(t),
         others="\n".join(
             feedback("other_persona_line", name=o.name,
                      preference=o.messaging_preferences[0] if o.messaging_preferences else feedback("none"))
@@ -238,7 +292,7 @@ def write_creatives(
     def check_all() -> None:
         """Fact/length problems per creative, then headline problems across the whole set."""
         probs.clear()
-        probs.update({pid: fact_problems(c, text, t) for pid, c in result.items()})
+        probs.update({pid: ad_problems(c, text, t) for pid, c in result.items()})
         for pid, vs in headline_problems(ordered(), brief.product, names, t.creative.headline_similarity).items():
             probs[pid] += vs
         for pid, c in result.items():

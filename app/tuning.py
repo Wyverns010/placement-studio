@@ -121,6 +121,8 @@ class CreativeTuning(BaseModel):
     body_max_chars: int
     cta_max_chars: int
     claim_words: list[str]
+    banned_phrases: list[str]
+    audience_words: list[str]
     headline_similarity: float
 
 

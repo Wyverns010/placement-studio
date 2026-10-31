@@ -62,6 +62,9 @@ creative:
   cta_max_chars: 24
   headline_similarity: 0.8      # token-set Jaccard at or above this counts as a duplicate headline
   claim_words: [clinically, proven, cure, guaranteed, "#1", doctor, vet-recommended, award]
+  # generic copy (headline/body): sent back once unless the advertiser wrote the phrase
+  banned_phrases: [high-quality, perfect for, look no further, elevate, unlock, game-changer]
+  audience_words: [women, men, moms, mums, mothers, dads, fathers, parents, seniors, millennials, gen z, boomers, teens]
 input:
   max_chars: 1500
 audience:
