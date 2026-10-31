@@ -122,8 +122,8 @@ ratelimit:
 agents:                         # step agents (app/stepagents). Not in the sample-cache fingerprint:
   enabled: true                 # cached samples are no-steer code results, never agent output
   run_without_steer:            # live runs with no steer: use the agent, or plain code ("code" mode)
-    strategist: true
-    creative: true
+    strategist: false           # unsteered agent == code on 121/121 cases, +6 s (evals/AGENT_COMPARISON.md)
+    creative: true              # the one switch for step ② (ads and Regenerate)
     media_planner: false        # stage 3 stays free and instant unless the user steers it
   steer_max_chars: 300          # the "Tell the agent…" text (data, never instructions)
   max_turns: {strategist: 10, copywriter: 6, critic: 3, media_planner: 8}

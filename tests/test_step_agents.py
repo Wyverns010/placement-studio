@@ -39,8 +39,8 @@ def boom(error: Exception) -> ModelStep:
     return ModelStep.raise_error(error)
 
 
-def stage1(llm, steer, runtime, text="We sell dog food"):
-    return list(steps.stage1_events(text, None, steer, llm=llm, gate=GATE, catalog=CAT, t=T,
+def stage1(llm, steer, runtime, text="We sell dog food", t=T):
+    return list(steps.stage1_events(text, None, steer, llm=llm, gate=GATE, catalog=CAT, t=t,
                                     runtime=runtime))
 
 
@@ -100,7 +100,9 @@ def test_strategist_tool_refuses_unknown_ids_and_changes_without_steer():
                               "age_min": None, "age_max": None}),
         final(notes=[]),
     ])
-    r = done(stage1(fake(), None, AgentRuntime(models={"strategist": model})))
+    unsteered_on = T.model_copy(update={"agents": T.agents.model_copy(update={
+        "run_without_steer": {**T.agents.run_without_steer, "strategist": True}})})
+    r = done(stage1(fake(), None, AgentRuntime(models={"strategist": model}), t=unsteered_on))
     assert r.mode == "agent"
     assert [s.result_summary.startswith("Refused") for s in r.agent_trace] == [False, True, True]
     assert r.publishers == plain().publishers and r.brief == plain().brief
@@ -620,3 +622,17 @@ def test_creative_cost_cap_still_falls_back_cleanly():
     assert meta["mode"] == "fallback" and out and out[0].headline != "Draft 1"
     assert "cost cap" in meta["agent_notes"][0] and meta["agent_trace"][-1].tool == "fallback"
     assert "CreativeBatch" in [c["schema"] for c in llm.calls]
+
+
+# ---- which steps run an agent without a steer (evals/AGENT_COMPARISON.md) ----
+
+def test_unsteered_agents_only_where_they_beat_code():
+    # ① and ③: unsteered agent == code on every case, so plain code; ② is one switch
+    assert T.agents.run_without_steer == {"strategist": False, "creative": True,
+                                          "media_planner": False}
+
+
+def test_unsteered_stage1_is_code_and_never_calls_the_strategist():
+    model = ScriptedModel([])
+    r = done(stage1(fake(), None, AgentRuntime(models={"strategist": model})))
+    assert r.mode == "code" and model.calls == ()
