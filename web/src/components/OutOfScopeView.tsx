@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CampaignResult, Sample } from '../types'
 import OutcomeBanner from './OutcomeBanner'
+import { ExcludedCard } from './ui'
 
 const SAMPLE_LABELS = ['Senior dog food', 'Vermont candles', 'Protein bars']
 
@@ -55,15 +56,7 @@ export default function OutOfScopeView({
           </h5>
           <div className="grid gap-x-3 sm:grid-cols-2 min-[900px]:grid-cols-3">
             {shown.map((p) => (
-              <div
-                key={p.publisher_id}
-                data-testid="excluded"
-                className="mb-2 rounded-[14px] border border-dashed border-[#d6cde6] px-3.5 py-3 text-[12.5px]"
-              >
-                <span className="float-right text-[11.5px] font-semibold text-bad">{p.fit.toFixed(2)}</span>
-                <b className="text-[13.5px]">{p.name}</b>
-                <p className="m-0 mt-1 leading-snug text-muted">{p.reason}</p>
-              </div>
+              <ExcludedCard key={p.publisher_id} pub={p} />
             ))}
           </div>
           {more > 0 && (

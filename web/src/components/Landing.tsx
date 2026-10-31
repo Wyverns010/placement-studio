@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CampaignResult, Sample, StreamPartial } from '../types'
 import { formatBudget, parseBudget } from '../format'
 import ReadingPanel from './ReadingPanel'
+import { Busy } from './ui'
 
 const MAX_CHARS = 1500 // matches input.max_chars in config/tuning.yaml
 
@@ -82,10 +83,7 @@ export default function Landing(p: Props) {
             </label>
             <button type="submit" className="pill pill-primary" disabled={!canRun}>
               {p.running ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="spinner" aria-hidden="true" />
-                  Reading your brand…
-                </span>
+                <Busy label="Reading your brand…" />
               ) : (
                 'Build campaign →'
               )}

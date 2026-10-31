@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { titleCase } from '../format'
+import { clamp01, titleCase } from '../format'
 import type { CampaignResult } from '../types'
 import OutcomeBanner from './OutcomeBanner'
+import { Busy, Chips } from './ui'
 
 const OTHER = 'Other…'
 const MAX_LEN = 200
 // Whole-option variants only: "Other", "Other…", "Other (please specify)", "Something else".
 export const OTHER_VARIANT = /^(other|something else)\s*(\(.*\))?\s*(…|\.{3})?$/i
+
+const LABEL = 'text-[11.5px] font-semibold tracking-[0.06em] text-muted uppercase'
 
 type Pick = { kind: 'option'; value: string } | { kind: 'other'; text: string }
 
@@ -33,28 +36,24 @@ function BestGuess({ result }: { result: CampaignResult }) {
       </div>
       {chips.length > 0 && (
         <div className="mb-3">
-          <div className="mb-1 text-[11.5px] font-semibold tracking-[0.06em] text-muted uppercase">Understood</div>
-          {chips.map((c) => (
-            <span key={c} className="blk">
-              {c}
-            </span>
-          ))}
+          <div className={`mb-1 ${LABEL}`}>Understood</div>
+          <Chips items={chips} />
         </div>
       )}
       {persona && (
         <div className="mb-3">
-          <div className="mb-1 text-[11.5px] font-semibold tracking-[0.06em] text-muted uppercase">Likely persona</div>
+          <div className={`mb-1 ${LABEL}`}>Likely persona</div>
           <span className="blk">{persona.name}</span>
         </div>
       )}
-      <div className="text-[11.5px] font-semibold tracking-[0.06em] text-muted uppercase">Tentative</div>
+      <div className={LABEL}>Tentative</div>
       {top.map((p) => (
         <div key={p.publisher_id} className="mt-2 grid grid-cols-[96px_1fr_36px] items-center gap-2 text-[12.5px]">
           <span className="truncate">{p.name}</span>
           <i className="relative block h-[7px] overflow-hidden rounded-full bg-[#e9e3f5]">
             <span
               className="absolute inset-y-0 left-0 rounded-full bg-violet"
-              style={{ width: `${Math.max(0, Math.min(1, p.fit)) * 100}%` }}
+              style={{ width: `${clamp01(p.fit) * 100}%` }}
             />
           </i>
           <span className="text-right text-muted">{p.fit.toFixed(2)}</span>
@@ -155,10 +154,7 @@ export default function ClarifyView({
           onClick={() => onRebuild(answers)}
         >
           {rebuilding ? (
-            <span className="inline-flex items-center gap-2">
-              <span className="spinner" aria-hidden="true" />
-              Rebuilding…
-            </span>
+            <Busy label="Rebuilding…" />
           ) : (
             'Rebuild campaign →'
           )}

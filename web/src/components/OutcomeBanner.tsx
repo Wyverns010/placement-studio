@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { clamp01 } from '../format'
 import type { GateResult } from '../types'
+import { ThresholdBar } from './ui'
 
 export type BannerVariant = 'amber' | 'neutral' | 'error'
 
@@ -20,8 +22,6 @@ export default function OutcomeBanner({
   children?: ReactNode
   gate?: GateResult | null
 }) {
-  const conf = gate ? Math.max(0, Math.min(1, gate.confidence)) : 0
-  const thr = gate ? Math.max(0, Math.min(1, gate.threshold)) : 0
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
@@ -30,13 +30,13 @@ export default function OutcomeBanner({
       <h3 className="m-0 mb-1 text-base font-semibold">{title}</h3>
       {children && <div className="text-[13.5px] leading-normal">{children}</div>}
       {gate && (
-        <div className="relative mt-3 h-2.5 rounded-full bg-[#f0dfbf]" aria-hidden="true">
-          <i
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{ width: `${conf * 100}%`, background: 'linear-gradient(90deg,#f3c98a,#c27a12)' }}
-          />
-          <b className="absolute -top-[5px] h-5 w-0.5 bg-ink" style={{ left: `${thr * 100}%` }} />
-        </div>
+        <ThresholdBar
+          fill={clamp01(gate.confidence) * 100}
+          threshold={clamp01(gate.threshold)}
+          gradient="linear-gradient(90deg,#f3c98a,#c27a12)"
+          className="mt-3 bg-[#f0dfbf]"
+          hidden
+        />
       )}
     </div>
   )

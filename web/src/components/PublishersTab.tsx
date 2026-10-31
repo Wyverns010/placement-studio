@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { publisherById, reachLabel } from '../catalog'
-import { pct, titleCase, usd } from '../format'
+import { clamp01, pct, titleCase, usd } from '../format'
 import type { CampaignConfig, PublisherScore } from '../types'
+import { ExcludedCard } from './ui'
 
 const FACTORS: { key: string; label: string }[] = [
   { key: 'category', label: 'Category' },
@@ -67,7 +68,7 @@ function PublisherCard({
                   <span
                     data-testid="factor-bar"
                     className="absolute inset-y-0 left-0 rounded-full bg-violet"
-                    style={{ width: `${Math.max(0, Math.min(1, score)) * 100}%` }}
+                    style={{ width: `${clamp01(score) * 100}%` }}
                   />
                 </i>
               </div>
@@ -135,15 +136,7 @@ export default function PublishersTab({
           Excluded · {excluded.length}
         </h5>
         {shown.map((p) => (
-          <div
-            key={p.publisher_id}
-            data-testid="excluded"
-            className="mb-2 rounded-[14px] border border-dashed border-[#d6cde6] px-3.5 py-3 text-[12.5px]"
-          >
-            <span className="float-right text-[11.5px] font-semibold text-bad">{p.fit.toFixed(2)}</span>
-            <b className="text-[13.5px]">{p.name}</b>
-            <p className="m-0 mt-1 leading-snug text-muted">{p.reason}</p>
-          </div>
+          <ExcludedCard key={p.publisher_id} pub={p} />
         ))}
         {more > 0 && (
           <button

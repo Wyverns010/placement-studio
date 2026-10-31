@@ -22,6 +22,8 @@ export function titleCase(s: string): string {
   return s.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 }
 
+export const clamp01 = (n: number): number => Math.max(0, Math.min(1, n))
+
 export function usd(n: number): string {
   return '$' + Math.round(n).toLocaleString('en-US')
 }

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Brief, CampaignResult, Outcome, StreamPartial } from '../types'
-import { tierLabel, titleCase } from '../format'
+import { clamp01, tierLabel, titleCase } from '../format'
+import { Chips, ThresholdBar } from './ui'
 
+export const VIOLET = 'linear-gradient(90deg,#c4b5fd,#7c3aed)'
 const DASH = <span className="text-muted">—</span>
 
 function Lane({ label, children }: { label: string; children: React.ReactNode }) {
@@ -10,18 +12,6 @@ function Lane({ label, children }: { label: string; children: React.ReactNode })
       <span className="text-muted">{label}</span>
       <div className="min-w-0">{children}</div>
     </div>
-  )
-}
-
-function Chips({ items }: { items: string[] }) {
-  return (
-    <>
-      {items.map((t) => (
-        <span key={t} className="blk">
-          {t}
-        </span>
-      ))}
-    </>
   )
 }
 
@@ -42,11 +32,7 @@ function gateVerdict(outcome: Outcome): { text: string; tone: 'ok' | 'warn' } {
   }
 }
 
-export function understoodChips(result: CampaignResult | null): string[] {
-  return briefChips(result?.brief)
-}
-
-function briefChips(b: Brief | null | undefined): string[] {
+export function briefChips(b: Brief | null | undefined): string[] {
   if (!b) return []
   const chips = b.categories.map(titleCase)
   const tier = tierLabel(b.price_tier)
@@ -69,33 +55,23 @@ function GateBar({ value, threshold, tone }: { value: number | null; threshold: 
   const [w, setW] = useState(0)
   useEffect(() => {
     if (value == null) return setW(0)
-    const t = setTimeout(() => setW(Math.min(100, Math.max(0, value * 100))), 30)
+    const t = setTimeout(() => setW(clamp01(value) * 100), 30)
     return () => clearTimeout(t)
   }, [value])
   return (
-    <div className="relative h-2.5 rounded-full bg-[#e2dbef]">
-      {value != null && (
-        <i
-          className="gate-fill absolute inset-y-0 left-0 rounded-full"
-          style={{
-            width: `${w}%`,
-            background:
-              tone === 'ok'
-                ? 'linear-gradient(90deg,#c4b5fd,#7c3aed)'
-                : 'linear-gradient(90deg,#f3d49a,#d48a1c)',
-          }}
-        />
-      )}
-      <b
-        className="absolute -top-[5px] h-5 w-0.5 bg-ink"
-        style={{ left: `${threshold * 100}%` }}
-        title="Confidence threshold"
-      />
-    </div>
+    <ThresholdBar
+      fill={value == null ? null : w}
+      threshold={threshold}
+      gradient={tone === 'ok' ? VIOLET : 'linear-gradient(90deg,#f3d49a,#d48a1c)'}
+      fillClassName="gate-fill "
+      tickTitle="Confidence threshold"
+    />
   )
 }
 
-function PubBars({ rows }: { rows: { key: string; name: string; fit: number }[] }) {
+type PubRow = { key: string; name: string; fit: number }
+
+function PubBars({ rows }: { rows: PubRow[] }) {
   return (
     <>
       {rows.map((p) => (
@@ -134,25 +110,19 @@ export default function ReadingPanel({ result: last, partial = {}, running = fal
   // Normalise both sources into one view-model.
   const gate = live ? (partial.gate ?? null) : (result?.gate ?? null)
   const verdict = gate ? gateVerdict(gate.outcome) : result ? gateVerdict(result.outcome) : null
-  const chips = live ? briefChips(partial.understood) : understoodChips(result)
-  let pubRows: { key: string; name: string; fit: number }[] = []
+  const chips = briefChips(live ? partial.understood : result?.brief)
+  const top4 = (rows: PubRow[]) => rows.sort((a, b) => b.fit - a.fit).slice(0, 4)
+  let pubRows: PubRow[] = []
   let recommended: number | null = null
   let excluded: number | null = null
   if (live) {
     const rec = new Set(partial.publishers?.recommended ?? [])
-    pubRows = (partial.publishers?.top ?? [])
-      .filter((p) => rec.has(p.id))
-      .sort((a, b) => b.fit - a.fit)
-      .slice(0, 4)
-      .map((p) => ({ key: p.id, name: p.name, fit: p.fit }))
+    pubRows = top4((partial.publishers?.top ?? []).filter((p) => rec.has(p.id)).map((p) => ({ key: p.id, name: p.name, fit: p.fit })))
     recommended = partial.publishers ? rec.size : null
   } else if (result) {
-    pubRows = [...result.publishers]
-      .filter((p) => p.recommended)
-      .sort((a, b) => b.fit - a.fit)
-      .slice(0, 4)
-      .map((p) => ({ key: p.publisher_id, name: p.name, fit: p.fit }))
-    recommended = result.publishers.filter((p) => p.recommended).length
+    const rec = result.publishers.filter((p) => p.recommended)
+    pubRows = top4(rec.map((p) => ({ key: p.publisher_id, name: p.name, fit: p.fit })))
+    recommended = rec.length
     excluded = result.publishers.length - recommended
   }
   const personaNames = live

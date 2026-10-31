@@ -1,5 +1,7 @@
 import type { CampaignResult, Outcome } from '../types'
-import { understoodChips } from './ReadingPanel'
+import { clamp01 } from '../format'
+import { VIOLET, briefChips } from './ReadingPanel'
+import { Chips, ThresholdBar } from './ui'
 
 function audienceChip(r: CampaignResult): string | null {
   const a = r.brief?.audience_type
@@ -23,13 +25,11 @@ export default function ResultHeader({
   result: CampaignResult
   onBack: () => void
 }) {
-  const chips = understoodChips(result)
+  const chips = briefChips(result.brief)
   const aud = audienceChip(result)
   if (aud) chips.push(aud)
   const gate = result.gate
   const badge = OUTCOME_BADGE[result.outcome]
-  const conf = gate ? Math.max(0, Math.min(1, gate.confidence)) : 0
-  const thr = gate ? Math.max(0, Math.min(1, gate.threshold)) : 0
   return (
     <div className="flex flex-col gap-5 pt-7 pb-4 md:flex-row md:items-end md:justify-between md:gap-8 md:pt-9">
       <div className="min-w-0">
@@ -43,11 +43,7 @@ export default function ResultHeader({
           “{result.input_text}”
         </h2>
         <div className="flex flex-wrap gap-y-1" aria-label="What we understood">
-          {chips.map((c) => (
-            <span key={c} className="blk">
-              {c}
-            </span>
-          ))}
+          <Chips items={chips} />
         </div>
       </div>
       {gate && (
@@ -58,13 +54,7 @@ export default function ResultHeader({
               {badge.text}
             </span>
           </div>
-          <div className="relative h-2.5 rounded-full bg-[#e2dbef]">
-            <i
-              className="absolute inset-y-0 left-0 rounded-full"
-              style={{ width: `${conf * 100}%`, background: 'linear-gradient(90deg,#c4b5fd,#7c3aed)' }}
-            />
-            <b className="absolute -top-[5px] h-5 w-0.5 bg-ink" style={{ left: `${thr * 100}%` }} />
-          </div>
+          <ThresholdBar fill={clamp01(gate.confidence) * 100} threshold={clamp01(gate.threshold)} gradient={VIOLET} />
           <div className="mt-2 text-xs text-muted">
             {gate.confidence.toFixed(2)} — threshold {gate.threshold.toFixed(2)}
           </div>

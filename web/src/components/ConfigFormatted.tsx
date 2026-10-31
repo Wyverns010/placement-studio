@@ -1,6 +1,7 @@
 import { personaById } from '../catalog'
 import { humanise, pct, titleCase, usd } from '../format'
 import type { CampaignConfig, Creative, PersonaScore, PublisherScore } from '../types'
+import { Chips } from './ui'
 
 const SHADES = ['#7c3aed', '#a78bfa', '#c4b5fd', '#ddd2fb', '#ece6fb']
 
@@ -32,18 +33,6 @@ function Row({
         {tip && <p className="mt-1 mb-0 text-[11.5px] leading-snug text-muted">{tip}</p>}
       </div>
     </div>
-  )
-}
-
-function Chips({ items }: { items: string[] }) {
-  return (
-    <>
-      {items.map((t) => (
-        <span key={t} className="blk">
-          {t}
-        </span>
-      ))}
-    </>
   )
 }
 
