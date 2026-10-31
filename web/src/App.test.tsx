@@ -5,9 +5,9 @@ import type { CampaignResult, Sample } from './types'
 
 vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
-  return { ...actual, getSamples: vi.fn(), runCampaign: vi.fn(), streamCampaign: vi.fn() }
+  return { ...actual, getSamples: vi.fn(), runCampaign: vi.fn(), streamCampaign: vi.fn(), createCreatives: vi.fn() }
 })
-import { ApiError, getSamples, runCampaign, streamCampaign } from './api'
+import { ApiError, createCreatives, getSamples, runCampaign, streamCampaign } from './api'
 import type { StageEvent } from './types'
 import App from './App'
 
@@ -18,7 +18,7 @@ const samples: Sample[] = [
 
 const result: CampaignResult = {
   input_text: samples[0].text,
-  budget_usd: 25000,
+  budget_usd: null,
   outcome: 'proceed',
   message: null,
   brief: {
@@ -78,11 +78,22 @@ function setReducedMotion(reduce: boolean) {
 }
 
 describe('Landing', () => {
-  it('prefills the textarea with sample #1 and shows default budget', async () => {
+  it('prefills the textarea with sample #1 and leaves the budget blank (recommended)', async () => {
     render(<App />)
     const ta = await screen.findByLabelText('Describe your brand')
     await waitFor(() => expect(ta).toHaveValue(samples[0].text))
-    expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('25,000')
+    expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('')
+    expect(screen.getByText('Leave blank to use our recommendation')).toBeInTheDocument()
+  })
+
+  it('sends a typed budget with the run', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
+    await user.type(screen.getByLabelText('Monthly budget in USD'), '12000')
+    expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('12,000')
+    await user.click(screen.getByRole('button', { name: /build campaign/i }))
+    expect(runCampaign).toHaveBeenCalledWith({ text: samples[0].text, budget_usd: 12000 })
   })
 
   it('shows placeholders in the reading panel before the first run', async () => {
@@ -94,8 +105,8 @@ describe('Landing', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'Vermont candles' }))
-    expect(runCampaign).toHaveBeenCalledWith({ text: samples[1].text, budget_usd: 25000 })
-    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+    expect(runCampaign).toHaveBeenCalledWith({ text: samples[1].text })
+    expect(await screen.findByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
   })
 
   it('Build campaign runs, switches to results, Back returns with the panel filled', async () => {
@@ -104,7 +115,7 @@ describe('Landing', () => {
     const ta = await screen.findByLabelText('Describe your brand')
     await waitFor(() => expect(ta).toHaveValue(samples[0].text))
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
-    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+    expect(await screen.findByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /new campaign/i }))
     const panel = screen.getByLabelText('How we read your brand')
     expect(within(panel).getByText('Pawline')).toBeInTheDocument()
@@ -122,13 +133,18 @@ describe('Landing', () => {
     expect(screen.getByRole('button', { name: /build campaign/i })).toBeDisabled()
   })
 
-  it('disables the button when the budget is zero', async () => {
+  it('disables the button and explains the range for an out-of-range budget', async () => {
     const user = userEvent.setup()
     render(<App />)
     const ta = await screen.findByLabelText('Describe your brand')
     await waitFor(() => expect(ta).toHaveValue(samples[0].text))
-    await user.clear(screen.getByLabelText('Monthly budget in USD'))
+    const input = screen.getByLabelText('Monthly budget in USD')
+    await user.type(input, '0')
+    expect(input).toHaveValue('0')
     expect(screen.getByRole('button', { name: /build campaign/i })).toBeDisabled()
+    expect(screen.getByText(/between \$500 and \$5,000,000/)).toBeInTheDocument()
+    await user.clear(input)
+    expect(screen.getByRole('button', { name: /build campaign/i })).toBeEnabled()
   })
 
   it('disables the button and shows reading state while running', async () => {
@@ -142,7 +158,7 @@ describe('Landing', () => {
     const btn = await screen.findByRole('button', { name: /reading your brand/i })
     expect(btn).toBeDisabled()
     resolve(result)
-    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+    expect(await screen.findByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
   })
 
   it('renders a string-shaped error detail inline', async () => {
@@ -199,10 +215,9 @@ describe('Outcome states', () => {
     await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
     expect(runCampaign).toHaveBeenLastCalledWith({
       text: samples[0].text,
-      budget_usd: 25000,
       answers: { 'What is the product?': 'Physical product' },
     })
-    expect(await screen.findByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+    expect(await screen.findByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
   })
 
   it('keeps the typed text in the header and carries earlier answers into the next rebuild', async () => {
@@ -220,7 +235,6 @@ describe('Outcome states', () => {
     await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
     expect(runCampaign).toHaveBeenLastCalledWith({
       text: samples[0].text,
-      budget_usd: 25000,
       answers: { 'What is the product?': 'Physical product', 'Which category?': 'Home' },
     })
   })
@@ -258,12 +272,12 @@ describe('Outcome states', () => {
     await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
     expect(await screen.findByText('We place consumer shopping ads only.')).toBeInTheDocument()
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).not.toBeInTheDocument()
     expect(screen.getAllByTestId('excluded')).toHaveLength(6)
     await user.click(screen.getByRole('button', { name: /show 2 more/i }))
     expect(screen.getAllByTestId('excluded')).toHaveLength(8)
     await user.click(screen.getByRole('button', { name: 'Vermont candles' }))
-    expect(runCampaign).toHaveBeenLastCalledWith({ text: samples[1].text, budget_usd: 25000 })
+    expect(runCampaign).toHaveBeenLastCalledWith({ text: samples[1].text })
   })
 
   it('a failing sample run from out_of_scope shows the red alert, no spinner; chips disabled while running', async () => {
@@ -295,7 +309,7 @@ describe('Outcome states', () => {
     resolve(result)
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.getByLabelText('Describe your brand')).toBeInTheDocument()
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).not.toBeInTheDocument()
   })
 
   it('a re-answered key at the cap counts as newest', async () => {
@@ -324,32 +338,40 @@ describe('Outcome states', () => {
     expect(Object.keys(last)).toEqual(['q2', 'q3', 'q4', 'What is the product?', 'q5'])
   })
 
-  it('weak_fit keeps the tabs and adds a banner with the test budget', async () => {
+  it('weak_fit keeps the stepper and adds the weak-fit banner', async () => {
     const user = userEvent.setup()
     vi.mocked(runCampaign).mockResolvedValueOnce({
       ...result,
       outcome: 'weak_fit',
       message: 'Few publishers match this closely.',
-      config: {
-        campaign_id: 'c',
-        objective: 'conversions',
-        conversion_event: 'purchase',
-        budget: { monthly_usd: 5000, test_budget: true },
-        bid_strategy: {},
-        targeting: {},
-        line_items: [],
-        frequency_cap: {},
-        guardrails: {},
-        rationales: {},
-        decision_trace: {},
-      },
     })
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
-    expect(await screen.findByText('Test budget: $5,000 of $25,000')).toBeInTheDocument()
-    expect(screen.getByText('Few publishers match this closely.')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+    expect(await screen.findByText('Few publishers match this closely.')).toBeInTheDocument()
+    expect(screen.getByText('Weak fit — treat this as a test.')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
+  })
+
+  it('stage 2 gets the API input_text (answers appended); a 403 Run it again re-runs stage 1', async () => {
+    const user = userEvent.setup()
+    await toClarify(user)
+    const echoed = `${samples[0].text}\n\nAdditional details:\n- What is the product?: Physical product`
+    vi.mocked(runCampaign).mockResolvedValueOnce({ ...result, input_text: echoed, stage_token: 't1' })
+    await user.click(screen.getByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    expect(await screen.findByText(`“${samples[0].text}”`)).toBeInTheDocument()
+    vi.mocked(createCreatives).mockRejectedValueOnce(new ApiError(403, 'This campaign changed or expired — run it again.'))
+    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    expect(vi.mocked(createCreatives).mock.calls[0][0]).toMatchObject({ input_text: echoed, stage_token: 't1' })
+    await user.click(await screen.findByRole('button', { name: /run it again/i }))
+    expect(runCampaign).toHaveBeenLastCalledWith({
+      text: samples[0].text,
+      answers: { 'What is the product?': 'Physical product' },
+    })
+    // the fresh result starts again at step 1 with no stale error
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /write ads for these publishers/i })).toBeEnabled()
   })
 })
 
@@ -406,10 +428,10 @@ describe('Live streaming', () => {
 
     act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
     // Panel stays filled during the hold...
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).not.toBeInTheDocument()
     expect(panel().getByText('Pawline')).toBeInTheDocument()
     // ...then switches to results.
-    expect(await screen.findByRole('tab', { name: /publishers/i }, { timeout: 2000 })).toBeInTheDocument()
+    expect(await screen.findByRole('navigation', { name: 'Campaign steps' }, { timeout: 2000 })).toBeInTheDocument()
   })
 
   it('switches to results immediately under prefers-reduced-motion', async () => {
@@ -417,7 +439,7 @@ describe('Live streaming', () => {
     const user = userEvent.setup()
     await start(user)
     act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
-    expect(screen.getByRole('tab', { name: /publishers/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
   })
 
   it('an error event shows the error banner and stops running', async () => {
@@ -434,7 +456,7 @@ describe('Live streaming', () => {
     await user.click(screen.getByRole('button', { name: /placement studio home/i }))
     expect(cancel).toHaveBeenCalled()
     act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).not.toBeInTheDocument()
   })
 
   it('unmount cancels the stream', async () => {

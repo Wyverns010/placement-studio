@@ -36,6 +36,8 @@ function Row({
   )
 }
 
+/** "front_loaded" → "front loaded"; missing → "even". */
+const pacingLabel = (v: unknown): string => (typeof v === 'string' && v ? v.replace(/_/g, ' ') : 'even')
 const num = (v: unknown): number | null => (typeof v === 'number' ? v : null)
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
 
@@ -85,8 +87,13 @@ export default function ConfigFormatted({
       </Row>
       <Row label="Budget" rkey="budget" config={config}>
         <b className="font-semibold">
-          {usd(monthly)} / month · {String(b.pacing ?? 'even')} pacing
+          {usd(monthly)} / month · {pacingLabel(b.pacing)} pacing
         </b>
+        {b.source === 'user' && (
+          <span className="ml-2 rounded-full bg-violet-soft px-2 py-0.5 text-[11px] font-semibold text-violet-dark">
+            Your budget
+          </span>
+        )}
         {b.test_budget === true && (
           <span className="ml-2 rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-semibold text-warn">
             Test budget
@@ -142,6 +149,11 @@ export default function ConfigFormatted({
           })}
         </div>
       </Row>
+      {config.rationales?.pacing != null && (
+        <Row label="Pacing" rkey="pacing" config={config}>
+          <b className="font-semibold">{titleCase(pacingLabel(b.pacing))}</b>
+        </Row>
+      )}
       <Row label="Frequency cap" rkey="frequency_cap" config={config}>
         <b className="font-semibold">
           {String(fc.impressions ?? '—')} / user / {String(fc.per_days ?? '—')} days

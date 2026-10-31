@@ -76,23 +76,37 @@ export interface LineItem {
   creative_id: string | null
 }
 
+export type Pacing = 'front_loaded' | 'even' | 'accelerated'
+
+export interface ConfigBudget {
+  monthly_usd: number
+  recommended_usd: number
+  source: 'recommended' | 'user'
+  pacing: Pacing
+  unallocated_usd: number
+  test_budget: boolean
+}
+
 export interface CampaignConfig {
   campaign_id: string
   objective: 'conversions'
   conversion_event: 'purchase' | 'subscription_start'
-  budget: Record<string, unknown>
+  /** Typed loosely (the backend model is a dict); read fields defensively. */
+  budget: Partial<ConfigBudget> & Record<string, unknown>
   bid_strategy: Record<string, unknown>
   targeting: Record<string, unknown>
   line_items: LineItem[]
   frequency_cap: Record<string, unknown>
   guardrails: Record<string, unknown>
+  /** One line per field: objective, bid_strategy, budget, pacing, frequency_cap, ... */
   rationales: Record<string, string>
   decision_trace: Record<string, unknown>
 }
 
 export interface CampaignResult {
   input_text: string
-  budget_usd: number
+  /** The user's budget, if they gave one; echoed so it can be passed to stage 3. */
+  budget_usd: number | null
   outcome: Outcome
   message: string | null
   brief: Brief | null
@@ -102,6 +116,8 @@ export interface CampaignResult {
   creatives: Creative[]
   clarify: ClarifyQuestion[]
   config: CampaignConfig | null
+  /** Signs the stage-1 result; sent back with every stage-2/3 request (403 if it changed or expired). */
+  stage_token?: string | null
 }
 
 export type StageName =
@@ -109,8 +125,6 @@ export type StageName =
   | 'gate'
   | 'publishers'
   | 'personas'
-  | 'creatives'
-  | 'config'
   | 'done'
   | 'error'
 
@@ -127,7 +141,8 @@ export interface Sample {
 
 export interface CampaignRequest {
   text: string
-  budget_usd: number
+  /** Omit (or null) to use the recommended budget. */
+  budget_usd?: number | null
   answers?: Record<string, string>
 }
 
@@ -137,7 +152,23 @@ export interface StreamPartial {
   gate?: GateResult
   publishers?: { recommended: string[]; top: { id: string; name: string; fit: number }[] }
   personas?: { selected: { id: string; name: string; fit: number; stretch: boolean }[] }
-  creatives?: { count: number }
-  config?: { line_items: number }
   done?: true
+}
+
+/** What stage 1 returned, sent back unchanged (with its stage_token) to stages 2 and 3. */
+export interface StagePayload {
+  stage_token?: string | null
+  input_text: string
+  brief: Brief
+  gate: GateResult
+  publishers: PublisherScore[]
+  personas: PersonaScore[]
+}
+
+export interface RegeneratePayload extends StagePayload {
+  creatives: Creative[]
+}
+
+export interface ConfigPayload extends StagePayload {
+  creatives: Creative[]
 }

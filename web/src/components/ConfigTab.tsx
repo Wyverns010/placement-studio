@@ -21,7 +21,7 @@ export default function ConfigTab({
     { id: 'json', label: 'JSON' },
   ]
   return (
-    <div className="pb-20">
+    <div>
       <Tabs tabs={tabs} value={view} onChange={setView} label="Config view" variant="segmented">
       {view === 'formatted' ? (
         <ConfigFormatted

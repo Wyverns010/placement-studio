@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, getSamples, runCampaign, streamCampaign } from './api'
+import {
+  ApiError,
+  buildConfig,
+  createCreatives,
+  getSamples,
+  regenerateCreative,
+  runCampaign,
+  STAGE_TIMEOUT_MS,
+  streamCampaign,
+  TIMEOUT_MESSAGE,
+} from './api'
+import type { ConfigPayload, Creative, StagePayload } from './types'
 
 function mockFetch(status: number, body: unknown) {
   const fn = vi.fn().mockResolvedValue({
@@ -117,6 +128,20 @@ describe('streamCampaign', () => {
     expect(u.searchParams.get('text')).toBe('a b')
     expect(u.searchParams.get('budget_usd')).toBe('100')
     expect(JSON.parse(u.searchParams.get('answers')!)).toEqual({ q: 'x' })
+  })
+
+  it('omits budget_usd from the stream URL when no budget was given', () => {
+    streamCampaign({ text: 't' }, () => {})
+    const u = new URL(FakeES.instances[0].url, 'http://x')
+    expect(u.searchParams.has('budget_usd')).toBe(false)
+  })
+
+  it('listens only for stage-1 events (no creatives/config)', () => {
+    streamCampaign({ text: 't' }, () => {})
+    const names = Object.keys(FakeES.instances[0].listeners)
+    expect(names).toEqual(expect.arrayContaining(['understood', 'gate', 'publishers', 'personas', 'done', 'error']))
+    expect(names).not.toContain('creatives')
+    expect(names).not.toContain('config')
   })
 
   it('calls onEvent once per message in order and closes on done', () => {
@@ -274,5 +299,96 @@ describe('network failure', () => {
       status: 0,
       message: "Can't reach the server — check your connection and try again.",
     })
+  })
+})
+
+const stage: StagePayload = {
+  stage_token: 'tok_1',
+  input_text: 'dog food',
+  gate: { outcome: 'proceed', confidence: 0.9, threshold: 0.7, impl: 'llm', signals: {} },
+  brief: { categories: ['pet'] } as unknown as StagePayload['brief'],
+  publishers: [],
+  personas: [],
+}
+const cr: Creative = {
+  creative_id: 'cr_a', persona_id: 'a', publisher_id: 'p1', headline: 'H', body: 'B', cta: 'C', why: 'W', fact_violations: [],
+}
+
+describe('stage 2 and 3 calls', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('createCreatives posts the stage-1 payload with its stage_token and unwraps creatives', async () => {
+    const fn = mockFetch(200, { creatives: [cr] })
+    expect(await createCreatives(stage)).toEqual([cr])
+    const [url, init] = fn.mock.calls[0]
+    expect(url).toBe('/api/creatives')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual(stage)
+    expect(JSON.parse(init.body).stage_token).toBe('tok_1')
+  })
+
+  it('a 403 (changed or expired campaign) surfaces as ApiError 403 with the detail', async () => {
+    mockFetch(403, { detail: 'This campaign changed or expired — run it again.' })
+    await expect(createCreatives(stage)).rejects.toMatchObject({ status: 403, message: /changed or expired/ })
+  })
+
+  it('regenerateCreative sends persona_id and a trimmed note, unwraps creative', async () => {
+    const fn = mockFetch(200, { creative: { ...cr, headline: 'New' } })
+    const out = await regenerateCreative({ ...stage, creatives: [cr] }, 'a', '  warmer  ')
+    expect(out.headline).toBe('New')
+    const [url, init] = fn.mock.calls[0]
+    expect(url).toBe('/api/creatives/regenerate')
+    expect(JSON.parse(init.body)).toEqual({ ...stage, creatives: [cr], persona_id: 'a', note: 'warmer' })
+  })
+
+  it('regenerateCreative omits an empty note', async () => {
+    const fn = mockFetch(200, { creative: cr })
+    await regenerateCreative({ ...stage, creatives: [cr] }, 'a', '   ')
+    expect(JSON.parse(fn.mock.calls[0][1].body)).not.toHaveProperty('note')
+  })
+
+  it('buildConfig sends budget_usd only when given and unwraps config', async () => {
+    const payload: ConfigPayload = { ...stage, creatives: [cr] }
+    let fn = mockFetch(200, { config: { campaign_id: 'c' } })
+    expect(await buildConfig(payload)).toEqual({ campaign_id: 'c' })
+    expect(fn.mock.calls[0][0]).toBe('/api/config')
+    expect(JSON.parse(fn.mock.calls[0][1].body)).not.toHaveProperty('budget_usd')
+    fn = mockFetch(200, { config: { campaign_id: 'c' } })
+    await buildConfig(payload, 12000)
+    expect(JSON.parse(fn.mock.calls[0][1].body).budget_usd).toBe(12000)
+  })
+
+  it('surfaces the server detail as ApiError', async () => {
+    mockFetch(429, { detail: 'Slow down' })
+    await expect(createCreatives(stage)).rejects.toMatchObject({ status: 429, message: 'Slow down' })
+  })
+
+  it('a hung stage call times out with the taking-too-long message', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_u: string, init: RequestInit) =>
+        new Promise((_, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))),
+      ),
+    )
+    const p = createCreatives(stage).catch((e) => e)
+    await vi.advanceTimersByTimeAsync(STAGE_TIMEOUT_MS + 10)
+    const err = await p
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.message).toBe(TIMEOUT_MESSAGE)
+  })
+
+  it('a caller abort rejects with an AbortError, not a timeout', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_u: string, init: RequestInit) =>
+        new Promise((_, rej) => init.signal!.addEventListener('abort', () => rej(new DOMException('a', 'AbortError')))),
+      ),
+    )
+    const ctl = new AbortController()
+    const p = createCreatives(stage, ctl.signal).catch((e) => e)
+    ctl.abort()
+    const err = await p
+    expect(err.name).toBe('AbortError')
   })
 })

@@ -120,7 +120,7 @@ export default function PublishersTab({
   const shown = showAll ? excluded : excluded.slice(0, 4)
   const more = excluded.length - 4
   return (
-    <div className="grid gap-[22px] pb-20 min-[900px]:grid-cols-[1.6fr_1fr]">
+    <div className="grid gap-[22px] min-[900px]:grid-cols-[1.6fr_1fr]">
       <div>
         {recommended.length === 0 && (
           <p className="m-0 rounded-2xl border border-dashed border-[#d6cde6] p-4 text-[13px] text-muted">

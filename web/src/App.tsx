@@ -5,11 +5,13 @@ import Nav from './components/Nav'
 import Results from './components/Results'
 import type { CampaignRequest, CampaignResult, Sample, StageEvent, StreamPartial } from './types'
 
-const DEFAULT_BUDGET = 25000
-
 export interface AppState {
   view: 'landing' | 'results'
   result?: CampaignResult
+  /** What the user typed (the API echoes the text with clarify answers appended). */
+  displayText?: string
+  /** Bumped per shown result so the staged results start fresh at step 1. */
+  runId: number
   running: boolean
   partial: StreamPartial
 }
@@ -18,11 +20,16 @@ const HOLD_MS = 600
 const reducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
+/** Sends budget_usd only when the user typed one; otherwise the backend recommends it. */
+function withBudget(req: CampaignRequest, b: number | null): CampaignRequest {
+  return b != null ? { ...req, budget_usd: b } : req
+}
+
 export default function App() {
-  const [state, setState] = useState<AppState>({ view: 'landing', running: false, partial: {} })
+  const [state, setState] = useState<AppState>({ view: 'landing', runId: 0, running: false, partial: {} })
   const [samples, setSamples] = useState<Sample[]>([])
   const [text, setText] = useState('')
-  const [budget, setBudget] = useState(DEFAULT_BUDGET)
+  const [budget, setBudget] = useState<number | null>(null) // blank = use the recommendation
   const [error, setError] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<CampaignResult | null>(null)
   const edited = useRef(false)
@@ -31,9 +38,9 @@ export default function App() {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const viewRef = useRef<AppState['view']>('landing')
   const [rebuildError, setRebuildError] = useState<string | null>(null)
-  const lastInput = useRef<{ text: string; budget: number; answers: Record<string, string> }>({
+  const lastInput = useRef<{ text: string; budget: number | null; answers: Record<string, string> }>({
     text: '',
-    budget: DEFAULT_BUDGET,
+    budget: null,
     answers: {},
   })
 
@@ -91,16 +98,16 @@ export default function App() {
   )
 
   const run = useCallback(
-    (t: string, b: number) => {
+    (t: string, b: number | null) => {
       const fromResults = viewRef.current === 'results'
       setError(null)
       startStream(
-        { text: t, budget_usd: b },
+        withBudget({ text: t }, b),
         (result, my) => {
           lastInput.current = { text: t, budget: b, answers: {} }
           setLastResult(result)
           const show = () =>
-            setState({ view: 'results', result, running: false, partial: {} })
+            setState((s) => ({ view: 'results', result, displayText: t, runId: s.runId + 1, running: false, partial: {} }))
           if (fromResults || reducedMotion()) return show()
           // Keep the filled panel on screen briefly so the last lane is seen.
           setState((s) => ({ ...s, partial: { ...s.partial, done: true } }))
@@ -129,13 +136,13 @@ export default function App() {
       }
       const merged = Object.fromEntries(Object.entries(next).slice(-5))
       startStream(
-        { text: t, budget_usd: b, answers: merged },
-        (raw) => {
+        withBudget({ text: t, answers: merged }, b),
+        (result) => {
           lastInput.current = { text: t, budget: b, answers: merged }
-          // The API echoes the text with answers appended; show what the user typed.
-          const result = { ...raw, input_text: t }
-          setLastResult(result)
-          setState({ view: 'results', result, running: false, partial: {} })
+          // The API echoes the text with answers appended: keep it (stages 2 and 3 need it
+          // unchanged) and show what the user typed.
+          setLastResult({ ...result, input_text: t })
+          setState((s) => ({ view: 'results', result, displayText: t, runId: s.runId + 1, running: false, partial: {} }))
         },
         setRebuildError,
       )
@@ -163,11 +170,14 @@ export default function App() {
       <Nav onHome={goHome} />
       {state.view === 'results' && state.result ? (
         <Results
+          key={state.runId}
           result={state.result}
+          displayText={state.displayText}
           onBack={goHome}
           samples={samples}
           onPickSample={pickSample}
           onRebuild={rebuild}
+          onRerun={() => rebuild({})}
           running={state.running}
           rebuildError={rebuildError}
         />

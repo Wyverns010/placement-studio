@@ -20,9 +20,11 @@ const OUTCOME_BADGE: Record<Outcome, { text: string; cls: string }> = {
 
 export default function ResultHeader({
   result,
+  displayText,
   onBack,
 }: {
   result: CampaignResult
+  displayText?: string
   onBack: () => void
 }) {
   const chips = briefChips(result.brief)
@@ -40,7 +42,7 @@ export default function ResultHeader({
           Campaign for
         </div>
         <h2 className="m-0 mt-1.5 mb-2.5 max-w-[720px] text-xl leading-tight font-semibold tracking-[-0.02em] break-words sm:text-[28px]">
-          “{result.input_text}”
+          “{displayText ?? result.input_text}”
         </h2>
         <div className="flex flex-wrap gap-y-1" aria-label="What we understood">
           <Chips items={chips} />

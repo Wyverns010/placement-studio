@@ -1,20 +1,18 @@
-import { useState } from 'react'
-import { usd } from '../format'
 import type { CampaignResult, Sample } from '../types'
 import ClarifyView from './ClarifyView'
 import OutOfScopeView from './OutOfScopeView'
 import OutcomeBanner from './OutcomeBanner'
-import ConfigTab from './ConfigTab'
-import PersonasTab from './PersonasTab'
-import PublishersTab from './PublishersTab'
-import Tabs, { type TabDef } from './Tabs'
 import ResultHeader from './ResultHeader'
-
-type Tab = 'publishers' | 'personas' | 'config'
+import StagedResults from './StagedResults'
+import { Busy } from './ui'
 
 interface Props {
   result: CampaignResult
+  /** What the user typed, shown in the header (input_text may have clarify answers appended). */
+  displayText?: string
   onBack: () => void
+  /** Re-runs stage 1 with the same input (after a 403: the campaign changed or expired). */
+  onRerun?: () => void
   samples?: Sample[]
   onPickSample?: (s: Sample) => void
   onRebuild?: (answers: Record<string, string>) => void
@@ -24,19 +22,19 @@ interface Props {
 
 export default function Results({
   result,
+  displayText,
   onBack,
+  onRerun,
   samples = [],
   onPickSample = () => {},
   onRebuild = () => {},
   running = false,
   rebuildError = null,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('publishers')
-
   if (result.outcome !== 'proceed' && result.outcome !== 'weak_fit') {
     return (
       <section>
-        <ResultHeader result={result} onBack={onBack} />
+        <ResultHeader result={result} displayText={displayText} onBack={onBack} />
         {rebuildError && (
           <div className="mb-4">
             <OutcomeBanner variant="error" title="That run didn't finish.">
@@ -61,49 +59,22 @@ export default function Results({
     )
   }
 
-  const recCount = result.publishers.filter((p) => p.recommended).length
-  const tabs: TabDef<Tab>[] = [
-    { id: 'publishers', label: 'Publishers', count: recCount },
-    { id: 'personas', label: 'Personas & creatives', count: result.personas.length },
-    { id: 'config', label: 'Campaign config' },
-  ]
-
   return (
     <section>
-      <ResultHeader result={result} onBack={onBack} />
-      {result.outcome === 'weak_fit' && (
+      <ResultHeader result={result} displayText={displayText} onBack={onBack} />
+      {rebuildError && (
         <div className="mb-4">
-          <OutcomeBanner variant="amber" title="Weak fit — treat this as a test.">
-            {result.message && <p className="m-0">{result.message}</p>}
-            {typeof result.config?.budget.monthly_usd === 'number' && (
-              <p className="m-0 mt-1 font-semibold">
-                Test budget: {usd(result.config.budget.monthly_usd)} of {usd(result.budget_usd)}
-              </p>
-            )}
+          <OutcomeBanner variant="error" title="That run didn't finish.">
+            <p className="m-0">{rebuildError}</p>
           </OutcomeBanner>
         </div>
       )}
-      <Tabs tabs={tabs} value={tab} onChange={setTab} label="Results sections">
-      {tab === 'publishers' && <PublishersTab publishers={result.publishers} config={result.config} />}
-      {tab === 'personas' && (
-        <PersonasTab
-          personas={result.personas}
-          creatives={result.creatives}
-          publishers={result.publishers}
-        />
+      {running && (
+        <p role="status" className="mb-4 text-[13px] text-muted">
+          <Busy label="Running your campaign again…" />
+        </p>
       )}
-      {tab === 'config' &&
-        (result.config ? (
-          <ConfigTab
-            config={result.config}
-            publishers={result.publishers}
-            personas={result.personas}
-            creatives={result.creatives}
-          />
-        ) : (
-          <p className="text-sm text-muted">No campaign config was generated.</p>
-        ))}
-      </Tabs>
+      <StagedResults result={result} onRerun={running ? undefined : onRerun} />
     </section>
   )
 }

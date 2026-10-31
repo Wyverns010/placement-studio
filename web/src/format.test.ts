@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { humanise, jsonHighlight, pct, usd } from './format'
+import { budgetProblem, formatBudget, humanise, jsonHighlight, parseOptionalBudget, pct, usd } from './format'
 
 describe('usd / pct', () => {
   it('formats dollars with separators', () => {
@@ -47,5 +47,26 @@ describe('humanise', () => {
   it('turns snake_case tokens into words and leaves the rest alone', () => {
     expect(humanise('interests pet_food, wellness_dtc, US')).toBe('interests pet food, wellness dtc, US')
     expect(humanise('$42 target CPA')).toBe('$42 target CPA')
+  })
+})
+
+describe('optional budget', () => {
+  it('blank means use the recommendation; digits are parsed', () => {
+    expect(parseOptionalBudget('')).toBeNull()
+    expect(parseOptionalBudget('  ')).toBeNull()
+    expect(parseOptionalBudget('$12,000')).toBe(12000)
+    expect(parseOptionalBudget('0')).toBe(0)
+  })
+  it('formats with separators and keeps 0 visible', () => {
+    expect(formatBudget(null)).toBe('')
+    expect(formatBudget(0)).toBe('0')
+    expect(formatBudget(12000)).toBe('12,000')
+  })
+  it('only flags a typed budget outside $500–$5,000,000', () => {
+    expect(budgetProblem(null)).toBeNull()
+    expect(budgetProblem(500)).toBeNull()
+    expect(budgetProblem(5_000_000)).toBeNull()
+    expect(budgetProblem(499)).toMatch(/between \$500 and \$5,000,000/)
+    expect(budgetProblem(5_000_001)).not.toBeNull()
   })
 })

@@ -1,19 +1,31 @@
+import type { ReactNode } from 'react'
 import { personaById } from '../catalog'
 import type { Creative, PersonaScore, PublisherScore } from '../types'
 
+/**
+ * Persona cards. Without `creatives` it is a plain persona list (step 1); with them each card
+ * shows its ad, plus whatever `actions` renders under it (Regenerate on step 2). `busy` dims a
+ * card's ad and marks it aria-busy while it is being rewritten.
+ */
 export default function PersonasTab({
   personas,
   creatives,
   publishers,
+  actions,
+  busy = {},
 }: {
   personas: PersonaScore[]
-  creatives: Creative[]
+  creatives?: Creative[]
   publishers: PublisherScore[]
+  actions?: (p: PersonaScore, cr: Creative) => ReactNode
+  busy?: Record<string, boolean>
 }) {
+  const withAds = creatives != null
   return (
-    <div className="grid gap-[18px] pb-20 min-[700px]:grid-cols-2 min-[1000px]:grid-cols-3">
+    <div className="grid gap-[18px] min-[700px]:grid-cols-2 min-[1000px]:grid-cols-3">
       {personas.map((p) => {
-        const cr = creatives.find((c) => c.persona_id === p.persona_id)
+        const cr = creatives?.find((c) => c.persona_id === p.persona_id)
+        const isBusy = !!busy[p.persona_id]
         const pubName = cr
           ? (publishers.find((x) => x.publisher_id === cr.publisher_id)?.name ?? cr.publisher_id)
           : null
@@ -22,6 +34,7 @@ export default function PersonasTab({
           <article
             key={p.persona_id}
             aria-label={p.name}
+            aria-busy={isBusy || undefined}
             className="flex flex-col overflow-hidden rounded-[18px] border border-line bg-white"
           >
             <div className="border-b border-line bg-[#faf8fe] px-[18px] py-4">
@@ -48,9 +61,12 @@ export default function PersonasTab({
                 </div>
               )}
             </div>
-            {cr ? (
+            {!withAds ? null : cr ? (
+              <>
               <div
-                className="m-[16px_18px_18px] rounded-[14px] border border-line p-3.5"
+                className={`m-[16px_18px_0] rounded-[14px] border border-line p-3.5 transition-opacity ${
+                  isBusy ? 'opacity-45' : ''
+                } ${actions ? '' : 'mb-[18px]'}`}
                 style={{ boxShadow: '0 10px 24px -20px #3b1d7a' }}
               >
                 <div className="text-[10.5px] tracking-[0.06em] text-muted uppercase">
@@ -70,6 +86,8 @@ export default function PersonasTab({
                   </div>
                 ))}
               </div>
+              {actions && <div className="mt-auto px-[18px] pt-3 pb-[18px]">{actions(p, cr)}</div>}
+              </>
             ) : (
               <p className="m-[16px_18px] text-[13px] text-muted">No creative generated.</p>
             )}

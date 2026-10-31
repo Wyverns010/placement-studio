@@ -59,6 +59,19 @@ describe('ConfigTab', () => {
     expect(screen.getByText(/\$25,000/)).toBeInTheDocument()
   })
 
+  it('shows a Pacing row with its rationale and marks a user-set budget', () => {
+    const c = {
+      ...config,
+      budget: { ...config.budget, pacing: 'front_loaded' as const, source: 'user' as const, recommended_usd: 6000 },
+      rationales: { ...config.rationales, pacing: 'Front-loaded: a small weak-fit test should learn fast' },
+    }
+    render(<ConfigTab config={c} />)
+    expect(screen.getByText(/front loaded pacing/)).toBeInTheDocument()
+    expect(screen.getByText('Front loaded')).toBeInTheDocument()
+    expect(screen.getByText('Front-loaded: a small weak-fit test should learn fast')).toBeInTheDocument()
+    expect(screen.getByText('Your budget')).toBeInTheDocument()
+  })
+
   it('puts rationales in a title tooltip', () => {
     render(<ConfigTab config={config} />)
     expect(screen.getByTitle('65% of $64 order value')).toHaveTextContent('Bid strategy')
@@ -110,12 +123,8 @@ describe('ConfigJson copy failure', () => {
 describe('Tabs a11y', () => {
   it('arrow keys move between tabs, with roving tabindex and panel linkage', async () => {
     const user = userEvent.setup()
-    const r = {
-      input_text: 'x', budget_usd: 1, outcome: 'proceed', message: null, brief: null, gate: null,
-      publishers: [pub('pub_a', 'Pawline', 0.88, true)], personas: [], creatives: [], clarify: [], config,
-    } as CampaignResult
-    render(<Results result={r} onBack={() => {}} />)
-    const list = screen.getByRole('tablist', { name: 'Results sections' })
+    render(<ConfigTab config={config} />)
+    const list = screen.getByRole('tablist', { name: 'Config view' })
     const [t1, t2] = within(list).getAllByRole('tab')
     expect(t1).toHaveAttribute('tabindex', '0')
     expect(t2).toHaveAttribute('tabindex', '-1')
@@ -221,18 +230,16 @@ describe('Results', () => {
     await user.click(screen.getByRole('button', { name: /new campaign/i }))
     expect(onBack).toHaveBeenCalled()
   })
-  it('defaults to Publishers with count pills and switches tabs', async () => {
-    const user = userEvent.setup()
+  it('proceed results open on step 1 of the stepper', () => {
     const r = {
       ...base,
       outcome: 'proceed',
+      gate: { outcome: 'proceed', confidence: 0.9, threshold: 0.7, impl: 'llm', signals: {} },
       publishers: [pub('pub_a', 'Pawline', 0.88, true)],
-      config,
     } as CampaignResult
     render(<Results result={r} onBack={() => {}} />)
-    expect(screen.getByRole('tab', { name: /publishers\s*1/i })).toHaveAttribute('aria-selected', 'true')
+    const steps = screen.getByRole('navigation', { name: 'Campaign steps' })
+    expect(within(steps).getByRole('button', { name: /publishers & personas/i })).toHaveAttribute('aria-current', 'step')
     expect(screen.getByRole('article', { name: 'Pawline' })).toBeInTheDocument()
-    await user.click(screen.getByRole('tab', { name: /campaign config/i }))
-    expect(screen.getByText(/Target CPA/)).toBeInTheDocument()
   })
 })

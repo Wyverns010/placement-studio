@@ -1,4 +1,15 @@
-import type { CampaignRequest, CampaignResult, Sample, StageEvent, StageName } from './types'
+import type {
+  CampaignConfig,
+  CampaignRequest,
+  CampaignResult,
+  ConfigPayload,
+  Creative,
+  RegeneratePayload,
+  Sample,
+  StageEvent,
+  StageName,
+  StagePayload,
+} from './types'
 
 export class ApiError extends Error {
   status: number
@@ -31,7 +42,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
     res = await fetch(url, init)
-  } catch {
+  } catch (err) {
+    if (init?.signal?.aborted) throw err // the caller (or a timeout) cancelled: let it decide
     throw new ApiError(0, "Can't reach the server — check your connection and try again.")
   }
   if (!res.ok) {
@@ -66,7 +78,8 @@ export const FALLBACK_WINDOW_MS = 3000
 export const BAD_RESULT_MESSAGE = 'Something went wrong building this campaign.'
 export const TIMEOUT_MESSAGE = 'The AI service is taking too long — try again or pick a sample.'
 
-const STAGES: StageName[] = ['understood', 'gate', 'publishers', 'personas', 'creatives', 'config', 'done']
+// Stage 1 only: creatives and config are separate requests (stages 2 and 3).
+const STAGES: StageName[] = ['understood', 'gate', 'publishers', 'personas', 'done']
 
 /**
  * Streams the pipeline over SSE (EventSource), one `onEvent` per stage, ending
@@ -90,7 +103,8 @@ export function streamCampaign(
   let gotEvent = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
-  const params = new URLSearchParams({ text: req.text, budget_usd: String(req.budget_usd) })
+  const params = new URLSearchParams({ text: req.text })
+  if (req.budget_usd != null) params.set('budget_usd', String(req.budget_usd))
   if (req.answers && Object.keys(req.answers).length) params.set('answers', JSON.stringify(req.answers))
   const es = new EventSource(`/api/campaign/stream?${params.toString()}`)
 
@@ -176,4 +190,66 @@ export function streamCampaign(
     fallback?.abort()
     finish()
   }
+}
+
+/** Live stage-2 calls write several ads; allow longer than the per-event stream timeout. */
+export const STAGE_TIMEOUT_MS = 60_000
+
+/**
+ * POSTs one stage request with a timeout. A timeout rejects with ApiError(TIMEOUT_MESSAGE);
+ * a caller abort rejects with the fetch AbortError so callers can ignore it.
+ */
+async function postStage<T>(url: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const ctl = new AbortController()
+  let timedOut = false
+  const t = setTimeout(() => {
+    timedOut = true
+    ctl.abort()
+  }, STAGE_TIMEOUT_MS)
+  const onAbort = () => ctl.abort()
+  signal?.addEventListener('abort', onAbort)
+  try {
+    return await request<T>(url, {
+      method: 'POST',
+      signal: ctl.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    if (timedOut) throw new ApiError(0, TIMEOUT_MESSAGE)
+    throw err
+  } finally {
+    clearTimeout(t)
+    signal?.removeEventListener('abort', onAbort)
+  }
+}
+
+/** Stage 2: one ad per persona, placed on the recommended publishers. */
+export async function createCreatives(p: StagePayload, signal?: AbortSignal): Promise<Creative[]> {
+  const out = await postStage<{ creatives: Creative[] }>('/api/creatives', p, signal)
+  return out.creatives
+}
+
+/** Stage 2: rewrite one persona's ad, optionally steered by a short note. */
+export async function regenerateCreative(
+  p: RegeneratePayload,
+  personaId: string,
+  note?: string,
+  signal?: AbortSignal,
+): Promise<Creative> {
+  const n = note?.trim()
+  const body = { ...p, persona_id: personaId, ...(n ? { note: n } : {}) }
+  const out = await postStage<{ creative: Creative }>('/api/creatives/regenerate', body, signal)
+  return out.creative
+}
+
+/** Stage 3 (code only): the campaign config; no budget means use the recommended one. */
+export async function buildConfig(
+  p: ConfigPayload,
+  budgetUsd?: number | null,
+  signal?: AbortSignal,
+): Promise<CampaignConfig> {
+  const body = budgetUsd != null ? { ...p, budget_usd: budgetUsd } : p
+  const out = await postStage<{ config: CampaignConfig }>('/api/config', body, signal)
+  return out.config
 }

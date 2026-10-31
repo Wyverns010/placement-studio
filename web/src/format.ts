@@ -1,10 +1,6 @@
-export function formatBudget(n: number): string {
-  return Number.isFinite(n) && n > 0 ? n.toLocaleString('en-US') : ''
-}
-
-export function parseBudget(s: string): number {
-  const digits = s.replace(/[^\d]/g, '')
-  return digits ? Number(digits) : 0
+/** Budget input text: blank for null, otherwise digits with separators (0 stays visible). */
+export function formatBudget(n: number | null): string {
+  return n != null && Number.isFinite(n) ? n.toLocaleString('en-US') : ''
 }
 
 const TIER_LABEL: Record<string, string> = {
@@ -63,4 +59,22 @@ export function jsonHighlight(obj: unknown): string {
 /** Rewrites snake_case tokens inside free text as plain words: "pet_food" -> "pet food". */
 export function humanise(s: string): string {
   return s.replace(/\b[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+\b/g, (m) => m.replace(/_/g, ' '))
+}
+
+// Matches budget.min_usd / max_usd in config/tuning.yaml.
+export const BUDGET_MIN = 500
+export const BUDGET_MAX = 5_000_000
+
+/** Parses a typed budget: blank → null (use the recommendation), else the whole dollars. */
+export function parseOptionalBudget(s: string): number | null {
+  const digits = s.replace(/[^\d]/g, '')
+  return digits ? Number(digits) : null
+}
+
+/** A user-facing problem with a typed budget, or null when it is blank or in range. */
+export function budgetProblem(n: number | null): string | null {
+  if (n == null) return null
+  if (n < BUDGET_MIN || n > BUDGET_MAX)
+    return `Enter a monthly budget between ${usd(BUDGET_MIN)} and ${usd(BUDGET_MAX)}.`
+  return null
 }

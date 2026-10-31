@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { CampaignResult, Sample, StreamPartial } from '../types'
-import { formatBudget, parseBudget } from '../format'
+import { budgetProblem, formatBudget, parseOptionalBudget } from '../format'
 import ReadingPanel from './ReadingPanel'
 import { Busy } from './ui'
 
@@ -9,13 +9,14 @@ const MAX_CHARS = 1500 // matches input.max_chars in config/tuning.yaml
 interface Props {
   samples: Sample[]
   text: string
-  budget: number
+  /** null = blank: use the recommended budget. */
+  budget: number | null
   running: boolean
   error: string | null
   lastResult: CampaignResult | null
   partial: StreamPartial
   onTextChange: (t: string) => void
-  onBudgetChange: (n: number) => void
+  onBudgetChange: (n: number | null) => void
   onRun: () => void
   onPickSample: (s: Sample) => void
 }
@@ -23,7 +24,8 @@ interface Props {
 export default function Landing(p: Props) {
   const [showAll, setShowAll] = useState(false)
   const visible = showAll ? p.samples : p.samples.slice(0, 8)
-  const canRun = !p.running && p.text.trim().length > 0 && p.budget > 0
+  const budgetError = budgetProblem(p.budget)
+  const canRun = !p.running && p.text.trim().length > 0 && !budgetError
 
   return (
     <section className="grid items-center gap-10 pt-10 pb-16 min-[900px]:grid-cols-[1fr_1.05fr] min-[900px]:gap-12 min-[900px]:pt-14 min-[900px]:pb-[70px]">
@@ -68,19 +70,34 @@ export default function Landing(p: Props) {
             </p>
           )}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-1.5 text-[12.5px] text-muted">
-              Monthly budget
-              <span className="flex items-center rounded-lg border border-line bg-card px-2 py-1 font-semibold text-ink focus-within:border-violet">
-                $
-                <input
-                  aria-label="Monthly budget in USD"
-                  inputMode="numeric"
-                  value={formatBudget(p.budget)}
-                  onChange={(e) => p.onBudgetChange(parseBudget(e.target.value))}
-                  className="w-[78px] border-0 bg-transparent pl-0.5 font-[inherit] text-[13px] outline-none"
-                />
-              </span>
-            </label>
+            <div className="min-w-0">
+              <label className="flex items-center gap-1.5 text-[12.5px] text-muted">
+                Monthly budget
+                <span
+                  className={`flex items-center rounded-lg border bg-card px-2 py-1 font-semibold text-ink focus-within:border-violet ${
+                    budgetError ? 'border-bad' : 'border-line'
+                  }`}
+                >
+                  $
+                  <input
+                    aria-label="Monthly budget in USD"
+                    aria-describedby="budget-hint"
+                    aria-invalid={budgetError ? true : undefined}
+                    inputMode="numeric"
+                    placeholder="Optional"
+                    value={formatBudget(p.budget)}
+                    onChange={(e) => p.onBudgetChange(parseOptionalBudget(e.target.value))}
+                    className="w-[84px] border-0 bg-transparent pl-0.5 font-[inherit] text-[13px] outline-none placeholder:font-normal placeholder:text-muted"
+                  />
+                </span>
+              </label>
+              <p
+                id="budget-hint"
+                className={`m-0 mt-1 text-[11.5px] leading-snug ${budgetError ? 'text-bad' : 'text-muted'}`}
+              >
+                {budgetError ?? 'Leave blank to use our recommendation'}
+              </p>
+            </div>
             <button type="submit" className="pill pill-primary" disabled={!canRun}>
               {p.running ? (
                 <Busy label="Reading your brand…" />
