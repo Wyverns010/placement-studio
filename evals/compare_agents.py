@@ -556,7 +556,7 @@ def _planner_forced(r, cr, steer):
     t0 = time.perf_counter()
     err = None
     try:
-        run_step(lambda: planner.run(desk, RUNTIME), T)
+        run_step(lambda: planner.run(desk, RUNTIME), T, RUNTIME)
     except Exception as e:  # noqa: BLE001
         err = f"{type(e).__name__}: {e}"[:200]
     return desk, s, err, time.perf_counter() - t0

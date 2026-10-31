@@ -9,6 +9,8 @@ caller run the plain code step instead (mode "fallback").
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import contextvars
 import json
 import logging
 import os
@@ -50,21 +52,27 @@ class ToolRefused(Exception):
     """A tool input failed validation; the message goes back to the agent, nothing changes."""
 
 
+# The model provider of the step run in progress: set by run_step inside that run's event loop
+# (copied into every task the run starts), so the client lives and dies on that loop.
+_PROVIDER: contextvars.ContextVar[ModelProvider | None] = contextvars.ContextVar(
+    "step_agent_provider", default=None)
+
+
 class AgentRuntime:
-    """Models per agent role. Live: model names from env through the OpenAI provider (made per
-    step run, so its async client lives on that run's event loop). Tests: `models` maps a role
-    to an SDK Model (e.g. a scripted fake)."""
+    """Models per agent role. Live: model names from env through the OpenAI provider, whose async
+    client is opened per step run inside that run's event loop and closed there (run_step).
+    Tests: `models` maps a role to an SDK Model (e.g. a scripted fake)."""
 
     def __init__(self, *, models: dict[str, Model] | None = None,
-                 provider_factory: Callable[[], ModelProvider] | None = None):
+                 client_factory: Callable[[], Any] | None = None):
         self._models = models or {}
-        self._provider_factory = provider_factory
+        self._client_factory = client_factory
         set_tracing_disabled(not tracing_enabled())
 
     def model(self, role: str) -> str | Model:
         if role in self._models:
             return self._models[role]
-        if self._provider_factory is None:  # a scripted runtime never falls through to a live model
+        if self._client_factory is None:  # a scripted runtime never falls through to a live model
             raise AgentStopped(f"no model configured for {role}")
         return self.model_name(role)
 
@@ -80,25 +88,42 @@ class AgentRuntime:
 
     def run_config(self, workflow: str) -> RunConfig:
         kw: dict[str, Any] = {"tracing_disabled": not tracing_enabled(), "workflow_name": workflow}
-        if self._provider_factory:
-            kw["model_provider"] = self._provider_factory()
+        if (provider := _PROVIDER.get()) is not None:
+            kw["model_provider"] = provider
         return RunConfig(**kw)
+
+    @contextlib.asynccontextmanager
+    async def live(self):
+        """Open this step run's client (if live) on the running loop; always close it there."""
+        if self._client_factory is None:
+            yield
+            return
+        from agents import OpenAIProvider
+
+        client = self._client_factory()
+        token = _PROVIDER.set(OpenAIProvider(openai_client=client, use_responses=True))
+        try:
+            yield
+        finally:
+            _PROVIDER.reset(token)
+            await client.close()
 
 
 def openai_runtime(t: Tuning) -> AgentRuntime | None:
-    """The live runtime, or None (agents off: plain code) when disabled or there is no key."""
+    """The live runtime, or None (agents off: plain code) when disabled or there is no key.
+    Each model call gets agents.timeout_s (never more than the step's) and agents.max_retries."""
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not t.agents.enabled or not key:
         return None
+    a = t.agents
 
-    def provider() -> ModelProvider:
-        from agents import OpenAIProvider
+    def client():
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=key, timeout=t.llm.timeout_s, max_retries=0)
-        return OpenAIProvider(openai_client=client, use_responses=True)
+        return AsyncOpenAI(api_key=key, timeout=min(a.timeout_s, a.step_timeout_s),
+                           max_retries=a.max_retries)
 
-    return AgentRuntime(provider_factory=provider)
+    return AgentRuntime(client_factory=client)
 
 
 def wants_agent(step: str, steer: str | None, t: Tuning) -> bool:
@@ -128,7 +153,11 @@ class Session:
         self._on_step = on_step
         self._lock = threading.Lock()
         self.hooks = _Guard(self)
-        self.run_config = runtime.run_config(f"placement-studio {step}")
+
+    @property
+    def run_config(self) -> RunConfig:
+        """Read inside the step's loop (run_step), where its live provider is set."""
+        return self.runtime.run_config(f"placement-studio {self.step}")
 
     # ---- cost guard ----
     def charge(self, role: str, usage) -> None:
@@ -215,12 +244,14 @@ async def run_agent(session: Session, agent, input: str, context, role: str):
                             hooks=session.hooks, run_config=session.run_config)
 
 
-def run_step(coro_fn: Callable[[], Any], t: Tuning):
-    """Run a step's agent coroutine to completion on a fresh event loop, within agents.timeout_s.
+def run_step(coro_fn: Callable[[], Any], t: Tuning, runtime: AgentRuntime):
+    """Run a step's agent coroutine to completion on a fresh event loop, within
+    agents.step_timeout_s; the runtime's client is opened and closed on that loop.
     Call from a worker thread (FastAPI's threadpool), never from a running loop."""
     async def main():
-        return await asyncio.wait_for(coro_fn(), t.agents.timeout_s)
+        async with runtime.live():
+            return await asyncio.wait_for(coro_fn(), t.agents.step_timeout_s)
     try:
         return asyncio.run(main())
     except TimeoutError as e:
-        raise AgentStopped(f"took longer than {t.agents.timeout_s:g}s") from e
+        raise AgentStopped(f"took longer than {t.agents.step_timeout_s:g}s") from e

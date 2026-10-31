@@ -515,3 +515,52 @@ def test_named_in_steer_matches_names_and_categories():
     assert named_in_steer("drop ruffco", "Ruffco", "pet")
     assert not named_in_steer(INJECTION, "Pawline", "pet")
     assert not named_in_steer("skip delivery stores", "Northbed", "home")
+
+
+# ---- runtime: one client per step run, closed on its own loop ----
+
+def _client_runtime(models: dict, made: list):
+    from openai import AsyncOpenAI
+
+    def factory():
+        c = AsyncOpenAI(api_key="sk-test", base_url="http://127.0.0.1:9/v1")  # never called
+        made.append(c)
+        return c
+
+    return AgentRuntime(models=models, client_factory=factory)
+
+
+def test_step_client_is_closed_inside_its_loop_and_logs_nothing(caplog, recwarn):
+    import gc
+
+    made: list = []
+    model = ScriptedModel([call("rank_publishers", {"exclude_ids": PET}), final(notes=[])])
+    rt = _client_runtime({"strategist": model}, made)
+    with caplog.at_level("WARNING"):
+        r = done(stage1(fake(), "skip pet stores", rt))
+        gc.collect()
+    assert r.mode == "agent"
+    assert len(made) == 1 and made[0].is_closed()
+    assert [rec for rec in caplog.records if rec.levelno >= 30] == []
+    assert not any("Event loop is closed" in str(w.message) for w in recwarn)
+
+
+def test_step_client_is_closed_after_a_fallback_too():
+    made: list = []
+    rt = _client_runtime({"copywriter": ScriptedModel([boom(RuntimeError("nope"))]),
+                          "critic": ScriptedModel([])}, made)
+    r, personas = _stage1()
+    _, meta = steps.creatives_step(r.input_text, r.brief, r.publishers, personas, None,
+                                   llm=fake(), catalog=CAT, t=T, runtime=rt)
+    assert meta["mode"] == "fallback" and made and all(c.is_closed() for c in made)
+
+
+def test_live_client_uses_agent_timeout_and_retries(monkeypatch):
+    from app.stepagents.runtime import openai_runtime
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    rt = openai_runtime(T)
+    c = rt._client_factory()
+    assert c.timeout == min(T.agents.timeout_s, T.agents.step_timeout_s) == 30
+    assert c.max_retries == T.agents.max_retries == 1
+    assert T.agents.step_timeout_s >= T.agents.timeout_s

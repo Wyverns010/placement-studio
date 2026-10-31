@@ -45,7 +45,7 @@ def stage1_events(text: str, budget_usd: float | None, steer: str | None, *, llm
 
     def work():
         try:
-            run_step(lambda: strategist.run(ws, runtime), t)
+            run_step(lambda: strategist.run(ws, runtime), t, runtime)
         except BaseException as e:  # noqa: BLE001 - any agent failure falls back to code
             box["error"] = e
         finally:
@@ -80,7 +80,7 @@ def creatives_step(text: str, brief: Brief, publishers: list[PublisherScore],
     try:
         out = run_step(lambda: creative.write_all(text, brief, publishers, personas, steer,
                                                   catalog=catalog, t=t, runtime=runtime,
-                                                  session=session), t)
+                                                  session=session), t, runtime)
         return out, session.meta("agent")
     except Exception as e:  # noqa: BLE001
         log.warning("creative agents failed, falling back: %r", e)
@@ -102,7 +102,7 @@ def regenerate_step(text: str, brief: Brief, publishers: list[PublisherScore],
     try:
         out = run_step(lambda: creative.rewrite_one(text, brief, publishers, personas, creatives,
                                                     persona_id, note, steer, catalog=catalog, t=t,
-                                                    runtime=runtime, session=session), t)
+                                                    runtime=runtime, session=session), t, runtime)
         return out, session.meta("agent")
     except Exception as e:  # noqa: BLE001
         log.warning("creative agents failed on regenerate, falling back: %r", e)
@@ -126,7 +126,7 @@ def config_step(brief: Brief, gate: GateResult, publishers: list[PublisherScore]
     desk = planner.PlanDesk(brief, gate, publishers, personas, creatives, budget_usd, steer,
                             catalog=catalog, t=t, session=session)
     try:
-        run_step(lambda: planner.run(desk, runtime), t)
+        run_step(lambda: planner.run(desk, runtime), t, runtime)
         return desk.build(), session.meta("agent")
     except Exception as e:  # noqa: BLE001
         log.warning("media planner failed, falling back: %r", e)

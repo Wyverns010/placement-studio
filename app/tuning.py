@@ -192,7 +192,9 @@ class AgentsTuning(BaseModel):
     max_share_after_steer: float  # most budget one publisher may get after a planner exclusion
     critic_max_rounds: int
     max_cost_usd: dict[str, float]  # strategist | creative | media_planner
-    timeout_s: float
+    timeout_s: float  # per model call
+    max_retries: int  # per model call
+    step_timeout_s: float  # whole step run
     max_notes: int
     note_max_chars: int
     trace_args_chars: int

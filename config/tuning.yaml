@@ -134,7 +134,9 @@ agents:                         # step agents (app/stepagents). Not in the sampl
     strategist: 0.02
     creative: 0.07
     media_planner: 0.01
-  timeout_s: 90                 # whole step; over -> fallback
+  timeout_s: 30                 # per agent model call (OpenAI client), never more than the step's
+  max_retries: 1                # SDK retries per model call, still within step_timeout_s
+  step_timeout_s: 90            # whole step; over -> fallback
   max_notes: 6                  # agent_notes kept per step
   note_max_chars: 200
   trace_args_chars: 80          # agent_trace summaries are cut to these lengths
