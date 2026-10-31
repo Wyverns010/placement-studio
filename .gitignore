@@ -31,3 +31,5 @@ htmlcov/
 *.tsbuildinfo
 *.egg-info/
 build/
+# Claude Code local settings
+.claude/
