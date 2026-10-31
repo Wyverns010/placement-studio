@@ -50,22 +50,19 @@ def test_decide_outcome_signals_and_clamp():
     assert r.signals["a"] == "b"
 
 
-def test_llm_gate_maps_business_brief_to_out_of_scope():
-    r = LLMSelfReportGate(load_tuning()).assess("x", _brief(audience_type="business"))
-    assert r.outcome == "out_of_scope" and r.impl == "llm"
-
-
-def test_llm_gate_maps_not_shoppable_brief_to_out_of_scope():
+@pytest.mark.parametrize("brief_kw,expected", [
+    (dict(audience_type="business"), "out_of_scope"),
     # local in-person services, job ads, charities, political messages: nothing a shopper buys online
-    r = LLMSelfReportGate(load_tuning()).assess("x", _brief(audience_type="not_shoppable"))
-    assert r.outcome == "out_of_scope"
-
-
-def test_llm_gate_no_signal_and_clarify_and_proceed():
-    g = LLMSelfReportGate(load_tuning())
-    assert g.assess("x", _brief(describes_business=False)).outcome == "no_signal"
-    assert g.assess("x", _brief(self_confidence=0.4)).outcome == "clarify"
-    assert g.assess("x", _brief()).outcome == "proceed"
+    (dict(audience_type="not_shoppable"), "out_of_scope"),
+    (dict(describes_business=False), "no_signal"),
+    (dict(self_confidence=0.4), "clarify"),
+    (dict(), "proceed"),
+    (dict(audience_type="unclear", self_confidence=0.4), "clarify"),
+    (dict(audience_type="unclear", self_confidence=0.85), "proceed"),
+])
+def test_llm_gate_maps_brief_self_report(brief_kw, expected):
+    r = LLMSelfReportGate(load_tuning()).assess("x", _brief(**brief_kw))
+    assert r.outcome == expected and r.impl == "llm"
 
 
 def test_get_gate(monkeypatch):
@@ -73,15 +70,3 @@ def test_get_gate(monkeypatch):
     assert isinstance(get_gate(), LLMSelfReportGate)
     with pytest.raises(ValueError):
         get_gate("bogus")
-
-
-def test_llm_gate_unclear_audience_low_confidence_clarifies():
-    g = LLMSelfReportGate(load_tuning())
-    r = g.assess("x", _brief(audience_type="unclear", self_confidence=0.4))
-    assert r.outcome == "clarify"
-
-
-def test_llm_gate_unclear_audience_high_confidence_proceeds():
-    g = LLMSelfReportGate(load_tuning())
-    r = g.assess("x", _brief(audience_type="unclear", self_confidence=0.85))
-    assert r.outcome == "proceed"
