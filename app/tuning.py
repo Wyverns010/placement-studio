@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PublisherWeights(BaseModel):
@@ -73,8 +73,9 @@ class BudgetTuning(BaseModel):
     assumed_cpm_usd: float
     min_share: float
     weak_fit_test_fraction: float
+    weak_fit_test_max_usd: float
     conversions_per_line_item: int
-    round_to_usd: float
+    round_to_usd: float = Field(gt=0)
 
 
 class FrequencyCap(BaseModel):
@@ -93,6 +94,7 @@ class FrequencyTuning(BaseModel):
     by_price_tier: dict[str, FrequencyCap]
     subscription_extra: int
     weak_fit_reduction: int
+    weak_fit_max_per_days: int
     min_impressions: int
 
 

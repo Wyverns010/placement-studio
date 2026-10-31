@@ -99,30 +99,39 @@ def _round_to(x: float, unit: float) -> float:
     return math.floor(x / unit + 0.5) * unit
 
 
+def weak_fit_test_usd(full_usd: float, t: Tuning) -> float:
+    """min(test fraction x full recommendation, test cap), rounded, never below min_usd."""
+    b = t.budget
+    raw = min(full_usd * b.weak_fit_test_fraction, b.weak_fit_test_max_usd)
+    return max(b.min_usd, _round_to(raw, b.round_to_usd))
+
+
 def recommended_budget(brief: Brief, publishers: list[PublisherScore], catalog: Catalog,
                        weak_fit: bool, t: Tuning) -> Recommendation:
     """Enough for each line item to reach `conversions_per_line_item` at the target CPA, capped at
-    its reach; rounded, clamped to the budget bounds; a weak fit gets the test share of that."""
+    its reach; rounded, clamped to the budget bounds; a weak fit gets a capped test share of that."""
     b = t.budget
     cpa = target_cpa(brief, publishers, catalog, t)
     want = cpa * b.conversions_per_line_item
     parts = [min(reach_cap_usd(catalog.publisher(p.publisher_id).monthly_impressions, t), want)
              for p in publishers]
     full = min(b.max_usd, max(b.min_usd, _round_to(sum(parts), b.round_to_usd)))
-    usd = max(b.min_usd, full * b.weak_fit_test_fraction) if weak_fit else full
+    usd = weak_fit_test_usd(full, t) if weak_fit else full
     return Recommendation(usd=float(usd), full_usd=float(full), per_publisher=parts, cpa=cpa)
 
 
 def frequency_cap(brief: Brief, weak_fit: bool, t: Tuning) -> tuple[int, int]:
-    """(impressions, per_days): by price tier, +extra for a subscription, -reduction for a test."""
+    """(impressions, per_days): by price tier, +extra for a subscription; a weak-fit test shows
+    one fewer over a window of at most weak_fit_max_per_days (a short test, front-loaded)."""
     f = t.frequency
     base = f.by_price_tier.get(brief.price_tier) or f.by_price_tier["unknown"]
-    n = base.impressions
+    n, days = base.impressions, base.per_days
     if brief.business_model == "subscription":
         n += f.subscription_extra
     if weak_fit:
         n -= f.weak_fit_reduction
-    return max(f.min_impressions, n), base.per_days
+        days = min(days, f.weak_fit_max_per_days)
+    return max(f.min_impressions, n), days
 
 
 Pacing = Literal["front_loaded", "even", "accelerated"]

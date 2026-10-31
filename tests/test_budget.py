@@ -100,9 +100,31 @@ def test_recommended_clamped_to_budget_bounds(price, n_pubs, want):
 def test_weak_fit_recommends_a_20_percent_test():
     pubs = [ps(PAW, 0.3), ps(RUFF, 0.3), ps(TAIL, 0.3)]
     rec = recommended_budget(brief(price_usd=80), pubs, CAT, True, T)  # $28 x 50 x 3 = 4,200 -> 4,000
-    assert rec.full_usd == 4000 and rec.usd == 800
+    assert rec.full_usd == 4000 and rec.usd == 1000  # 20% = 800, rounded to the nearest $500
     small = recommended_budget(brief(price_usd=60), pubs[:2], CAT, True, T)  # 2,000 x 20% = 400
     assert small.usd == T.budget.min_usd
+
+
+def test_weak_fit_test_capped_and_rounded():
+    assert T.budget.weak_fit_test_max_usd == 3000
+    pubs = [ps(PAW, 0.3), ps(RUFF, 0.3), ps(TAIL, 0.3)]
+    big = recommended_budget(brief(price_usd=1000), pubs, CAT, True, T)  # full >> cap
+    assert big.full_usd > 15000 and big.usd == 3000
+    # 20% of 4,000 = 800 -> rounds to the nearest $500 (1,000), never an odd figure
+    t = T.model_copy(deep=True)
+    t.budget.weak_fit_test_fraction = 0.17  # 0.17 x 4,000 = 680 -> 500
+    odd = recommended_budget(brief(price_usd=80), pubs, CAT, True, t)
+    assert odd.usd % t.budget.round_to_usd == 0 and odd.usd == 500
+
+
+def test_round_to_usd_must_be_positive():
+    import yaml
+    from pydantic import ValidationError
+    from app.tuning import Tuning
+    raw = yaml.safe_load(open("config/tuning.yaml"))
+    raw["budget"]["round_to_usd"] = 0
+    with pytest.raises(ValidationError):
+        Tuning(**raw)
 
 
 @pytest.mark.parametrize("tier,want", [("value", (5, 7)), ("mid", (4, 7)), ("premium", (3, 14)),
@@ -114,7 +136,14 @@ def test_frequency_by_price_tier(tier, want):
 def test_frequency_subscription_adds_one_and_weak_fit_takes_one_off():
     assert frequency_cap(brief(price_tier="mid", business_model="subscription"), False, T) == (5, 7)
     assert frequency_cap(brief(price_tier="mid"), True, T) == (3, 7)
-    assert frequency_cap(brief(price_tier="luxury"), True, T) == (1, 21)
+    assert frequency_cap(brief(price_tier="luxury"), True, T) == (1, 14)
+
+
+def test_weak_fit_frequency_window_capped_for_a_short_test():
+    assert T.frequency.weak_fit_max_per_days == 14
+    assert frequency_cap(brief(price_tier="premium"), True, T) == (2, 14)
+    assert frequency_cap(brief(price_tier="value"), True, T) == (4, 7)  # shorter windows unchanged
+    assert frequency_cap(brief(price_tier="luxury"), False, T) == (2, 21)
 
 
 def test_frequency_never_below_one():
