@@ -7,7 +7,8 @@ client received from the stage before, re-validated here with the Pydantic model
   POST /api/config                               stage 3 (config, code only)         free
 Stage 1 results carry a stage_token (app/stagesign.py); stages 2 and 3 must send it back with
 the exact stage-1 objects or get 403. Cached samples (stage 1 and their creatives) skip the LLM
-and the rate limit.
+and the rate limit. Each step runs its agent (app/stepagents) when there is an optional `steer`
+(or per tuning `agents.run_without_steer`); responses add mode, agent_trace and agent_notes.
 """
 from __future__ import annotations
 
@@ -30,10 +31,12 @@ from app import samples, stagesign
 from app.catalog import Catalog, load_catalog
 from app.gate import ConfidenceGate, get_gate
 from app.llm import LLMError, LLMProvider, get_provider
-from app.models import (Brief, CampaignConfig, CampaignResult, Creative, GateResult, PersonaScore,
-                        PublisherScore, StageEvent)
-from app.pipeline import (MSG_LLM, MSG_OTHER, PipelineError, collect, make_config, make_creatives,
-                          recommended_of, regenerate, result_events, run_stage1)
+from app.models import (Brief, CampaignConfig, CampaignResult, Creative, GateResult, Mode,
+                        PersonaScore, PublisherScore, StageEvent, TraceStep)
+from app.pipeline import (MSG_LLM, MSG_OTHER, PipelineError, collect, recommended_of,
+                          result_events)
+from app.stepagents.runtime import AgentRuntime, openai_runtime
+from app.stepagents.steps import config_step, creatives_step, regenerate_step, stage1_events
 from app.ratelimit import RateLimiter
 from app.tuning import Tuning, load_tuning
 
@@ -116,10 +119,17 @@ def get_gate_dep(t: Tuning = Depends(get_tuning)) -> ConfidenceGate:
     return get_gate(tuning=t)
 
 
+@lru_cache(maxsize=1)
+def get_agent_runtime() -> AgentRuntime | None:
+    """The step agents' runtime; None (plain code, mode "code") when disabled or keyless."""
+    return openai_runtime(get_tuning())
+
+
 class CampaignRequest(BaseModel):
     text: str
     budget_usd: float | None = None  # optional; only echoed back for stage 3
     answers: dict[str, str] | None = None
+    steer: str | None = None  # "Tell the agent…" (data, at most agents.steer_max_chars)
 
 
 class CreativesRequest(BaseModel):
@@ -130,6 +140,7 @@ class CreativesRequest(BaseModel):
     publishers: list[PublisherScore]
     personas: list[PersonaScore]
     stage_token: str
+    steer: str | None = None  # step-level note for the step's agent(s); data
 
 
 class RegenerateRequest(CreativesRequest):
@@ -144,15 +155,22 @@ class ConfigRequest(CreativesRequest):
     budget_usd: float | None = None
 
 
-class CreativesResponse(BaseModel):
+class AgentMeta(BaseModel):
+    """How a step result was made: agent, fallback (the agent failed; code ran), cached, code."""
+    mode: Mode = "code"
+    agent_trace: list[TraceStep] = []
+    agent_notes: list[str] = []
+
+
+class CreativesResponse(AgentMeta):
     creatives: list[Creative]
 
 
-class CreativeResponse(BaseModel):
+class CreativeResponse(AgentMeta):
     creative: Creative
 
 
-class ConfigResponse(BaseModel):
+class ConfigResponse(AgentMeta):
     config: CampaignConfig
 
 
@@ -193,8 +211,25 @@ def _prepare(text: str, budget: float | None, answers: dict[str, str] | None,
     return text, budget, bool(answers)
 
 
-def _cached(text: str, budget: float | None, has_answers: bool) -> CampaignResult | None:
-    return None if has_answers else samples.cached_stage1(text, budget)
+def _cached(text: str, budget: float | None, has_answers: bool,
+            steer: str | None = None) -> CampaignResult | None:
+    """A precomputed sample, only for its exact text with no answers and no steer."""
+    if has_answers or steer:
+        return None
+    hit = samples.cached_stage1(text, budget)
+    return hit.model_copy(update={"mode": "cached", "agent_trace": [], "agent_notes": []}) if hit else None
+
+
+STEER_TOO_LONG = "Keep the note to {n} characters."
+
+
+def _steer(steer: str | None, t: Tuning) -> str | None:
+    """The trimmed steer (None if blank); 422 if over agents.steer_max_chars."""
+    _check_encodable(steer)
+    steer = (steer or "").strip() or None
+    if steer and len(steer) > t.agents.steer_max_chars:
+        raise HTTPException(422, STEER_TOO_LONG.format(n=t.agents.steer_max_chars))
+    return steer
 
 
 def _max_input_chars(t: Tuning) -> int:
@@ -306,26 +341,30 @@ def list_samples():
 async def campaign(req: CampaignRequest, request: Request,
                    llm: LLMProvider = Depends(get_llm), gate: ConfidenceGate = Depends(get_gate_dep),
                    catalog: Catalog = Depends(get_catalog), t: Tuning = Depends(get_tuning),
-                   limiter: RateLimiter = Depends(get_limiter)):
+                   limiter: RateLimiter = Depends(get_limiter),
+                   runtime: AgentRuntime | None = Depends(get_agent_runtime)):
     text, budget, has_answers = _prepare(req.text, req.budget_usd, req.answers, t)
-    hit = _cached(text, budget, has_answers)
+    steer = _steer(req.steer, t)
+    hit = _cached(text, budget, has_answers, steer)
     if hit:
         return _signed(hit)
     _check_rate(request, limiter, t.ratelimit.cost_stage1)
     try:
         return _signed(await run_in_threadpool(
-            lambda: collect(run_stage1(text, budget, llm=llm, gate=gate, catalog=catalog, t=t))))
+            lambda: collect(stage1_events(text, budget, steer, llm=llm, gate=gate, catalog=catalog,
+                                          t=t, runtime=runtime))))
     except PipelineError as e:
         return JSONResponse({"detail": str(e)}, status_code=502)
 
 
 @app.get("/api/campaign/stream")
 async def campaign_stream(request: Request, text: str = "", budget_usd: float | None = None,
-                          answers: str | None = Query(None),
+                          answers: str | None = Query(None), steer: str | None = Query(None),
                           llm: LLMProvider = Depends(get_llm),
                           gate: ConfidenceGate = Depends(get_gate_dep),
                           catalog: Catalog = Depends(get_catalog), t: Tuning = Depends(get_tuning),
-                          limiter: RateLimiter = Depends(get_limiter)):
+                          limiter: RateLimiter = Depends(get_limiter),
+                          runtime: AgentRuntime | None = Depends(get_agent_runtime)):
     parsed: dict[str, str] | None = None
     if answers:
         try:
@@ -336,7 +375,8 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
         except ValueError:
             raise HTTPException(422, "answers must be a JSON object.")
     full_text, budget, has_answers = _prepare(text, budget_usd, parsed, t)
-    hit = _cached(full_text, budget, has_answers)
+    steer = _steer(steer, t)
+    hit = _cached(full_text, budget, has_answers, steer)
     if not hit:
         _check_rate(request, limiter, t.ratelimit.cost_stage1)
 
@@ -352,7 +392,8 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
                     await asyncio.sleep(t.api.replay_delay_s)
                 yield encode(e)
             return
-        it = run_stage1(full_text, budget, llm=llm, gate=gate, catalog=catalog, t=t)
+        it = stage1_events(full_text, budget, steer, llm=llm, gate=gate, catalog=catalog, t=t,
+                           runtime=runtime)
         async for e in iterate_in_threadpool(it):
             yield encode(e)
 
@@ -362,17 +403,20 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
 @app.post("/api/creatives", response_model=CreativesResponse)
 async def creatives(req: CreativesRequest, request: Request,
                     llm: LLMProvider = Depends(get_llm), catalog: Catalog = Depends(get_catalog),
-                    t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter)):
+                    t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter),
+                    runtime: AgentRuntime | None = Depends(get_agent_runtime)):
     text = _validate_stage(req, catalog, t)
-    hit = samples.cached_creatives(text, req.publishers, req.personas)
+    steer = _steer(req.steer, t)
+    hit = None if steer else samples.cached_creatives(text, req.publishers, req.personas)
     if hit:
-        return {"creatives": hit}
+        return {"creatives": hit, "mode": "cached"}
     _check_rate(request, limiter, t.ratelimit.cost_creatives)
-    out = await _live(lambda: make_creatives(text, req.brief, req.publishers, req.personas,
-                                             llm=llm, catalog=catalog, t=t))
+    out, meta = await _live(lambda: creatives_step(text, req.brief, req.publishers, req.personas,
+                                                   steer, llm=llm, catalog=catalog, t=t,
+                                                   runtime=runtime))
     if not out:
         raise HTTPException(502, NO_ADS_MSG)
-    return {"creatives": out}
+    return {"creatives": out, **meta}
 
 
 @app.post("/api/creatives/regenerate", response_model=CreativeResponse)
@@ -380,27 +424,35 @@ async def regenerate_creative(req: RegenerateRequest, request: Request,
                               llm: LLMProvider = Depends(get_llm),
                               catalog: Catalog = Depends(get_catalog),
                               t: Tuning = Depends(get_tuning),
-                              limiter: RateLimiter = Depends(get_limiter)):
+                              limiter: RateLimiter = Depends(get_limiter),
+                              runtime: AgentRuntime | None = Depends(get_agent_runtime)):
     text = _validate_stage(req, catalog, t)
+    steer = _steer(req.steer, t)
     if not any(c.persona_id == req.persona_id for c in req.creatives):
         raise HTTPException(422, "persona_id has no creative to regenerate.")
     note = (req.note or "").strip() or None
     if note and len(note) > t.creative.note_max_chars:
         raise HTTPException(422, f"Keep the note to {t.creative.note_max_chars} characters.")
     _check_rate(request, limiter, t.ratelimit.cost_regenerate)
-    out = await _live(lambda: regenerate(text, req.brief, req.publishers, req.personas,
-                                         req.creatives, req.persona_id, note,
-                                         llm=llm, catalog=catalog, t=t))
-    return {"creative": out}
+    out, meta = await _live(lambda: regenerate_step(
+        text, req.brief, req.publishers, req.personas, req.creatives, req.persona_id, note, steer,
+        llm=llm, catalog=catalog, t=t, runtime=runtime))
+    return {"creative": out, **meta}
 
 
 @app.post("/api/config", response_model=ConfigResponse)
-def config(req: ConfigRequest, catalog: Catalog = Depends(get_catalog),
-           t: Tuning = Depends(get_tuning)):
+def config(req: ConfigRequest, request: Request, catalog: Catalog = Depends(get_catalog),
+           t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter),
+           runtime: AgentRuntime | None = Depends(get_agent_runtime)):
+    """Code only and free; with a steer the media planner agent runs first (rate limited)."""
     _validate_stage(req, catalog, t)
     _check_budget(req.budget_usd, t)
-    return {"config": make_config(req.brief, req.gate, req.publishers, req.personas, req.creatives,
-                                  req.budget_usd, catalog=catalog, t=t)}
+    steer = _steer(req.steer, t)
+    if steer and runtime is not None:
+        _check_rate(request, limiter, t.agents.ratelimit_cost_config)
+    cfg, meta = config_step(req.brief, req.gate, req.publishers, req.personas, req.creatives,
+                            req.budget_usd, steer, catalog=catalog, t=t, runtime=runtime)
+    return {"config": cfg, **meta}
 
 
 DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
