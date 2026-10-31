@@ -34,6 +34,9 @@ def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Fact
     adj = sorted((p.tags & set(b.adjacent_categories)) - attrs)
     if adj:
         return Factor(name="category", score=cs.adjacent, note=f"Adjacent: {_label(adj[0])}"), "adjacent"
+    via = [term for term in b.adjacent_categories if t.publisher.affinity_parents.get(term) == p.category]
+    if via:
+        return Factor(name="category", score=cs.adjacent, note=f"Adjacent via {_label(via[0])}"), "adjacent"
     shared = sorted(p.tags & (set(b.categories) | set(b.adjacent_categories)) & attrs)
     if shared:
         return Factor(name="category", score=cs.attribute, note=f"Shared attribute: {_label(shared[0])}"), "attribute"

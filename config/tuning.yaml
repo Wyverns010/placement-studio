@@ -11,7 +11,8 @@ publisher:
   aov_gate_floor: 0.4           # when price known: fit *= floor + (1-floor)*aov_factor
   unknown_factor: 0.6           # factor value when the brief lacks the needed field
   # persona-affinity terms that are no publisher's category/subcategory -> the publisher category
-  # they belong to; a brief category matching only this way scores same_category. Ambiguous terms
+  # they belong to; a brief category matching only this way scores same_category, an adjacent one
+  # scores adjacent. Ambiguous terms
   # (fitness, wellness, recovery, travel, small_batch, family/kids products, subscription_*) stay out.
   affinity_parents:
     home_decor: home
@@ -75,7 +76,7 @@ gate:
 creative:
   headline_max_chars: 60
   body_max_chars: 160
-  cta_max_chars: 24
+  cta_max_chars: 30
   headline_similarity: 0.8      # token-set Jaccard at or above this counts as a duplicate headline
   claim_words: [clinically, proven, cure, guaranteed, "#1", doctor, vet-recommended, award]
   # generic copy (headline/body): sent back once unless the advertiser wrote the phrase

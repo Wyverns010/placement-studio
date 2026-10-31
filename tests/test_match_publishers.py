@@ -201,3 +201,14 @@ def test_affinity_map_does_not_change_briefs_with_publisher_terms():
               brief(product="dog food", categories=["pet_food"], adjacent_categories=["pet_health"]),
               _candles(categories=["home", "gifting"])):
         assert score_publishers(b, CAT, T) == score_publishers(b, CAT, t)
+
+
+def test_adjacent_interest_terms_map_at_adjacent_level():
+    b = _candles(categories=[], adjacent_categories=["home_goods", "home_decor"])
+    scores = {s.name: s for s in score_publishers(b, CAT, T)}
+    for name in ("Northbed", "Hearthstone Goods"):
+        s = scores[name]
+        assert s.recommended and s.fit >= T.publisher.cutoff, (name, s.fit)
+        cat = next(f for f in s.factors if f.name == "category")
+        assert cat.score == T.publisher.category_scores.adjacent and cat.note == "Adjacent via home goods"
+    assert not is_weak_fit(list(scores.values()), T)

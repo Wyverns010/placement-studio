@@ -81,7 +81,7 @@ def test_check_facts_flags_invented_number():
     pytest.param(dict(body="Just $1200, 20% off"), "Costs $1,200 and 20% off", 0, id="commas-percent-dollar"),
     pytest.param(dict(body="Save 30%"), "Costs $1,200 and 20% off", 1, id="new-percent"),
     pytest.param(dict(body="Only $99"), "Costs $1,200 and 20% off", 1, id="new-price"),
-    pytest.param(dict(headline="h" * 61, body="b" * 161, cta="c" * 25), "x", 3, id="length-limits"),
+    pytest.param(dict(headline="h" * 61, body="b" * 161, cta="c" * 31), "x", 3, id="length-limits"),
     pytest.param(dict(body="Secure checkout, manicure kits"), "Nail kits", 0, id="cure-inside-word"),
     pytest.param(dict(body="Top #10 pick"), "Nail kits, 10 shades", 0, id="hash-number"),
     pytest.param(dict(body="Clinically proven"), "Nail kits", 2, id="claim-words-capitalised"),
