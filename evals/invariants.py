@@ -1,7 +1,7 @@
 """Structural invariants every CampaignResult must satisfy, whatever the outcome."""
 from __future__ import annotations
 
-from app.create import check_facts, headlines_similar
+from app.copycheck import check_facts, headlines_similar
 from app.models import CampaignConfig, CampaignResult
 from app.tuning import Tuning
 

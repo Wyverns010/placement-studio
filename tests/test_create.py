@@ -12,10 +12,10 @@ from app.create import (
     NO_SIGNAL_QUESTIONS,
     ClarifyBatch,
     CreativeBatch,
-    check_facts,
     clarify_questions,
     write_creatives,
 )
+from app.copycheck import check_facts
 from app.llm import FakeProvider, LLMError
 from app.models import ClarifyQuestion, Creative, PersonaScore, PublisherScore
 from tests.conftest import CAT, T, brief
@@ -331,7 +331,7 @@ def test_creative_prompt_asks_for_distinct_non_product_headlines():
 
 
 def test_near_duplicate_headlines_flagged_and_distinct_ones_not():
-    from app.create import headline_similarity, headlines_similar
+    from app.copycheck import headline_similarity, headlines_similar
     a, b = "A thoughtful gift, hand-poured in Vermont", "A thoughtful gift, poured by hand in Vermont"
     assert headline_similarity(a, b) >= T.creative.headline_similarity
     assert headlines_similar(a, b, T.creative.headline_similarity)
@@ -340,7 +340,7 @@ def test_near_duplicate_headlines_flagged_and_distinct_ones_not():
 
 
 def test_near_duplicate_pair_gets_violation():
-    from app.create import headline_problems
+    from app.copycheck import headline_problems
     cs = [cr(headline="A thoughtful gift, hand-poured in Vermont"),
           cr(headline="A thoughtful gift, poured by hand in Vermont")]
     cs[1] = cs[1].model_copy(update={"persona_id": "persona_001"})
@@ -365,7 +365,8 @@ def test_retry_lists_other_headlines_but_not_its_own():
 
 
 def test_other_headlines_are_flattened_and_unquoted():
-    from app.create import Problem, _call_one
+    from app.copycheck import Problem
+    from app.create import _call_one
     llm = FakeProvider({"CreativeBatch": per_persona(lambda pid, n: item(pid))})
     persona = CAT.personas[0]
     _call_one("Dog treats", brief(), (persona, pub("pub_007")),
@@ -392,14 +393,15 @@ def test_every_feedback_key_requested_by_code_exists_in_yaml():
     from pathlib import Path
     import yaml
     keys = yaml.safe_load((Path(__file__).resolve().parent.parent / "prompts/creative_feedback.yaml").read_text())
-    src = (Path(__file__).resolve().parent.parent / "app/create.py").read_text()
+    root = Path(__file__).resolve().parent.parent
+    src = (root / "app/create.py").read_text() + (root / "app/copycheck.py").read_text()
     used = set(re.findall(r'feedback\(\s*"(\w+)"', src))
     assert used and used <= set(keys), used - set(keys)
 
 
 # ---- copywriting playbook and the generic-copy check ----
 
-from app.create import generic_problems  # noqa: E402
+from app.copycheck import generic_problems  # noqa: E402
 
 
 def kinds(c, text):
@@ -567,7 +569,7 @@ def test_rewrite_caps_echoed_current_ad_and_other_headlines():
 
 # ---- parroting: copying the advertiser's own sentences ----
 
-from app.create import parroting_problems  # noqa: E402
+from app.copycheck import parroting_problems  # noqa: E402
 
 PROTEIN = "We sell protein bars that don't taste like cardboard. That's the whole pitch."
 CANDLES = "Small-batch candles poured by hand in Vermont. Mostly bought as gifts."

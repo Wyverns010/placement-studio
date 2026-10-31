@@ -6,6 +6,7 @@ raises ``KeyError``. Literal braces in prompt text (e.g. JSON examples) must be
 doubled: ``{{`` and ``}}``.
 """
 import re
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -42,5 +43,10 @@ def wrap_user_note(text: str) -> str:
 
 def feedback(key: str, /, *, prompts_dir: Path = _DEFAULT_DIR, **slots) -> str:
     """A feedback template from prompts/creative_feedback.yaml, with {slots} filled."""
-    data = yaml.safe_load((Path(prompts_dir) / "creative_feedback.yaml").read_text(encoding="utf-8"))
-    return data[key].format_map(slots)
+    return _feedback_templates(Path(prompts_dir))[key].format_map(slots)
+
+
+@lru_cache(maxsize=8)
+def _feedback_templates(prompts_dir: Path) -> dict[str, str]:
+    """creative_feedback.yaml, parsed once per directory (it is read on every check message)."""
+    return yaml.safe_load((prompts_dir / "creative_feedback.yaml").read_text(encoding="utf-8"))
