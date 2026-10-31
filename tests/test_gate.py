@@ -2,20 +2,8 @@ import pytest
 
 from app.gate import decide_outcome, get_gate
 from app.gate.llm_gate import LLMSelfReportGate
-from app.models import Brief
 from app.tuning import load_tuning
-
-
-def _brief(**kw) -> Brief:
-    base = dict(
-        describes_business=True, product="x", audience_type="consumer",
-        categories=[], adjacent_categories=[], conflicts=[], price_usd=None,
-        price_tier="unknown", business_model="unknown", age_min=None,
-        age_max=None, gender_skew="unknown", facts=[], unknowns=[],
-        self_confidence=0.9,
-    )
-    base.update(kw)
-    return Brief(**base)
+from tests.conftest import brief
 
 
 T = load_tuning().gate
@@ -61,7 +49,7 @@ def test_decide_outcome_signals_and_clamp():
     (dict(audience_type="unclear", self_confidence=0.85), "proceed"),
 ])
 def test_llm_gate_maps_brief_self_report(brief_kw, expected):
-    r = LLMSelfReportGate(load_tuning()).assess("x", _brief(**brief_kw))
+    r = LLMSelfReportGate(load_tuning()).assess("x", brief(**brief_kw))
     assert r.outcome == expected and r.impl == "llm"
 
 

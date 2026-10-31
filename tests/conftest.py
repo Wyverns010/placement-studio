@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from app.catalog import load_catalog
 from app.models import Brief
 from app.tuning import load_tuning
@@ -31,13 +29,3 @@ def brief(**overrides) -> Brief:
     )
     base.update(overrides)
     return Brief(**base)
-
-
-@pytest.fixture
-def catalog():
-    return CAT
-
-
-@pytest.fixture
-def tuning():
-    return T
