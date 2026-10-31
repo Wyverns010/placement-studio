@@ -476,7 +476,7 @@ def test_prompt_includes_playbook_and_publisher_context():
     write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
     system = llm.calls[0]["system"]
     p = CAT.publisher("pub_007")
-    assert "Copywriting playbook" in system and "three angles" in system
+    assert "Copywriting playbook" in system and "emotional" in system and "practical" in system
     for phrase in T.creative.banned_phrases:
         assert phrase in system
     assert p.name in system and p.notes in system and f"${p.avg_order_value_usd:,.0f}" in system
@@ -563,3 +563,53 @@ def test_rewrite_caps_echoed_current_ad_and_other_headlines():
     assert "H" * c.headline_max_chars in first and "H" * (c.headline_max_chars + 1) not in first
     assert "B" * (c.body_max_chars + 1) not in first and "C" * (c.cta_max_chars + 1) not in first
     assert "O" * (c.headline_max_chars + 1) not in retry and "O" * c.headline_max_chars in retry
+
+
+# ---- parroting: copying the advertiser's own sentences ----
+
+from app.create import parroting_problems  # noqa: E402
+
+PROTEIN = "We sell protein bars that don't taste like cardboard. That's the whole pitch."
+CANDLES = "Small-batch candles poured by hand in Vermont. Mostly bought as gifts."
+
+
+@pytest.mark.parametrize("copy,text,n", [
+    pytest.param(dict(headline="We sell protein bars that don't taste like cardboard"), PROTEIN, 1, id="live-protein"),
+    pytest.param(dict(body="That's the whole pitch."), PROTEIN, 1, id="live-whole-sentence"),
+    pytest.param(dict(body="Mostly bought as gifts."), CANDLES, 1, id="live-gifts-sentence"),
+    pytest.param(dict(body="Candles poured by hand in Vermont, for slow evenings"), CANDLES, 1, id="six-word-run"),
+    pytest.param(dict(body="Hand-poured in Vermont, a gift that feels personal"), CANDLES, 0, id="restated"),
+    pytest.param(dict(body="Vet-formulated, grain-free bowls he finishes"), "Vet-formulated, grain-free senior dog food", 0,
+                 id="facts-reused"),
+    pytest.param(dict(body="Protein bars that taste like a treat"), PROTEIN, 0, id="short-phrase"),
+    pytest.param(dict(cta="We sell protein bars that don't taste"), PROTEIN, 0, id="cta-not-checked"),
+])
+def test_parroting_table(copy, text, n):
+    assert len(parroting_problems(cr(**copy), text, "The Gym Regular", T)) == n
+
+
+def test_parrot_threshold_in_tuning_and_message_names_persona():
+    assert T.creative.parrot_ngram == 6
+    [p] = parroting_problems(cr(body="That's the whole pitch."), PROTEIN, "The Gym Regular", T)
+    assert p.kind == "parroting"
+    assert "Rewrite in your own words as a benefit for The Gym Regular" in p.message
+    assert "don't copy the advertiser's sentences" in p.message
+
+
+def test_parroting_retried_once_with_reason():
+    llm = FakeProvider({"CreativeBatch": per_persona(
+        lambda pid, n: item(pid, body="We sell protein bars that don't taste like cardboard." if n == 1
+                            else "Real snack, no chalky aftertaste"))})
+    out = write_creatives(PROTEIN, brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
+    p4 = next(p for p in CAT.personas if p.id == "persona_004")
+    assert len(llm.calls) == 2
+    assert f"Rewrite in your own words as a benefit for {p4.name}" in llm.calls[1]["user"]
+    assert out[0].fact_violations == []
+
+
+def test_prompt_forbids_copying_and_orders_motivation_fact_cta():
+    llm = FakeProvider({"CreativeBatch": batch(item("persona_004"))})
+    write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
+    system = llm.calls[0]["system"]
+    assert "verbatim" in system and "own words" in system
+    assert "motivation" in system and "proof" in system and "call to action" in system

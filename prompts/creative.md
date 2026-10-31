@@ -9,8 +9,8 @@ When rewriting, the user message also contains the current ad inside <current_ad
 Product: {product}
 {facts}
 
-# Hard rule: facts only
-Use only the facts listed above and what the advertiser text literally says. Do not invent or imply any number, price, discount, percentage, statistic, award, certification, ranking, guarantee, endorsement or health claim that is not written there. Do not use words such as "clinically", "proven", "cure", "guaranteed", "#1", "doctor", "award" or "vet-recommended" unless that exact claim appears in the advertiser text. If the facts are thin, write something truthful and modest instead of padding it with claims.
+# Hard rule: facts only, in your own words
+Use only the facts listed above and what the advertiser text literally says, restated in your own words: never copy the advertiser's sentences or any phrase longer than about four words verbatim. Do not invent or imply any number, price, discount, percentage, statistic, award, certification, ranking, guarantee, endorsement or health claim that is not written there. Do not use words such as "clinically", "proven", "cure", "guaranteed", "#1", "doctor", "award" or "vet-recommended" unless that exact claim appears in the advertiser text. If the facts are thin, write something truthful and modest instead of padding it with claims.
 
 # Length limits (characters, hard maximums)
 - headline: {headline_max} characters
@@ -30,6 +30,7 @@ Use only the facts listed above and what the advertiser text literally says. Do 
 {playbook}
 
 # Also
+- Order: this persona's motivation first, then one fact as proof, then a specific call to action for this persona on this publisher.
 - Take a different angle from the other personas listed above: do not lean on their top messaging preference, and use your own opening and call to action rather than phrasing that would fit their ad.
 - The headline must not be just the product name; give each persona its own angle.
 - why: one line, at most 15 words, naming the persona's real affinity and messaging-preference terms (use the wording from the persona lists above) that this ad leans on. Do not describe the ad; explain the match.

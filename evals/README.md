@@ -47,7 +47,7 @@ budget; the cases' legacy `budget_usd` is ignored), so invariants cover the full
 truncates input to `input.max_chars` like the API, and reports the creative retry rate (personas
 re-asked after a facts, length or generic-copy violation) and latency p50/p90.
 
-Note: the default creative model is now gpt-5.4-mini (was gpt-5.5); eval accuracy depends on the Understand model, which is unchanged.
+Note: the default creative model is gpt-5.5 again (it was gpt-5.4-mini for a while); eval accuracy depends on the Understand model, which is unchanged.
 
 ## Latest numbers (2026-10-31, LLM gate, gpt-5.4-mini for Understand/clarify, gpt-5.5 for creatives, effort low)
 

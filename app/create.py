@@ -44,7 +44,7 @@ HEADLINE_KINDS = {"headline_duplicate", "headline_product", "headline_unchanged"
 
 class Problem(NamedTuple):
     """One thing code rejected in an ad; `kind` drives retry behaviour, `message` is the text."""
-    kind: str  # fact_number | fact_claim | length | generic_copy | headline_duplicate |
+    kind: str  # fact_number | fact_claim | length | generic_copy | parroting | headline_duplicate |
     # headline_product | headline_unchanged | missing
     message: str
 
@@ -160,9 +160,40 @@ def generic_problems(creative: Creative, input_text: str, t: Tuning) -> list[Pro
     return out
 
 
-def ad_problems(creative: Creative, input_text: str, t: Tuning) -> list[Problem]:
-    """Everything code checks on one ad: facts, lengths and generic copy."""
-    return fact_problems(creative, input_text, t) + generic_problems(creative, input_text, t)
+def _tokens(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def _contains(seq: list[str], run: list[str]) -> bool:
+    n = len(run)
+    return any(seq[i:i + n] == run for i in range(len(seq) - n + 1))
+
+
+def parroting_problems(creative: Creative, input_text: str, persona_name: str,
+                       t: Tuning) -> list[Problem]:
+    """At most one problem when the headline or body copies the advertiser: a run of
+    creative.parrot_ngram words, or a whole sentence of at least parrot_sentence_min_words words
+    (punctuation- and case-insensitive). Reusing single facts or short phrases is fine."""
+    n, min_words = t.creative.parrot_ngram, t.creative.parrot_sentence_min_words
+    src = _tokens(input_text)
+    grams = {tuple(src[i:i + n]) for i in range(len(src) - n + 1)}
+    sentences = [w for w in (_tokens(x) for x in re.split(r"(?<=[.!?])\s+|\n+", input_text))
+                 if len(w) >= min_words]
+    for field in (creative.headline, creative.body):
+        words = _tokens(field)
+        hit = next((list(g) for i in range(len(words) - n + 1)
+                    if (g := tuple(words[i:i + n])) in grams), None)
+        hit = hit or next((sw for sw in sentences if _contains(words, sw)), None)
+        if hit:
+            return [Problem("parroting", feedback("parroting", persona=persona_name,
+                                                  phrase=" ".join(hit)))]
+    return []
+
+
+def ad_problems(creative: Creative, input_text: str, persona_name: str, t: Tuning) -> list[Problem]:
+    """Everything code checks on one ad: facts, lengths, generic copy and parroting."""
+    return (fact_problems(creative, input_text, t) + generic_problems(creative, input_text, t)
+            + parroting_problems(creative, input_text, persona_name, t))
 
 
 def normalise_headline(text: str) -> str:
@@ -351,7 +382,7 @@ def write_creatives(
     def check_all() -> None:
         """Fact/length problems per creative, then headline problems across the whole set."""
         probs.clear()
-        probs.update({pid: ad_problems(c, text, t) for pid, c in result.items()})
+        probs.update({pid: ad_problems(c, text, names[pid], t) for pid, c in result.items()})
         for pid, vs in headline_problems(ordered(), brief.product, names, t.creative.headline_similarity).items():
             probs[pid] += vs
         for pid, c in result.items():
@@ -404,7 +435,7 @@ def rewrite_creative(
                                           "why": it.why, "fact_violations": []})
 
     def problems(c: Creative) -> list[Problem]:
-        out = ad_problems(c, text, t)
+        out = ad_problems(c, text, persona.name, t)
         if headlines_similar(c.headline, current.headline, sim):
             out.append(Problem("headline_unchanged", feedback("headline_unchanged")))
         if normalise_headline(c.headline) == normalise_headline(brief.product or ""):

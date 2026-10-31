@@ -122,6 +122,8 @@ class CreativeTuning(BaseModel):
     claim_words: list[str]
     banned_phrases: list[str]
     note_max_chars: int
+    parrot_ngram: int
+    parrot_sentence_min_words: int
     age_range_bounds: tuple[int, int]
     audience_words: list[str]
     headline_similarity: float

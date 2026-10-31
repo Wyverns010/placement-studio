@@ -12,6 +12,7 @@ length: "{field} is {n} characters; the limit is {limit}"
 generic_age: "'{phrase}' restates the targeting (an age range); speak to what this persona wants instead"
 generic_audience: "'{phrase}' restates the targeting; the persona knows who they are, so speak to what they want"
 generic_price_band: "'{phrase}' is a price band, not a benefit; use a concrete detail from the facts instead"
+parroting: "Rewrite in your own words as a benefit for {persona}; don't copy the advertiser's sentences (copied: \"{phrase}\")"
 generic_phrase: "'{phrase}' is filler; replace it with a concrete detail from the facts"
 
 # Regenerate: the ad being replaced and the advertiser's optional note (wrapped in <user_note>)

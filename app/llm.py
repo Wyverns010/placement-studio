@@ -20,7 +20,7 @@ def model_fast() -> str:
 
 
 def model_creative() -> str:
-    return os.getenv("OPENAI_MODEL_CREATIVE") or "gpt-5.4-mini"
+    return os.getenv("OPENAI_MODEL_CREATIVE") or "gpt-5.5"
 
 
 def reasoning_effort() -> str:
