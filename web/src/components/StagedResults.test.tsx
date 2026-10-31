@@ -222,7 +222,8 @@ describe('Staged results', () => {
     expect(a).toHaveAttribute('aria-busy', 'true')
     expect(within(a).getByRole('button', { name: /rewriting/i })).toBeDisabled()
     expect(b).not.toHaveAttribute('aria-busy', 'true')
-    expect(within(b).getByRole('button', { name: /regenerate/i })).toBeEnabled()
+    // one rewrite at a time, so the snapshot of the other ads it sends stays consistent
+    expect(within(b).getByRole('button', { name: /regenerate/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /approve creatives/i })).toBeDisabled()
     reject(new ApiError(502, "The AI service didn't respond"))
     expect(await within(a).findByRole('alert')).toHaveTextContent("didn't respond")
@@ -230,6 +231,32 @@ describe('Staged results', () => {
     expect(a).not.toHaveAttribute('aria-busy', 'true')
     expect(within(a).getByText('Food for old friends')).toBeInTheDocument()
     expect(within(b).queryByRole('alert')).not.toBeInTheDocument()
+    expect(within(b).getByRole('button', { name: /regenerate/i })).toBeEnabled()
+  })
+
+  it('approving with flagged ads still builds the config and lists the flags in one line', async () => {
+    const user = userEvent.setup()
+    const flagged = [{ ...creatives[0], fact_violations: ['the number "40"', 'the claim word "proven"'] }, creatives[1]]
+    vi.mocked(createCreatives).mockResolvedValue(flagged)
+    await toStep3(user)
+    expect(buildConfig).toHaveBeenCalled()
+    const warn = screen.getByTestId('approve-warning')
+    expect(warn).toHaveTextContent('Approved with unresolved checks')
+    expect(warn).toHaveTextContent('Pet Parent: the number "40"; the claim word "proven"')
+    expect(warn).not.toHaveTextContent('Wellness Optimizer')
+  })
+
+  it('approving clean ads shows no warning', async () => {
+    const user = userEvent.setup()
+    await toStep3(user)
+    expect(screen.queryByTestId('approve-warning')).not.toBeInTheDocument()
+  })
+
+  it('the creatives subtitle does not claim every publisher has its own ad', async () => {
+    const user = userEvent.setup()
+    await toStep2(user)
+    expect(screen.queryByText(/written for the publisher it runs on/)).not.toBeInTheDocument()
+    expect(screen.getByText(/reuse/)).toBeInTheDocument()
   })
 
   it('approve builds the config with the current creatives at the recommended budget', async () => {

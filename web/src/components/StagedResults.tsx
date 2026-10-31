@@ -43,6 +43,8 @@ export default function StagedResults({
   const [cardError, setCardError] = useState<Record<string, StageErr | undefined>>({})
   const [configBusy, setConfigBusy] = useState(false)
   const [configError, setConfigError] = useState<StageErr | null>(null)
+  // Set on Approve when some ads still carry check flags: approval goes ahead, but says so.
+  const [approveWarning, setApproveWarning] = useState<string | null>(null)
   // The budget stage 3 is built at: the landing value at first, then whatever the user last
   // applied on step 3 (kept when the config is rebuilt after a regenerate).
   const [budgetChoice, setBudgetChoice] = useState<number | null>(result.budget_usd ?? null)
@@ -137,6 +139,7 @@ export default function StagedResults({
       cancelConfig()
       setConfig(null)
       setConfigError(null)
+      setApproveWarning(null)
       // Step 3 is locked while a card is busy, so the user is on step 1 or 2: stay there.
       setStep((s) => (s === 'config' ? 'creatives' : s))
       return true
@@ -159,6 +162,7 @@ export default function StagedResults({
       const out = await buildConfig({ ...stage, creatives }, budgetChoice, t.signal)
       if (!t.current()) return
       setConfig(out)
+      setApproveWarning(flagWarning(creatives, result.personas))
       setConfigError(null)
       setStep('config')
     } catch (err) {
@@ -258,7 +262,7 @@ export default function StagedResults({
             headingRef={heading}
             className={headingCls}
             title="Review the ads"
-            sub="One ad per persona, written for the publisher it runs on. Regenerate any you'd change — add a note to steer it."
+            sub="One ad per persona, each written for one publisher; publishers without their own ad reuse one (the config says which). Regenerate any you'd change — add a note to steer it."
           />
           <PersonasTab
             personas={result.personas}
@@ -269,7 +273,7 @@ export default function StagedResults({
               <RegenerateControls
                 personaName={p.name}
                 busy={!!cardBusy[p.persona_id]}
-                disabled={pending === 'config'}
+                disabled={pending === 'config' || (anyCardBusy && !cardBusy[p.persona_id])}
                 error={cardError[p.persona_id]}
                 onRerun={onRerun}
                 onRegenerate={(note) => regenerate(p.persona_id, note)}
@@ -302,6 +306,11 @@ export default function StagedResults({
             title="Campaign config"
             sub="Launch-ready settings. Change the budget and the split, pacing and caps follow."
           />
+          {approveWarning && (
+            <p data-testid="approve-warning" role="status" className="m-0 mb-4 rounded-lg border border-[#F0D9B2] bg-[#FBEFDC] px-3 py-2 text-[13px] text-[#5B4520]">
+              {approveWarning}
+            </p>
+          )}
           <ConfigStep
             config={config}
             publishers={result.publishers}
@@ -320,6 +329,17 @@ export default function StagedResults({
         </section>
       )}
     </div>
+  )
+}
+
+/** One line naming each approved ad that still has check flags, or null when none do. */
+function flagWarning(creatives: Creative[], personas: CampaignResult['personas']): string | null {
+  const name = (id: string) => personas.find((p) => p.persona_id === id)?.name ?? id
+  const flagged = creatives.filter((c) => c.fact_violations.length > 0)
+  if (flagged.length === 0) return null
+  return (
+    'Approved with unresolved checks — ' +
+    flagged.map((c) => `${name(c.persona_id)}: ${c.fact_violations.join('; ')}`).join(' · ')
   )
 }
 
