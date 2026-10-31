@@ -35,3 +35,21 @@ def test_client_limit_reported_before_global():
     for k in "bcde":
         assert rl.check(k) is None
     assert rl.check("z") == "global"
+
+
+def test_cost_counts_multiple_runs_and_refuses_if_it_would_overflow():
+    now = [0.0]
+    rl = RateLimiter(limit=5, window_s=600, global_limit=100, clock=lambda: now[0])
+    assert rl.check("a", cost=2) is None and rl.check("a", cost=2) is None
+    assert rl.check("a", cost=2) == "client"  # 4 used, 2 more would make 6
+    assert rl.check("a") is None and rl.check("a") == "client"
+    g = RateLimiter(limit=100, window_s=600, global_limit=3, clock=lambda: now[0])
+    assert g.check("x", cost=2) is None and g.check("y", cost=2) == "global"
+    assert g.check("y") is None
+
+
+def test_limits_come_from_tuning():
+    from app.tuning import load_tuning
+    r = load_tuning().ratelimit
+    assert (r.per_client_runs, r.per_client_window_s, r.global_runs_per_hour) == (20, 600, 200)
+    assert (r.cost_stage1, r.cost_creatives, r.cost_regenerate) == (1, 2, 1)

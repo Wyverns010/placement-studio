@@ -20,9 +20,9 @@ class RateLimiter:
         self._global: deque[float] = deque()
         self._lock = threading.Lock()
 
-    def check(self, key: str) -> Literal["client", "global"] | None:
-        """Record a hit and return None if allowed; otherwise return which cap refused it
-        ("client" first, then "global"). A refused hit is not recorded."""
+    def check(self, key: str, cost: int = 1) -> Literal["client", "global"] | None:
+        """Record `cost` hits and return None if allowed; otherwise return which cap refused it
+        ("client" first, then "global"). A refused request records nothing."""
         now = self.clock()
         with self._lock:
             for k in list(self._hits):
@@ -34,13 +34,13 @@ class RateLimiter:
             while self._global and now - self._global[0] >= self.global_window_s:
                 self._global.popleft()
             q = self._hits[key]
-            if len(q) >= self.limit:
+            if len(q) + cost > self.limit:
                 refused = "client"
-            elif self.global_limit is not None and len(self._global) >= self.global_limit:
+            elif self.global_limit is not None and len(self._global) + cost > self.global_limit:
                 refused = "global"
             else:
-                q.append(now)
-                self._global.append(now)
+                q.extend([now] * cost)
+                self._global.extend([now] * cost)
                 return None
             if not q:  # don't leave an empty bucket behind for a refused new client
                 del self._hits[key]

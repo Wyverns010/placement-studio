@@ -136,7 +136,12 @@ class AudienceTuning(BaseModel):
 
 
 class RateLimitTuning(BaseModel):
+    per_client_runs: int
+    per_client_window_s: float
     global_runs_per_hour: int
+    cost_stage1: int
+    cost_creatives: int
+    cost_regenerate: int
 
 
 class Tuning(BaseModel):

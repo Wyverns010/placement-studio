@@ -71,4 +71,9 @@ audience:
   age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
   age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)
 ratelimit:
-  global_runs_per_hour: 120     # process-wide cap on uncached live (paid) runs
+  per_client_runs: 20           # live (paid) runs per client per window
+  per_client_window_s: 600
+  global_runs_per_hour: 200     # process-wide cap on uncached live (paid) runs
+  cost_stage1: 1                # runs charged per call: stage 1 (understand + gate + match)
+  cost_creatives: 2             # stage 2: one creative call per persona (3-5 calls)
+  cost_regenerate: 1            # stage 2: rewrite one ad

@@ -54,9 +54,10 @@ def get_tuning() -> Tuning:
 
 @lru_cache(maxsize=1)
 def get_limiter() -> RateLimiter:
-    """One process-wide limiter: 12 live runs per client per 10 min, plus a global hourly cap."""
-    return RateLimiter(limit=12, window_s=600,
-                       global_limit=get_tuning().ratelimit.global_runs_per_hour)
+    """One process-wide limiter: live runs per client per window, plus a global hourly cap."""
+    r = get_tuning().ratelimit
+    return RateLimiter(limit=r.per_client_runs, window_s=r.per_client_window_s,
+                       global_limit=r.global_runs_per_hour)
 
 
 @lru_cache(maxsize=1)
@@ -196,8 +197,8 @@ async def _live(fn):
         raise HTTPException(502, MSG_OTHER)
 
 
-def _check_rate(request: Request, limiter: RateLimiter) -> None:
-    refused = limiter.check(_client_key(request))
+def _check_rate(request: Request, limiter: RateLimiter, cost: int) -> None:
+    refused = limiter.check(_client_key(request), cost)
     if refused:
         raise HTTPException(429, BUSY_MSG if refused == "global" else RATE_LIMIT_MSG)
 
@@ -221,7 +222,7 @@ async def campaign(req: CampaignRequest, request: Request,
     hit = _cached(text, budget, has_answers)
     if hit:
         return hit
-    _check_rate(request, limiter)
+    _check_rate(request, limiter, t.ratelimit.cost_stage1)
     try:
         return await run_in_threadpool(
             lambda: collect(run_stage1(text, budget, llm=llm, gate=gate, catalog=catalog, t=t)))
@@ -248,7 +249,7 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
     full_text, budget, has_answers = _prepare(text, budget_usd, parsed, t)
     hit = _cached(full_text, budget, has_answers)
     if not hit:
-        _check_rate(request, limiter)
+        _check_rate(request, limiter, t.ratelimit.cost_stage1)
 
     def encode(e: StageEvent) -> dict:
         return {"event": e.stage, "data": json.dumps(e.data)}
@@ -276,7 +277,7 @@ async def creatives(req: CreativesRequest, request: Request,
     hit = samples.cached_creatives(text, req.publishers, req.personas)
     if hit:
         return {"creatives": hit}
-    _check_rate(request, limiter)
+    _check_rate(request, limiter, t.ratelimit.cost_creatives)
     out = await _live(lambda: make_creatives(text, req.brief, req.publishers, req.personas,
                                              llm=llm, catalog=catalog, t=t))
     if not out:
@@ -296,7 +297,7 @@ async def regenerate_creative(req: RegenerateRequest, request: Request,
     note = (req.note or "").strip() or None
     if note and len(note) > t.creative.note_max_chars:
         raise HTTPException(422, f"Keep the note to {t.creative.note_max_chars} characters.")
-    _check_rate(request, limiter)
+    _check_rate(request, limiter, t.ratelimit.cost_regenerate)
     out = await _live(lambda: regenerate(text, req.brief, req.publishers, req.personas,
                                          req.creatives, req.persona_id, note,
                                          llm=llm, catalog=catalog, t=t))

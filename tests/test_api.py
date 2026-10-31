@@ -26,7 +26,7 @@ def llm():
 @pytest.fixture
 def client(llm, tmp_path, monkeypatch):
     monkeypatch.setattr(samples_mod, "CACHE", tmp_path / "none.json")
-    limiter = RateLimiter(limit=12, window_s=600)
+    limiter = RateLimiter(limit=T.ratelimit.per_client_runs, window_s=T.ratelimit.per_client_window_s)
     api.app.dependency_overrides[api.get_llm] = lambda: llm
     api.app.dependency_overrides[api.get_gate_dep] = lambda: get_gate("llm", tuning=T)
     api.app.dependency_overrides[api.get_catalog] = lambda: CAT
@@ -117,8 +117,11 @@ def test_budget_edges_ok(client):
         assert client.post("/api/campaign", json={"text": "dog food", "budget_usd": b}).status_code == 200
 
 
-def test_rate_limit_429_after_12(client):
-    for _ in range(12):
+N = T.ratelimit.per_client_runs
+
+
+def test_rate_limit_429_after_per_client_runs(client):
+    for _ in range(N):
         assert client.post("/api/campaign", json={"text": "dog food"}).status_code == 200
     r = client.post("/api/campaign", json={"text": "dog food"})
     assert r.status_code == 429
@@ -130,7 +133,7 @@ def test_rate_limit_429_after_12(client):
 
 def test_rate_limit_keys_on_rightmost_forwarded_hop(client):
     # the proxy appends the real client IP; a client-chosen leading value must not open a new bucket
-    for i in range(12):
+    for i in range(N):
         r = client.post("/api/campaign", json={"text": "dog food"},
                         headers={"X-Forwarded-For": f"10.0.0.{i}, 5.5.5.5"})
         assert r.status_code == 200
@@ -140,7 +143,7 @@ def test_rate_limit_keys_on_rightmost_forwarded_hop(client):
 
 
 def test_global_cap_returns_busy(client):
-    busy = RateLimiter(limit=12, window_s=600, global_limit=2)
+    busy = RateLimiter(limit=N, window_s=600, global_limit=2)
     api.app.dependency_overrides[api.get_limiter] = lambda: busy
     for ip in ("1.0.0.1", "1.0.0.2"):
         assert client.post("/api/campaign", json={"text": "dog food"},
@@ -390,12 +393,15 @@ def test_config_validation(client, s1):
     assert r.status_code == 422
 
 
-def test_stage2_counts_as_a_run_and_stage3_is_free(client, s1):
-    # stage 1 used one run; creatives and regenerate each count
+def test_stage2_costs_and_stage3_is_free(client, s1):
+    # stage 1 costs 1, creatives 2, regenerate 1
+    r = T.ratelimit
+    assert (r.cost_stage1, r.cost_creatives, r.cost_regenerate) == (1, 2, 1)
     cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
-    for _ in range(10):
+    for _ in range(N - 4):  # 1 + 2 + (N - 4) = N - 1 used: one run left, creatives needs two
         assert client.post("/api/creatives/regenerate", json=_regen(s1, cr)).status_code == 200
     assert client.post("/api/creatives", json=_stage2(s1)).status_code == 429
+    assert client.post("/api/creatives/regenerate", json=_regen(s1, cr)).status_code == 200
     assert client.post("/api/creatives/regenerate", json=_regen(s1, cr)).status_code == 429
     for _ in range(20):
         assert client.post("/api/config", json=_stage3(s1, cr)).status_code == 200

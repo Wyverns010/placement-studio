@@ -9,5 +9,5 @@ def test_tuning_loads_defaults():
 
 def test_tuning_new_knobs():
     t = load_tuning()
-    assert t.ratelimit.global_runs_per_hour == 120
+    assert t.ratelimit.global_runs_per_hour == 200
     assert t.audience.age_floor == 18 and t.audience.age_ceiling == 80
