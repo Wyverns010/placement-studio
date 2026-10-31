@@ -127,13 +127,13 @@ def headline_problems(creatives: list[Creative], product: str | None,
 
 
 def _pick_publisher(
-    persona: Persona, publishers: list[PublisherScore], catalog: Catalog, used: set[str] | None = None
+    persona: Persona, publishers: list[PublisherScore], catalog: Catalog, used: set[str]
 ) -> PublisherScore | None:
     """Best-overlap recommended publisher, preferring ones not yet `used` by another persona."""
     eligible = [p for p in publishers if p.recommended]
     if not eligible:
         return None
-    fresh = [p for p in eligible if p.publisher_id not in (used or set())]
+    fresh = [p for p in eligible if p.publisher_id not in used]
     pool = fresh or eligible
     aff = set(persona.category_affinities)
     scored = [(len(catalog.publisher(p.publisher_id).tags & aff), p.fit, p) for p in pool]
@@ -220,53 +220,40 @@ def write_creatives(
     if not targets:
         return []
     pub_of = {p.id: pub for p, pub in targets}
+    names = {p.id: p.name for p, _ in targets}
+    result: dict[str, Creative] = {}
     probs: dict[str, list[Problem]] = {}
 
     def build(it: CreativeItem) -> Creative:
-        c = Creative(
+        return Creative(
             creative_id=f"cr_{it.persona_id}",
             persona_id=it.persona_id,
             publisher_id=pub_of[it.persona_id].publisher_id,
             headline=it.headline, body=it.body, cta=it.cta, why=it.why,
         )
-        probs[it.persona_id] = fact_problems(c, text, t)
-        c.fact_violations = [p.message for p in probs[it.persona_id]]
-        return c
-
-    items = _call_many(text, brief, targets, targets, catalog, llm, t)
-    result: dict[str, Creative] = {pid: build(it) for pid, it in items.items()}
-    names = {p.id: p.name for p, _ in targets}
 
     def ordered() -> list[Creative]:
         return [result[p.id] for p, _ in targets if p.id in result]
 
-    def add_headline_problems() -> None:
+    def check_all() -> None:
+        """Fact/length problems per creative, then headline problems across the whole set."""
+        probs.clear()
+        probs.update({pid: fact_problems(c, text, t) for pid, c in result.items()})
         for pid, vs in headline_problems(ordered(), brief.product, names, t.creative.headline_similarity).items():
-            probs[pid] = probs.get(pid, []) + vs
-            result[pid].fact_violations = result[pid].fact_violations + [v.message for v in vs]
+            probs[pid] += vs
+        for pid, c in result.items():
+            c.fact_violations = [p.message for p in probs[pid]]
 
-    add_headline_problems()
-
-    def problems() -> dict[str, list[Problem]]:
-        out: dict[str, list[Problem]] = {}
-        for p, _ in targets:
-            c = result.get(p.id)
-            if c is None:
-                out[p.id] = [Problem("missing", feedback("missing"))]
-            elif c.fact_violations:
-                out[p.id] = list(probs.get(p.id, []))
-        return out
-
-    bad = problems()
+    result.update({pid: build(it) for pid, it in _call_many(text, brief, targets, targets, catalog, llm, t).items()})
+    check_all()
+    bad = {p.id: probs[p.id] if p.id in result else [Problem("missing", feedback("missing"))]
+           for p, _ in targets if p.id not in result or probs[p.id]}
     if bad:
         retry_targets = [(p, pub) for p, pub in targets if p.id in bad]
-        for pid, it in _call_many(text, brief, retry_targets, targets, catalog, llm, t, retry_problems=bad,
-                                 current={pid: r.headline for pid, r in result.items()}).items():
-            result[pid] = build(it)
-        for pid, c in result.items():  # re-check headlines against the final set
-            probs[pid] = fact_problems(c, text, t)
-            c.fact_violations = [p.message for p in probs[pid]]
-        add_headline_problems()
+        current = {pid: r.headline for pid, r in result.items()}
+        retried = _call_many(text, brief, retry_targets, targets, catalog, llm, t, retry_problems=bad, current=current)
+        result.update({pid: build(it) for pid, it in retried.items()})
+        check_all()  # re-check headlines against the final set
     return ordered()
 
 
