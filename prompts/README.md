@@ -2,10 +2,14 @@
 
 Every prompt the app sends lives here and is read from disk at runtime (`app/prompts.py`
 `render(name, **slots)`, which is `str.format_map`: a missing slot raises `KeyError`, and literal
-braces are doubled). The advertiser's text never goes into a system prompt. It is sent as the user
-message inside `<advertiser_text>` tags (`wrap_advertiser_text`), and each prompt treats it as data.
-The same goes for a Regenerate note, sent inside `<user_note>` tags (`wrap_user_note`): it can steer
-tone or angle but never adds facts (the facts check still reads only the advertiser's text).
+braces are doubled). The advertiser's raw text is sent only in the user message, inside
+`<advertiser_text>` tags (`wrap_advertiser_text`), and each prompt treats it as data. Fields that
+Understand extracted from it (`product`, `facts`, `unknowns`) are rendered into the creative and
+clarify system prompts as listed data; in stages 2 and 3 they come back from the client, so the API
+only accepts them with a valid `stage_token` and within size caps. A Regenerate note goes in the user
+message inside `<user_note>` tags (`wrap_user_note`) and the ad being replaced inside `<current_ad>`
+(`wrap_current_ad`): both are data; the note can steer tone or angle but never adds facts (the facts
+check still reads only the advertiser's text).
 
 | File | Stage (caller) | Model | Slots | Output |
 |---|---|---|---|---|

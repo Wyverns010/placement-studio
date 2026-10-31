@@ -2,7 +2,7 @@
 
 Describe a business in a sentence; get ranked publishers (and why the rest lost), then 3–5 persona-tuned ads you can regenerate and approve, then a launch-ready campaign config with a recommended budget, every number explained. Bad input gets an honest answer, not a campaign.
 
-**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed stage by stage: instant, and they survive an OpenAI outage.
+**Live:** https://byash010-placement-studio.hf.space (first load after 48 h idle takes a minute). The 15 samples are precomputed stage by stage with the default models (`make samples`): instant, and they survive an OpenAI outage.
 
 ```
 cp .env.example .env          # add OPENAI_API_KEY
@@ -21,9 +21,9 @@ uv run pytest -q; (cd web && npx vitest run)    # tests
 ③ Config (code) at the recommended or your budget      POST /api/config
 ```
 
-Three stages the user steps through, stateless: each request carries back what the last one returned and the server re-validates it (request models in `app/api.py`). Stages ① and ② count against the rate limit (live calls only); ③ is free.
+Three stages the user steps through, stateless: each request carries back what the last one returned. Stage ① signs its result (`stage_token`, HMAC-SHA256 keyed by `STAGE_SECRET`; unset means a random key per process, so tokens die on restart) and ② and ③ refuse anything changed (403), then re-validate it (request models in `app/api.py`). Live calls count against the rate limit (`config/tuning.yaml`: 20 runs per client per 10 min, 200/h overall; ① costs 1, writing ads 2, a regenerate 1); ③ is free.
 
-**Numbers from code, words from the LLM.** Understand fills a brief restricted to the catalog's category vocabulary. The gate picks proceed, clarify (1–3 questions), out_of_scope or no_signal; after Match, a proceed with no publisher above the cut-off becomes weak_fit (closest 3, a test budget). Match scores publishers on four visible factors (category, audience, income, order value), personas on affinity, price and age. Create runs one call per persona in parallel, following a written [copywriting playbook](prompts/copywriting_playbook.md) (persona motivation first, one true detail, the publisher's context); code rejects invented numbers or claim words, over-long fields, and generic copy (age ranges, "for women", "under $N", filler) unless the advertiser wrote it, with one retry. Regenerate rewrites one ad, optionally steered by a note that is passed as data. Models: gpt-5.4-mini for everything (fractions of a cent per run); set OPENAI_MODEL_CREATIVE=gpt-5.5 for richer copy. Reasoning effort low. Every tunable is in `config/tuning.yaml`; every prompt is in `prompts/` ([index](prompts/README.md)).
+**Numbers from code, words from the LLM.** Understand fills a brief restricted to the catalog's category vocabulary. The gate picks proceed, clarify (1–3 questions), out_of_scope or no_signal; after Match, a proceed with no publisher above the cut-off becomes weak_fit (closest 3, a test budget). Match scores publishers on four visible factors (category, audience, income, order value), personas on affinity, price and age. Create runs one call per persona in parallel, following a written [copywriting playbook](prompts/copywriting_playbook.md) (persona motivation first, one true detail, the publisher's context); code checks every ad for invented numbers or claim words, over-long fields, and generic copy (age ranges, "for women", "under $N", filler) unless the advertiser wrote it; a failing ad is retried once, then flagged. Regenerate rewrites one ad, optionally steered by a note that is passed as data. Models: gpt-5.4-mini for everything (fractions of a cent per run); set OPENAI_MODEL_CREATIVE=gpt-5.5 for richer copy. Reasoning effort low. Every tunable is in `config/tuning.yaml`; every prompt is in `prompts/` ([index](prompts/README.md)).
 
 ## Campaign config, and why
 
