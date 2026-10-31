@@ -5,13 +5,16 @@ client received from the stage before, re-validated here with the Pydantic model
   POST /api/creatives                            stage 2 (one ad per persona)        counts as a run
   POST /api/creatives/regenerate                 stage 2 (rewrite one ad)            counts as a run
   POST /api/config                               stage 3 (config, code only)         free
-Cached samples (stage 1 and their creatives) skip the LLM and the rate limit.
+Stage 1 results carry a stage_token (app/stagesign.py); stages 2 and 3 must send it back with
+the exact stage-1 objects or get 403. Cached samples (stage 1 and their creatives) skip the LLM
+and the rate limit.
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import math
 from functools import lru_cache
 from pathlib import Path
 
@@ -23,7 +26,7 @@ from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from dotenv import load_dotenv
 
-from app import samples
+from app import samples, stagesign
 from app.catalog import Catalog, load_catalog
 from app.gate import ConfidenceGate, get_gate
 from app.llm import LLMError, LLMProvider, get_provider
@@ -39,12 +42,44 @@ load_dotenv()  # never overrides env vars already set
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
 BUSY_MSG = "The demo is busy — try a sample or come back in a bit."
 REPLAY_DELAY_S = 0.3
-MAX_ANSWERS, MAX_ANSWER_CHARS = 5, 200  # clarify answers appended to the text (API input caps)
 NO_ADS_MSG = "The AI service didn't return any ads — try again."
+TAMPERED_MSG = "This campaign changed or expired — run it again."
+NOT_PROCEEDING_MSG = "Ads and a config are only built for a campaign the gate let through."
+TOO_LARGE_MSG = "Request too large."
 
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="Placement Studio")
+
+
+class BodyLimit:
+    """Refuse request bodies over input.max_body_bytes with 413 (Content-Length or streamed)."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.inner(scope, receive, send)
+        limit = get_tuning().input.max_body_bytes
+        length = dict(scope.get("headers") or []).get(b"content-length", b"")
+        if length.isdigit() and int(length) > limit:
+            return await JSONResponse({"detail": TOO_LARGE_MSG}, status_code=413)(scope, receive, send)
+        seen = 0
+
+        async def guarded():
+            nonlocal seen
+            msg = await receive()
+            if msg["type"] == "http.request":
+                seen += len(msg.get("body", b""))
+                if seen > limit:
+                    raise HTTPException(413, TOO_LARGE_MSG)  # FastAPI re-raises HTTPException
+            return msg
+
+        return await self.inner(scope, guarded, send)
+
+
+app.add_middleware(BodyLimit)
 
 
 @lru_cache(maxsize=1)
@@ -80,11 +115,13 @@ class CampaignRequest(BaseModel):
 
 
 class CreativesRequest(BaseModel):
-    """Stage 2: what stage 1 returned (input_text, brief, publishers, personas)."""
+    """Stage 2: what stage 1 returned, unchanged, with its stage_token."""
     input_text: str
     brief: Brief
+    gate: GateResult
     publishers: list[PublisherScore]
     personas: list[PersonaScore]
+    stage_token: str
 
 
 class RegenerateRequest(CreativesRequest):
@@ -95,7 +132,6 @@ class RegenerateRequest(CreativesRequest):
 
 class ConfigRequest(CreativesRequest):
     """Stage 3: budget_usd omitted means use the recommended budget."""
-    gate: GateResult
     creatives: list[Creative]
     budget_usd: float | None = None
 
@@ -142,8 +178,8 @@ def _prepare(text: str, budget: float | None, answers: dict[str, str] | None,
     text = text[: t.input.max_chars]
     _check_budget(budget, t)
     if answers:
-        answers = {str(q)[:MAX_ANSWER_CHARS]: str(a)[:MAX_ANSWER_CHARS]
-                   for q, a in list(answers.items())[:MAX_ANSWERS]}
+        n, cap = t.input.max_answers, t.input.max_answer_chars
+        answers = {str(q)[:cap]: str(a)[:cap] for q, a in list(answers.items())[:n]}
         text += ANSWERS_HEADER + "\n".join(f"- {q}: {a}" for q, a in answers.items())
     return text, budget, bool(answers)
 
@@ -154,31 +190,74 @@ def _cached(text: str, budget: float | None, has_answers: bool) -> CampaignResul
 
 def _max_input_chars(t: Tuning) -> int:
     """Longest input_text stage 1 can produce: the text plus the capped clarify answers."""
-    line = len("- : \n") + 2 * MAX_ANSWER_CHARS
-    return t.input.max_chars + len(ANSWERS_HEADER) + MAX_ANSWERS * line
+    line = len("- : \n") + 2 * t.input.max_answer_chars
+    return t.input.max_chars + len(ANSWERS_HEADER) + t.input.max_answers * line
+
+
+def _signed(r: CampaignResult) -> dict:
+    return stagesign.sign_result(r).model_dump()
+
+
+def _check_brief(b: Brief, catalog: Catalog, t: Tuning) -> None:
+    """Size and vocabulary caps on an echoed brief (defence in depth behind the stage token)."""
+    i = t.input
+    if b.product and len(b.product) > i.brief_product_max_chars:
+        raise HTTPException(422, "brief.product is too long.")
+    for name in ("facts", "unknowns"):
+        items = getattr(b, name)
+        if len(items) > i.brief_list_max_items:
+            raise HTTPException(422, f"brief.{name} has too many items.")
+        if any(len(x) > i.brief_item_max_chars for x in items):
+            raise HTTPException(422, f"brief.{name} has an item that is too long.")
+    for name, vocab in (("categories", catalog.vocab), ("adjacent_categories", catalog.vocab),
+                        ("conflicts", catalog.conflict_vocab)):
+        items = getattr(b, name)
+        if len(items) > i.brief_categories_max:
+            raise HTTPException(422, f"brief.{name} has too many items.")
+        if not set(items) <= set(vocab):
+            raise HTTPException(422, f"brief.{name} has an unknown term.")
+    if b.price_usd is not None and not (math.isfinite(b.price_usd) and b.price_usd >= 0):
+        raise HTTPException(422, "brief.price_usd must be a finite amount of at least 0.")
+    if any(a is not None and not 0 <= a <= i.brief_age_max for a in (b.age_min, b.age_max)):
+        raise HTTPException(422, f"brief ages must be between 0 and {i.brief_age_max}.")
 
 
 def _validate_stage(req: CreativesRequest, catalog: Catalog, t: Tuning) -> str:
-    """Shared checks for stage 2/3 requests; returns the stripped input_text."""
+    """Shared checks for stage 2/3 requests, in order: the stage token (403), the gate let it
+    through, then sizes and ids (422). Returns the stripped input_text."""
+    if not stagesign.verify(req.stage_token, req.input_text, req.brief, req.gate, req.publishers,
+                            req.personas):
+        raise HTTPException(403, TAMPERED_MSG)
+    if req.gate.outcome != "proceed":
+        raise HTTPException(422, NOT_PROCEEDING_MSG)
     text = (req.input_text or "").strip()
     if not text:
         raise HTTPException(422, "Please describe your business.")
     if len(text) > _max_input_chars(t):
         raise HTTPException(422, "input_text is longer than stage 1 produces.")
+    _check_brief(req.brief, catalog, t)
     known_pubs = {p.id for p in catalog.publishers}
     known_personas = {p.id for p in catalog.personas}
-    if len(req.publishers) > len(known_pubs) or any(p.publisher_id not in known_pubs for p in req.publishers):
+    creatives = getattr(req, "creatives", [])
+    if any(p.publisher_id not in known_pubs for p in req.publishers):
         raise HTTPException(422, "Unknown publisher in the request.")
+    if len({p.publisher_id for p in req.publishers}) != len(req.publishers):
+        raise HTTPException(422, "Duplicate publisher ids.")
     if not recommended_of(req.publishers):
         raise HTTPException(422, "No recommended publishers to place ads on.")
     if not 1 <= len(req.personas) <= t.persona.max:
         raise HTTPException(422, f"Send between 1 and {t.persona.max} personas.")
     if any(p.persona_id not in known_personas for p in req.personas):
         raise HTTPException(422, "Unknown persona in the request.")
-    for c in getattr(req, "creatives", []):
+    if len({p.persona_id for p in req.personas}) != len(req.personas):
+        raise HTTPException(422, "Duplicate persona ids.")
+    for c in creatives:
         if c.persona_id not in known_personas or c.publisher_id not in known_pubs:
             raise HTTPException(422, "Unknown persona or publisher in a creative.")
-    if len(getattr(req, "creatives", [])) > t.persona.max:
+    if (len({c.creative_id for c in creatives}) != len(creatives)
+            or len({c.persona_id for c in creatives}) != len(creatives)):
+        raise HTTPException(422, "Duplicate creative ids.")
+    if len(creatives) > t.persona.max:
         raise HTTPException(422, f"Send at most {t.persona.max} creatives.")
     return text
 
@@ -221,11 +300,11 @@ async def campaign(req: CampaignRequest, request: Request,
     text, budget, has_answers = _prepare(req.text, req.budget_usd, req.answers, t)
     hit = _cached(text, budget, has_answers)
     if hit:
-        return hit
+        return _signed(hit)
     _check_rate(request, limiter, t.ratelimit.cost_stage1)
     try:
-        return await run_in_threadpool(
-            lambda: collect(run_stage1(text, budget, llm=llm, gate=gate, catalog=catalog, t=t)))
+        return _signed(await run_in_threadpool(
+            lambda: collect(run_stage1(text, budget, llm=llm, gate=gate, catalog=catalog, t=t))))
     except PipelineError as e:
         return JSONResponse({"detail": str(e)}, status_code=502)
 
@@ -252,7 +331,8 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
         _check_rate(request, limiter, t.ratelimit.cost_stage1)
 
     def encode(e: StageEvent) -> dict:
-        return {"event": e.stage, "data": json.dumps(e.data)}
+        data = _signed(CampaignResult.model_validate(e.data)) if e.stage == "done" else e.data
+        return {"event": e.stage, "data": json.dumps(data)}
 
     async def gen():
         if hit:
@@ -308,8 +388,6 @@ async def regenerate_creative(req: RegenerateRequest, request: Request,
 def config(req: ConfigRequest, catalog: Catalog = Depends(get_catalog),
            t: Tuning = Depends(get_tuning)):
     _validate_stage(req, catalog, t)
-    if req.gate.outcome != "proceed":
-        raise HTTPException(422, "A config is only built for a campaign the gate let through.")
     _check_budget(req.budget_usd, t)
     return {"config": make_config(req.brief, req.gate, req.publishers, req.personas, req.creatives,
                                   req.budget_usd, catalog=catalog, t=t)}

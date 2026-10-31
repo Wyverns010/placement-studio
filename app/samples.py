@@ -76,7 +76,8 @@ def _load_cache(path: Path) -> dict[str, SampleEntry]:
 def write_cache(entries: list[SampleEntry], path: Path | None = None) -> None:
     path = Path(path or CACHE)
     data = {"format": CACHE_FORMAT,
-            "samples": {norm(e.stage1.input_text): e.model_dump(mode="json") for e in entries}}
+            "samples": {norm(e.stage1.input_text): e.model_dump(mode="json", exclude={"stage1": {"stage_token"}})
+                        for e in entries}}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=1, sort_keys=True, ensure_ascii=False) + "\n",
                     encoding="utf-8")

@@ -30,6 +30,11 @@ def wrap_advertiser_text(text: str) -> str:
     return _wrap("advertiser_text", text)
 
 
+def wrap_current_ad(text: str) -> str:
+    """Wrap the client-echoed current ad (regenerate) in <current_ad> tags."""
+    return _wrap("current_ad", text)
+
+
 def wrap_user_note(text: str) -> str:
     """Wrap a regenerate note (untrusted, treated as data) in <user_note> tags."""
     return _wrap("user_note", text)

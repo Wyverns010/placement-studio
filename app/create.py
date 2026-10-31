@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from app.catalog import Catalog, Persona
 from app.llm import LLMError, LLMProvider, model_creative, model_fast
 from app.models import Brief, ClarifyQuestion, Creative, PersonaScore, PublisherScore
-from app.prompts import feedback, render, wrap_advertiser_text, wrap_user_note
+from app.prompts import feedback, render, wrap_advertiser_text, wrap_current_ad, wrap_user_note
 from app.tuning import Tuning
 
 
@@ -283,8 +283,9 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Pro
     if rewrite:
         cur, note = rewrite
         c = t.creative
-        user += feedback("rewrite_current", headline=_flat(cur.headline, c.headline_max_chars),
-                         body=_flat(cur.body, c.body_max_chars), cta=_flat(cur.cta, c.cta_max_chars))
+        ad = feedback("current_ad_fields", headline=_flat(cur.headline, c.headline_max_chars),
+                      body=_flat(cur.body, c.body_max_chars), cta=_flat(cur.cta, c.cta_max_chars))
+        user += feedback("rewrite_current", ad=wrap_current_ad(ad))
         if note:
             user += feedback("rewrite_note", note=wrap_user_note(note))
     if violations:

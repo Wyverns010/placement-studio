@@ -109,6 +109,7 @@ class CampaignResult(BaseModel):
     creatives: list[Creative]
     clarify: list[ClarifyQuestion]
     config: CampaignConfig | None
+    stage_token: str | None = None  # API only: HMAC over the stage-1 fields (app/stagesign.py)
 
 
 class StageEvent(BaseModel):

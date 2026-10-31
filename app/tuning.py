@@ -129,6 +129,14 @@ class CreativeTuning(BaseModel):
 
 class InputTuning(BaseModel):
     max_chars: int
+    max_answers: int
+    max_answer_chars: int
+    max_body_bytes: int
+    brief_product_max_chars: int
+    brief_list_max_items: int
+    brief_item_max_chars: int
+    brief_categories_max: int
+    brief_age_max: int
 
 
 class AudienceTuning(BaseModel):

@@ -68,6 +68,14 @@ creative:
   audience_words: [women, men, moms, mums, mothers, dads, fathers, parents, seniors, millennials, gen z, boomers, teens]
 input:
   max_chars: 1500
+  max_answers: 5                # clarify answers appended to the text
+  max_answer_chars: 200         # per question and per answer
+  max_body_bytes: 262144        # request body cap (256 KB)
+  brief_product_max_chars: 120  # stage 2/3 echo checks (defence in depth behind the stage token)
+  brief_list_max_items: 10      # facts, unknowns
+  brief_item_max_chars: 200
+  brief_categories_max: 20      # categories, adjacent_categories, conflicts
+  brief_age_max: 120
 audience:
   age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
   age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)
