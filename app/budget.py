@@ -1,4 +1,9 @@
+"""Budget economics in code: reach caps, allocation, target CPA, the recommended monthly
+budget, frequency cap and pacing. Every number comes from config/tuning.yaml."""
 from __future__ import annotations
+
+import math
+from typing import Literal, NamedTuple
 
 from app.catalog import Catalog
 from app.models import Brief, LineItem, PublisherScore
@@ -80,3 +85,54 @@ def _weighted_aov(recommended: list[PublisherScore], catalog: Catalog) -> float:
     if total <= 0:
         return sum(a for a, _ in pubs) / len(pubs)
     return sum(a * w for a, w in pubs) / total
+
+
+class Recommendation(NamedTuple):
+    """The recommended monthly budget and the inputs that produced it."""
+    usd: float  # what we recommend (the weak-fit test share when fit is weak)
+    full_usd: float  # rounded and clamped sum, before any weak-fit test share
+    per_publisher: list[float]  # min(reach cap, target CPA x conversions) per publisher
+    cpa: float
+
+
+def _round_to(x: float, unit: float) -> float:
+    return math.floor(x / unit + 0.5) * unit
+
+
+def recommended_budget(brief: Brief, publishers: list[PublisherScore], catalog: Catalog,
+                       weak_fit: bool, t: Tuning) -> Recommendation:
+    """Enough for each line item to reach `conversions_per_line_item` at the target CPA, capped at
+    its reach; rounded, clamped to the budget bounds; a weak fit gets the test share of that."""
+    b = t.budget
+    cpa = target_cpa(brief, publishers, catalog, t)
+    want = cpa * b.conversions_per_line_item
+    parts = [min(reach_cap_usd(catalog.publisher(p.publisher_id).monthly_impressions, t), want)
+             for p in publishers]
+    full = min(b.max_usd, max(b.min_usd, _round_to(sum(parts), b.round_to_usd)))
+    usd = max(b.min_usd, full * b.weak_fit_test_fraction) if weak_fit else full
+    return Recommendation(usd=float(usd), full_usd=float(full), per_publisher=parts, cpa=cpa)
+
+
+def frequency_cap(brief: Brief, weak_fit: bool, t: Tuning) -> tuple[int, int]:
+    """(impressions, per_days): by price tier, +extra for a subscription, -reduction for a test."""
+    f = t.frequency
+    base = f.by_price_tier.get(brief.price_tier) or f.by_price_tier["unknown"]
+    n = base.impressions
+    if brief.business_model == "subscription":
+        n += f.subscription_extra
+    if weak_fit:
+        n -= f.weak_fit_reduction
+    return max(f.min_impressions, n), base.per_days
+
+
+Pacing = Literal["front_loaded", "even", "accelerated"]
+
+
+def pacing(brief: Brief, weak_fit: bool, monthly_usd: float, recommended_usd: float) -> Pacing:
+    """front_loaded for a weak-fit test (learn fast); accelerated for value/mid buys when the budget
+    is below the recommendation (spend it while it converts); otherwise even."""
+    if weak_fit:
+        return "front_loaded"
+    if brief.price_tier in ("value", "mid") and monthly_usd < recommended_usd:
+        return "accelerated"
+    return "even"

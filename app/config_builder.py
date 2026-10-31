@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 
-from app.budget import allocate, order_value_used, target_cpa
+from app.budget import allocate, frequency_cap, order_value_used, pacing, recommended_budget
 from app.catalog import Catalog
 from app.match import age_bounds
 from app.models import (Brief, CampaignConfig, Creative, GateResult, LineItem,
@@ -44,15 +44,20 @@ def _assign_creatives(items: list[LineItem], personas: list[PersonaScore],
 
 
 def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherScore],
-                 personas: list[PersonaScore], creatives: list[Creative], monthly_usd: float,
-                 weak_fit: bool, catalog: Catalog, t: Tuning) -> CampaignConfig:
-    if weak_fit:
-        monthly_usd = monthly_usd * t.budget.weak_fit_test_fraction
+                 personas: list[PersonaScore], creatives: list[Creative],
+                 monthly_usd: float | None, weak_fit: bool, catalog: Catalog,
+                 t: Tuning) -> CampaignConfig:
+    """`monthly_usd` None means use the recommended budget; a user's figure always wins."""
+    rec = recommended_budget(brief, publishers, catalog, weak_fit, t)
+    source = "recommended" if monthly_usd is None else "user"
+    monthly_usd = rec.usd if monthly_usd is None else monthly_usd
     items, unallocated = allocate(publishers, catalog, monthly_usd, t)
     items = _assign_creatives(items, personas, creatives)
-    cpa = target_cpa(brief, publishers, catalog, t)
+    cpa = rec.cpa
     subscription = brief.business_model == "subscription"
-    bid, cap = t.bid, t.bid.frequency_cap
+    bid = t.bid
+    freq_n, freq_days = frequency_cap(brief, weak_fit, t)
+    pace = pacing(brief, weak_fit, monthly_usd, rec.usd)
     order_value = order_value_used(brief, publishers, catalog)
 
     bounds = age_bounds(brief, t)
@@ -75,14 +80,11 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
                      + ("subscription starts" if subscription else "purchases"),
         "bid_strategy": f"{bid.cpa_fraction_of_order_value:.0%} of ${order_value:,.0f} order value ({src})"
                         f"{ltv} = ${cpa:,.0f} target CPA",
-        "budget": f"${monthly_usd:,.0f}/mo split by fit, capped at each publisher's reach at "
-                  f"${t.budget.assumed_cpm_usd:g} CPM"
-                  + (f"; ${unallocated:,.0f} unallocated (beyond publisher reach)" if unallocated else "")
-                  + (f"; test budget ({t.budget.weak_fit_test_fraction:.0%} of full) because fit is weak"
-                     if weak_fit else ""),
+        "budget": _budget_rationale(rec, source, monthly_usd, unallocated, weak_fit, len(publishers), t),
         "targeting": f"{len(personas)} personas, interests {', '.join(interests) or 'none'}, "
                      f"ages {age_range[0]}-{age_range[1]}, gender {gender}, US",
-        "frequency_cap": f"At most {cap.impressions} impressions per person every {cap.per_days} days",
+        "frequency_cap": _frequency_rationale(brief, weak_fit, freq_n, freq_days, t),
+        "pacing": _pacing_rationale(brief, weak_fit, pace, monthly_usd, rec.usd),
         "guardrails": f"Pause if CPA exceeds ${cpa_limit:,.0f} ({bid.guardrail_cpa_multiple:g}× target) "
                       f"after {bid.guardrail_min_impressions:,} impressions",
         "line_items": f"{len(items)} publishers, budget share proportional to fit with a "
@@ -92,13 +94,13 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
         campaign_id=_campaign_id(brief, publishers, personas, monthly_usd),
         objective="conversions",
         conversion_event="subscription_start" if subscription else "purchase",
-        budget={"monthly_usd": round(monthly_usd, 2), "pacing": "even",
-                "unallocated_usd": unallocated, "test_budget": weak_fit},
+        budget={"monthly_usd": round(monthly_usd, 2), "recommended_usd": rec.usd, "source": source,
+                "pacing": pace, "unallocated_usd": unallocated, "test_budget": weak_fit},
         bid_strategy={"type": "target_cpa", "target_usd": cpa},
         targeting={"age_range": age_range, "gender": gender, "geo": GEO,
                    "interests": interests, "personas": [p.persona_id for p in personas]},
         line_items=items,
-        frequency_cap={"impressions": cap.impressions, "per_days": cap.per_days},
+        frequency_cap={"impressions": freq_n, "per_days": freq_days},
         guardrails={"pause_if_cpa_over_x": bid.guardrail_cpa_multiple, "cpa_limit_usd": cpa_limit,
                     "min_impressions": bid.guardrail_min_impressions},
         rationales=rationales,
@@ -108,3 +110,46 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
                         "persona_fits": {p.persona_id: p.fit for p in personas},
                         "weak_fit": weak_fit},
     )
+
+
+def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, weak_fit: bool,
+                      n_pubs: int, t: Tuning) -> str:
+    b = t.budget
+    capped = sum(1 for p in rec.per_publisher if p < rec.cpa * b.conversions_per_line_item)
+    why = (f"Recommended ${rec.usd:,.0f}/mo: ${rec.cpa:,.0f} target CPA × {b.conversions_per_line_item} "
+           f"conversions per line item (enough to optimise the bid) across {n_pubs} publishers"
+           + (f", {capped} capped at reach (${b.assumed_cpm_usd:g} CPM)" if capped else "")
+           + f", rounded to ${b.round_to_usd:,.0f} within ${b.min_usd:,.0f}–${b.max_usd:,.0f}")
+    if weak_fit:
+        why += f", then {b.weak_fit_test_fraction:.0%} of ${rec.full_usd:,.0f} as a test because fit is weak"
+    if source == "user":
+        why += f". You set ${monthly_usd:,.0f}/mo, which is used instead"
+    why += f". Split by fit, capped at each publisher's reach at ${b.assumed_cpm_usd:g} CPM"
+    if unallocated:
+        why += f"; ${unallocated:,.0f} unallocated (beyond publisher reach)"
+    return why
+
+
+def _frequency_rationale(brief: Brief, weak_fit: bool, n: int, days: int, t: Tuning) -> str:
+    f = t.frequency
+    tier = brief.price_tier if brief.price_tier in f.by_price_tier else "unknown"
+    base = f.by_price_tier[tier]
+    parts = [f"{tier} price tier: {base.impressions} per {base.per_days} days"]
+    if brief.business_model == "subscription":
+        parts.append(f"+{f.subscription_extra} for a subscription")
+    if weak_fit:
+        parts.append(f"−{f.weak_fit_reduction} for a weak-fit test")
+    return f"At most {n} impressions per person every {days} days ({', '.join(parts)})"
+
+
+def _pacing_rationale(brief: Brief, weak_fit: bool, pace: str, monthly_usd: float,
+                      recommended_usd: float) -> str:
+    if weak_fit:
+        return "Front-loaded: a small weak-fit test should learn fast"
+    if pace == "accelerated":
+        return (f"Accelerated: a {brief.price_tier}-tier buy with ${monthly_usd:,.0f} below the "
+                f"${recommended_usd:,.0f} recommendation, so spend it while it converts")
+    if brief.price_tier in ("premium", "luxury"):
+        return f"Even: a {brief.price_tier}-tier purchase is considered, so reminders are spread out"
+    return f"Even: ${monthly_usd:,.0f} meets the ${recommended_usd:,.0f} recommendation" \
+        if monthly_usd >= recommended_usd else f"Even: {brief.price_tier} price tier"

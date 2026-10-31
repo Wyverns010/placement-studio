@@ -73,6 +73,8 @@ class BudgetTuning(BaseModel):
     assumed_cpm_usd: float
     min_share: float
     weak_fit_test_fraction: float
+    conversions_per_line_item: int
+    round_to_usd: float
 
 
 class FrequencyCap(BaseModel):
@@ -83,9 +85,15 @@ class FrequencyCap(BaseModel):
 class BidTuning(BaseModel):
     cpa_fraction_of_order_value: float
     subscription_ltv_multiplier: float
-    frequency_cap: FrequencyCap
     guardrail_cpa_multiple: float
     guardrail_min_impressions: int
+
+
+class FrequencyTuning(BaseModel):
+    by_price_tier: dict[str, FrequencyCap]
+    subscription_extra: int
+    weak_fit_reduction: int
+    min_impressions: int
 
 
 class LayaThresholds(BaseModel):
@@ -134,6 +142,7 @@ class Tuning(BaseModel):
     persona: PersonaTuning
     budget: BudgetTuning
     bid: BidTuning
+    frequency: FrequencyTuning
     gate: GateTuning
     creative: CreativeTuning
     input: InputTuning

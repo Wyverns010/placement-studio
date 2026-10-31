@@ -86,7 +86,7 @@ class CampaignConfig(BaseModel):
     campaign_id: str
     objective: Literal["conversions"]
     conversion_event: Literal["purchase", "subscription_start"]
-    budget: dict  # {"monthly_usd", "pacing": "even", "unallocated_usd", "test_budget"}
+    budget: dict  # {"monthly_usd", "recommended_usd", "source": recommended|user, "pacing", "unallocated_usd", "test_budget"}
     bid_strategy: dict  # {"type": "target_cpa", "target_usd": float}
     targeting: dict  # {"age_range", "gender", "geo", "interests", "personas"}
     line_items: list[LineItem]

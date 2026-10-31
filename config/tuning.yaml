@@ -29,13 +29,24 @@ budget:
   max_usd: 5000000
   assumed_cpm_usd: 12
   min_share: 0.10
-  weak_fit_test_fraction: 0.20
+  weak_fit_test_fraction: 0.20  # weak fit: recommend this share of the full budget, as a test
+  conversions_per_line_item: 50 # monthly conversions a line item needs for a CPA bid to optimise
+  round_to_usd: 500             # recommended budget rounds to the nearest multiple of this
 bid:
   cpa_fraction_of_order_value: 0.35
   subscription_ltv_multiplier: 2.0
-  frequency_cap: {impressions: 3, per_days: 7}
   guardrail_cpa_multiple: 1.5
   guardrail_min_impressions: 2000
+frequency:                      # cap per person, by how considered the purchase is
+  by_price_tier:
+    value: {impressions: 5, per_days: 7}
+    mid: {impressions: 4, per_days: 7}
+    premium: {impressions: 3, per_days: 14}
+    luxury: {impressions: 2, per_days: 21}
+    unknown: {impressions: 3, per_days: 7}
+  subscription_extra: 1         # a subscription start earns one more reminder
+  weak_fit_reduction: 1         # a weak-fit test shows fewer
+  min_impressions: 1
 gate:
   proceed_threshold: 0.70
   no_signal_threshold: 0.30

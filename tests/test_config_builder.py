@@ -1,3 +1,4 @@
+from app.budget import recommended_budget
 from app.config_builder import build_config
 from app.match import score_personas, score_publishers, select_personas
 from app.models import CampaignConfig, Creative, GateResult
@@ -29,9 +30,15 @@ def test_config_validates_and_has_rationales():
     assert "$42" in cfg.rationales["bid_strategy"] and "$25,000" in cfg.rationales["budget"]
 
 
-def test_weak_fit_uses_test_budget():
-    cfg, _, _ = _build(weak_fit=True)
-    assert cfg.budget["monthly_usd"] == 5000 and cfg.budget["test_budget"] is True
+def test_weak_fit_recommends_test_budget_and_user_override_wins():
+    cfg, pubs, _ = _build(weak_fit=True, monthly=None)
+    rec = recommended_budget(B, pubs, CAT, True, T)
+    assert cfg.budget["test_budget"] is True and cfg.budget["source"] == "recommended"
+    assert cfg.budget["monthly_usd"] == cfg.budget["recommended_usd"] == rec.usd
+    assert "20%" in cfg.rationales["budget"] and "weak" in cfg.rationales["budget"]
+    user, _, _ = _build(weak_fit=True, monthly=25000)
+    assert user.budget["monthly_usd"] == 25000 and user.budget["source"] == "user"
+    assert user.budget["test_budget"] is True and user.budget["recommended_usd"] == rec.usd
 
 
 def test_normal_budget_not_test():
@@ -68,3 +75,40 @@ def test_one_sided_age_fills_bounds_in_config():
     b = B.model_copy(update={"age_min": None, "age_max": 35})
     cfg, _, _ = _build(b=b)
     assert cfg.targeting["age_range"] == [T.audience.age_floor, 35]
+
+
+def test_budget_defaults_to_recommended_with_source():
+    cfg, pubs, _ = _build(monthly=None)
+    rec = recommended_budget(B, pubs, CAT, False, T)
+    assert cfg.budget["monthly_usd"] == cfg.budget["recommended_usd"] == rec.usd
+    assert cfg.budget["source"] == "recommended"
+    r = cfg.rationales["budget"]
+    # the inputs: target CPA, conversions per line item, publisher count, rounding unit
+    assert "$42" in r and "50 conversions" in r and f"{len(pubs)} publishers" in r and "$500" in r
+
+
+def test_user_budget_wins_and_rationale_names_both():
+    cfg, pubs, _ = _build(monthly=25000)
+    rec = recommended_budget(B, pubs, CAT, False, T)
+    assert cfg.budget["monthly_usd"] == 25000 and cfg.budget["source"] == "user"
+    assert cfg.budget["recommended_usd"] == rec.usd
+    assert "$25,000" in cfg.rationales["budget"] and f"${rec.usd:,.0f}" in cfg.rationales["budget"]
+
+
+def test_frequency_and_pacing_in_config_with_rationales():
+    cfg, _, _ = _build()  # premium subscription: 3/14 + 1
+    assert cfg.frequency_cap == {"impressions": 4, "per_days": 14}
+    f = cfg.rationales["frequency_cap"]
+    assert "premium" in f and "subscription" in f and "4" in f and "14" in f
+    weak, _, _ = _build(weak_fit=True)
+    assert weak.frequency_cap == {"impressions": 3, "per_days": 14}
+    assert "test" in weak.rationales["frequency_cap"]
+    assert cfg.budget["pacing"] == "even" and "premium" in cfg.rationales["pacing"]
+    assert weak.budget["pacing"] == "front_loaded" and "test" in weak.rationales["pacing"]
+
+
+def test_pacing_accelerated_for_mid_tier_below_recommendation():
+    b = B.model_copy(update={"price_tier": "mid", "business_model": "one_off"})
+    cfg, pubs, _ = _build(b=b, monthly=500)
+    assert recommended_budget(b, pubs, CAT, False, T).usd > 500
+    assert cfg.budget["pacing"] == "accelerated" and "below" in cfg.rationales["pacing"]
