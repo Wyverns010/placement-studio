@@ -24,7 +24,7 @@ def _canonical(input_text: str, brief: Brief, gate: GateResult, publishers: list
             "gate": gate.model_dump(mode="json"),
             "publishers": [p.model_dump(mode="json") for p in publishers],
             "personas": [p.model_dump(mode="json") for p in personas]}
-    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8", "surrogatepass")
 
 
 def sign(input_text: str, brief: Brief, gate: GateResult, publishers: list[PublisherScore],

@@ -551,3 +551,15 @@ def test_rewrite_note_cannot_break_out_and_is_not_a_fact():
 def test_rewrite_missing_twice_raises():
     with pytest.raises(LLMError):
         _rewrite(lambda pid, n: None)
+
+
+def test_rewrite_caps_echoed_current_ad_and_other_headlines():
+    current = _current()
+    current[0] = current[0].model_copy(update={"headline": "H" * 5000, "body": "B" * 5000, "cta": "C" * 5000})
+    current[1] = current[1].model_copy(update={"headline": "O" * 5000})
+    _, llm, _ = _rewrite(lambda pid, n: item(pid, headline="O" * 5000 if n == 1 else "New one"), current=current)
+    first, retry = llm.calls[0]["user"], llm.calls[1]["user"]
+    c = T.creative
+    assert "H" * c.headline_max_chars in first and "H" * (c.headline_max_chars + 1) not in first
+    assert "B" * (c.body_max_chars + 1) not in first and "C" * (c.cta_max_chars + 1) not in first
+    assert "O" * (c.headline_max_chars + 1) not in retry and "O" * c.headline_max_chars in retry

@@ -539,3 +539,38 @@ def test_request_body_size_limit(client):
     r = client.post("/api/creatives", content=b"x" * (T.input.max_body_bytes + 1),
                     headers={"content-type": "application/json"})
     assert r.status_code == 413
+
+
+def test_oversized_llm_brief_is_clamped_in_stage1_and_flows_through(client, llm):
+    big = brief_obj(product="Dog food " * 30, facts=["Real chicken, " * 30] * 14,
+                    unknowns=["price " * 60] * 12, categories=["pet_food"] * 25,
+                    adjacent_categories=["pet"] * 25)
+    llm.responses["BriefSchema"] = big
+    s1 = client.post("/api/campaign", json={"text": "We sell dog food"}).json()
+    i = T.input
+    assert len(s1["brief"]["product"]) <= i.brief_product_max_chars
+    assert len(s1["brief"]["facts"]) == i.brief_list_max_items
+    assert s1["brief"]["categories"] == ["pet_food"]
+    r = client.post("/api/creatives", json=_stage2(s1))
+    assert r.status_code == 200, r.json()
+    cfg = client.post("/api/config", json=_stage3(s1, r.json()["creatives"]))
+    assert cfg.status_code == 200, cfg.json()
+
+
+def test_lone_surrogates_are_422_not_500(client, s1):
+    bad = b'{"text": "dog \\ud800 food"}'
+    r = client.post("/api/campaign", content=bad, headers={"content-type": "application/json"})
+    assert r.status_code == 422
+    assert client.get("/api/campaign/stream", params={"text": "dog \udc00 food".encode("utf-8", "surrogatepass")}).status_code in (200, 422)
+    cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
+    body = json.dumps(_regen(s1, cr)).replace('"persona_id": "' + cr[0]["persona_id"] + '"}',
+                                              '"persona_id": "' + cr[0]["persona_id"] + '", "note": "hi \\udc80"}')
+    assert '\\udc80' in body
+    r = client.post("/api/creatives/regenerate", content=body.encode(), headers={"content-type": "application/json"})
+    assert r.status_code == 422
+    c3 = json.dumps(_stage3(s1, cr)).replace(cr[0]["headline"], "x \\ud83d")
+    r = client.post("/api/config", content=c3.encode(), headers={"content-type": "application/json"})
+    assert r.status_code == 422
+    tampered = json.dumps(_stage2(s1)).replace(s1["input_text"], "dog \\ud800")
+    r = client.post("/api/creatives", content=tampered.encode(), headers={"content-type": "application/json"})
+    assert r.status_code in (403, 422)

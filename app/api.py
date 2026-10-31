@@ -46,6 +46,15 @@ NO_ADS_MSG = "The AI service didn't return any ads — try again."
 TAMPERED_MSG = "This campaign changed or expired — run it again."
 NOT_PROCEEDING_MSG = "Ads and a config are only built for a campaign the gate let through."
 TOO_LARGE_MSG = "Request too large."
+BAD_CHARS_MSG = "The request contains invalid characters."
+
+
+def _check_encodable(*values) -> None:
+    """422 for text that cannot be UTF-8 encoded (lone surrogates), before it can 500 a response."""
+    try:
+        json.dumps(values, ensure_ascii=False).encode("utf-8")
+    except UnicodeEncodeError:
+        raise HTTPException(422, BAD_CHARS_MSG)
 
 log = logging.getLogger(__name__)
 
@@ -172,6 +181,7 @@ ANSWERS_HEADER = "\n\nAdditional details:\n"
 def _prepare(text: str, budget: float | None, answers: dict[str, str] | None,
              t: Tuning) -> tuple[str, float | None, bool]:
     """Validate and build the stage-1 input. Returns (text, budget, has_answers)."""
+    _check_encodable(text, answers)
     text = (text or "").strip()
     if not text:
         raise HTTPException(422, "Please describe your business.")
@@ -225,6 +235,7 @@ def _check_brief(b: Brief, catalog: Catalog, t: Tuning) -> None:
 def _validate_stage(req: CreativesRequest, catalog: Catalog, t: Tuning) -> str:
     """Shared checks for stage 2/3 requests, in order: the stage token (403), the gate let it
     through, then sizes and ids (422). Returns the stripped input_text."""
+    _check_encodable(req.model_dump(mode="json"))
     if not stagesign.verify(req.stage_token, req.input_text, req.brief, req.gate, req.publishers,
                             req.personas):
         raise HTTPException(403, TAMPERED_MSG)

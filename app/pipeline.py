@@ -20,7 +20,7 @@ from app.match import (
 from app.models import (Brief, CampaignConfig, CampaignResult, Creative, GateResult,
                         PersonaScore, PublisherScore, StageEvent)
 from app.tuning import Tuning
-from app.understand import understand
+from app.understand import clamp_brief, understand
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def _run(text, budget_usd, llm, gate, catalog, t) -> Iterator[StageEvent]:
             creatives=[], clarify=list(clarify), config=None,
         )
 
-    brief = understand(text, catalog, llm)
+    brief = clamp_brief(understand(text, catalog, llm), t)  # within the caps stage 2/3 enforce
     yield StageEvent(stage="understood", data=brief.model_dump())
     g = gate.assess(text, brief)
     yield StageEvent(stage="gate", data=g.model_dump())
