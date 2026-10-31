@@ -62,26 +62,26 @@ export default function App() {
   useEffect(() => stop, [stop])
 
   /**
-   * Streams one run. `onDone` receives the full result; `onFail` the message.
-   * Starting a new stream (or going home) cancels the previous one.
+   * Streams one run and marks the app as running. `onDone` receives the full result and this
+   * run's token; `onFail` the message (running is already cleared). Starting a new stream (or
+   * going home) cancels the previous one.
    */
   const startStream = useCallback(
-    (
-      req: CampaignRequest,
-      my: number,
-      onDone: (r: CampaignResult) => void,
-      onFail: (msg: string) => void,
-    ) => {
+    (req: CampaignRequest, onDone: (r: CampaignResult, my: number) => void, onFail: (msg: string) => void) => {
       stop()
+      const my = ++token.current
+      setRebuildError(null)
+      setState((s) => ({ ...s, running: true, partial: {} }))
       cancelStream.current = streamCampaign(req, (e: StageEvent) => {
         if (my !== token.current) return
         if (e.stage === 'error') {
           cancelStream.current = null
           const d = e.data as { message?: string; detail?: string }
+          setState((s) => ({ ...s, running: false, partial: {} }))
           onFail(d.message ?? d.detail ?? 'Something went wrong. Please try again.')
         } else if (e.stage === 'done') {
           cancelStream.current = null
-          onDone(e.data as unknown as CampaignResult)
+          onDone(e.data as unknown as CampaignResult, my)
         } else {
           setState((s) => ({ ...s, partial: { ...s.partial, [e.stage]: e.data } as StreamPartial }))
         }
@@ -92,15 +92,11 @@ export default function App() {
 
   const run = useCallback(
     (t: string, b: number) => {
-      const my = ++token.current
       const fromResults = viewRef.current === 'results'
       setError(null)
-      setRebuildError(null)
-      setState((s) => ({ ...s, running: true, partial: {} }))
       startStream(
         { text: t, budget_usd: b },
-        my,
-        (result) => {
+        (result, my) => {
           lastInput.current = { text: t, budget: b, answers: {} }
           setLastResult(result)
           const show = () =>
@@ -116,7 +112,6 @@ export default function App() {
           // On the results view, failures show in the red results banner, not the hidden landing form.
           if (fromResults) setRebuildError(msg)
           else setError(msg)
-          setState((s) => ({ ...s, running: false, partial: {} }))
         },
       )
     },
@@ -133,12 +128,8 @@ export default function App() {
         next[q] = a
       }
       const merged = Object.fromEntries(Object.entries(next).slice(-5))
-      const my = ++token.current
-      setRebuildError(null)
-      setState((s) => ({ ...s, running: true, partial: {} }))
       startStream(
         { text: t, budget_usd: b, answers: merged },
-        my,
         (raw) => {
           lastInput.current = { text: t, budget: b, answers: merged }
           // The API echoes the text with answers appended; show what the user typed.
@@ -146,10 +137,7 @@ export default function App() {
           setLastResult(result)
           setState({ view: 'results', result, running: false, partial: {} })
         },
-        (msg) => {
-          setRebuildError(msg)
-          setState((s) => ({ ...s, running: false, partial: {} }))
-        },
+        setRebuildError,
       )
     },
     [startStream],
