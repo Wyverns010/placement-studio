@@ -636,3 +636,64 @@ def test_unsteered_stage1_is_code_and_never_calls_the_strategist():
     model = ScriptedModel([])
     r = done(stage1(fake(), None, AgentRuntime(models={"strategist": model})))
     assert r.mode == "code" and model.calls == ()
+
+
+# ---- sample precompute: step ② through the agents, cached with its trace ----
+
+def _precompute(rt):
+    from scripts.precompute_samples import build_entry
+
+    return build_entry("We sell dog food", llm=fake(), gate=GATE, catalog=CAT, t=T, runtime=rt)
+
+
+def test_precompute_writes_agent_trace_and_the_api_serves_it_for_the_sample(tmp_path, monkeypatch):
+    n = len(plain().personas)
+    d = _draft("Ad")
+    copywriter = ScriptedModel([s for _ in range(n) for s in (call("review_draft", d), final(**d))])
+    critic = ScriptedModel([s for _ in range(n) for s in (
+        call("check_copy", {k: v for k, v in d.items() if k != "why"}), final(accept=True, notes=[]))])
+    e = _precompute(AgentRuntime(models={"copywriter": copywriter, "critic": critic}))
+    assert e.mode == "agent" and e.creatives and e.agent_trace and e.config
+    path = tmp_path / "samples.json"
+    samples_mod.write_cache([e], path)
+    raw = json.loads(path.read_text())["samples"]["We sell dog food"]
+    assert raw["mode"] == "agent" and raw["agent_trace"] and "agent_notes" in raw
+    monkeypatch.setattr(samples_mod, "CACHE", path)
+    limiter = RateLimiter(limit=1000, window_s=60)
+    api.app.dependency_overrides.update({
+        api.get_llm: lambda: fake(), api.get_gate_dep: lambda: GATE, api.get_catalog: lambda: CAT,
+        api.get_tuning: lambda: T, api.get_limiter: lambda: limiter,
+        api.get_agent_runtime: lambda: None})
+    try:
+        c = TestClient(api.app)
+        r = c.post("/api/campaign", json={"text": "We sell dog food"}).json()
+        stage = {k: r[k] for k in ("input_text", "brief", "gate", "publishers", "personas", "stage_token")}
+        cr = c.post("/api/creatives", json=stage).json()
+        assert cr["mode"] == "cached" and cr["creatives"]
+        assert cr["agent_trace"] == [s.model_dump() for s in e.agent_trace]
+        assert cr["agent_notes"] == e.agent_notes
+    finally:
+        api.app.dependency_overrides.clear()
+
+
+def test_precompute_fails_loudly_when_the_agent_falls_back(capsys):
+    from scripts.precompute_samples import AgentFellBack
+
+    rt = AgentRuntime(models={"copywriter": ScriptedModel([boom(RuntimeError("nope"))]),
+                              "critic": ScriptedModel([])})
+    with pytest.raises(AgentFellBack, match="fallback"):
+        _precompute(rt)
+    with pytest.raises(AgentFellBack, match="off"):
+        _precompute(None)
+
+
+def test_old_cache_entries_without_trace_fields_still_load(tmp_path):
+    r = plain()
+    p = tmp_path / "s.json"
+    samples_mod.write_cache([samples_mod.SampleEntry(stage1=r)], p)
+    raw = json.loads(p.read_text())
+    for e in raw["samples"].values():
+        for k in ("mode", "agent_trace", "agent_notes"):
+            e.pop(k)
+    p.write_text(json.dumps(raw))
+    assert samples_mod.read_entries(p)[samples_mod.norm(r.input_text)].agent_trace == []

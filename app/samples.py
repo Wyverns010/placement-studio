@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from app.models import CampaignConfig, CampaignResult, Creative, PersonaScore, PublisherScore
+from app.models import CampaignConfig, CampaignResult, Creative, PersonaScore, PublisherScore, TraceStep
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +46,11 @@ class SampleEntry(BaseModel):
     stage1: CampaignResult
     creatives: list[Creative] = []
     config: CampaignConfig | None = None
+    # Step ② as the step agents made it (Copywriter + Critic): their trace and notes, and the
+    # mode that made the ads ("agent"; "code" for entries cached before the agents existed).
+    agent_trace: list[TraceStep] = []
+    agent_notes: list[str] = []
+    mode: str = "code"
 
 
 CACHE_FORMAT = 2  # cache/samples.json: {"format": 2, "fingerprint": sha256, "samples": {normalised_text: SampleEntry}}
@@ -54,7 +59,7 @@ CACHE_FORMAT = 2  # cache/samples.json: {"format": 2, "fingerprint": sha256, "sa
 def _fingerprint_files(root: Path) -> list[Path]:
     """What a cached result depends on: tuning, every prompt file, and the catalog JSON.
     prompts/README.md is documentation (never sent to a model), so it is left out, as are the
-    step agents' prompts (prompts/agents/): cached samples are no-steer code results."""
+    step agents' prompts (prompts/agents/): stage 1 of a cached sample is the code path; step ② is agent output (`make samples`)."""
     prompts = [p for p in (root / "prompts").rglob("*")
                if p.is_file() and not p.name.startswith(".") and p.name != "README.md"
                and "__pycache__" not in p.parts and p.relative_to(root).parts[1] != "agents"]
@@ -154,9 +159,9 @@ def cached_stage1(text: str, budget_usd: float | None = None, *,
     return e.stage1.model_copy(update={"budget_usd": budget_usd}) if e else None
 
 
-def cached_creatives(text: str, publishers: list[PublisherScore], personas: list[PersonaScore],
-                     *, path: Path | None = None) -> list[Creative] | None:
-    """Precomputed creatives, only when the request asks for exactly the sample's stage-1 picks
+def cached_step2(text: str, publishers: list[PublisherScore], personas: list[PersonaScore],
+                 *, path: Path | None = None) -> tuple[list[Creative], list[TraceStep], list[str]] | None:
+    """Precomputed (creatives, agent_trace, agent_notes), only when the request asks for exactly the sample's stage-1 picks
     (same personas in order, same recommended publishers)."""
     e = cached_entry(text, path=path)
     if not e or not e.creatives:
@@ -165,7 +170,14 @@ def cached_creatives(text: str, publishers: list[PublisherScore], personas: list
     if ([p.persona_id for p in personas] != [p.persona_id for p in e.stage1.personas]
             or rec(publishers) != rec(e.stage1.publishers)):
         return None
-    return [c.model_copy() for c in e.creatives]
+    return [c.model_copy() for c in e.creatives], list(e.agent_trace), list(e.agent_notes)
+
+
+def cached_creatives(text: str, publishers: list[PublisherScore], personas: list[PersonaScore],
+                     *, path: Path | None = None) -> list[Creative] | None:
+    """The creatives of cached_step2 alone."""
+    hit = cached_step2(text, publishers, personas, path=path)
+    return hit[0] if hit else None
 
 
 # ---- offline checks: does a cached entry still match the code? (no LLM calls) ----

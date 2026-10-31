@@ -134,8 +134,8 @@ ratelimit:
   cost_stage1: 1                # runs charged per call: stage 1 (understand + gate + match)
   cost_creatives: 2             # stage 2: one creative call per persona (3-5 calls)
   cost_regenerate: 1            # stage 2: rewrite one ad
-agents:                         # step agents (app/stepagents). Not in the sample-cache fingerprint:
-  enabled: true                 # cached samples are no-steer code results, never agent output
+agents:                         # step agents (app/stepagents). Not in the sample-cache fingerprint
+  enabled: true                 # (samples cache step-② agent output made with these settings)
   run_without_steer:            # live runs with no steer: use the agent, or plain code ("code" mode)
     strategist: false           # unsteered agent == code on 121/121 cases, +6 s (evals/AGENT_COMPARISON.md)
     creative: true              # the one switch for step ② (ads and Regenerate)

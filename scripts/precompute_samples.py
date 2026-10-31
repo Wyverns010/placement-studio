@@ -4,8 +4,10 @@
     uv run python scripts/precompute_samples.py --offline   # no LLM: re-check and re-stamp
 
 Writes cache/samples.json as {"format": 2, "fingerprint": sha256, "samples": {normalised_text:
-{stage1, creatives, config}}}: the stage-1 result (no creatives or config), the creatives, and the
-config at the recommended budget. The fingerprint covers config/tuning.yaml, prompts/ and
+{stage1, creatives, config, mode, agent_trace, agent_notes}}}: the stage-1 result (no creatives
+or config), the creatives written by the step agents (Copywriter + Critic, via the same
+creatives_step as /api/creatives) with their trace and notes, and the config at the recommended
+budget. If the agents fall back on any sample the run exits 1 and writes nothing. The fingerprint covers config/tuning.yaml, prompts/ and
 data/*.json (app.samples.fingerprint); the API ignores a cache whose fingerprint no longer matches
 and runs the samples live. Re-run whenever prompts or tuning change.
 
@@ -37,25 +39,54 @@ EXPECTED: dict[int, tuple[str, ...]] = {
 }
 
 
+class AgentFellBack(RuntimeError):
+    """Step ② did not come from the agents (fell back, or agents are off): never cache code ads."""
+
+
+def build_entry(text: str, *, llm, gate, catalog, t, runtime) -> SampleEntry:
+    """One sample through all three stages. Stage 1 is the code path (strategist unsteered =
+    code); step ② runs through creatives_step, the code /api/creatives uses, and must be the
+    agents' result (AgentFellBack otherwise); stage 3 is code at the recommended budget."""
+    from app.pipeline import BUILT, collect, make_config, run_stage1
+    from app.stepagents.runtime import wants_agent
+    from app.stepagents.steps import creatives_step
+
+    r = collect(run_stage1(text, None, llm=llm, gate=gate, catalog=catalog, t=t))
+    if r.outcome not in BUILT:
+        return SampleEntry(stage1=r)
+    if runtime is None or not wants_agent("creative", None, t):
+        raise AgentFellBack("step-agent runtime is off (no OPENAI_API_KEY, agents.enabled false, "
+                            "or agents.run_without_steer.creative false)")
+    creatives, meta = creatives_step(text, r.brief, r.publishers, r.personas, None, llm=llm,
+                                     catalog=catalog, t=t, runtime=runtime)
+    if meta["mode"] != "agent" or not creatives:
+        notes = "; ".join(meta.get("agent_notes", []))
+        raise AgentFellBack(f"creative agents returned mode={meta['mode']!r}: {notes}")
+    config = make_config(r.brief, r.gate, r.publishers, r.personas, creatives, None,
+                         catalog=catalog, t=t)
+    return SampleEntry(stage1=r, creatives=creatives, config=config, mode="agent",
+                       agent_trace=meta["agent_trace"], agent_notes=meta["agent_notes"])
+
+
 def live() -> list[SampleEntry]:
     from dotenv import load_dotenv
 
     load_dotenv(ROOT / ".env")
     from app.gate import get_gate
     from app.llm import get_provider
-    from app.pipeline import run_full
+    from app.stepagents.runtime import openai_runtime
 
     t, catalog, llm = load_tuning(), load_catalog(), get_provider()
     gate = get_gate(tuning=t)
 
+    runtime = openai_runtime(t)
+
     def run(s: dict):
         text = s["text"][: t.input.max_chars]  # same truncation as the API
-        return run_full(text, None, llm=llm, gate=gate, catalog=catalog, t=t)  # recommended budget
+        return build_entry(text, llm=llm, gate=gate, catalog=catalog, t=t, runtime=runtime)
 
     with ThreadPoolExecutor(max_workers=5) as ex:
-        results = list(ex.map(run, load_samples()))
-    return [SampleEntry(stage1=r.model_copy(update={"creatives": [], "config": None}),
-                        creatives=r.creatives, config=r.config) for r in results]
+        return list(ex.map(run, load_samples()))  # any AgentFellBack propagates: nothing is written
 
 
 def offline() -> list[SampleEntry] | None:
@@ -76,7 +107,12 @@ def offline() -> list[SampleEntry] | None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--offline", action="store_true", help="no LLM: verify stage 1, rebuild configs, re-stamp")
-    entries = offline() if ap.parse_args().offline else live()
+    args = ap.parse_args()
+    try:
+        entries = offline() if args.offline else live()
+    except AgentFellBack as e:
+        print(f"✗ precompute failed, cache not written: {e}")
+        return 1
     if entries is None:
         return 1
     write_cache(entries)

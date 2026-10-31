@@ -407,9 +407,9 @@ async def creatives(req: CreativesRequest, request: Request,
                     runtime: AgentRuntime | None = Depends(get_agent_runtime)):
     text = _validate_stage(req, catalog, t)
     steer = _steer(req.steer, t)
-    hit = None if steer else samples.cached_creatives(text, req.publishers, req.personas)
+    hit = None if steer else samples.cached_step2(text, req.publishers, req.personas)
     if hit:
-        return {"creatives": hit, "mode": "cached"}
+        return {"creatives": hit[0], "mode": "cached", "agent_trace": hit[1], "agent_notes": hit[2]}
     _check_rate(request, limiter, t.ratelimit.cost_creatives)
     out, meta = await _live(lambda: creatives_step(text, req.brief, req.publishers, req.personas,
                                                    steer, llm=llm, catalog=catalog, t=t,
