@@ -52,6 +52,9 @@ Note: the default creative model is gpt-5.5 again (it was gpt-5.4-mini for a whi
 
 ## Latest numbers (2026-10-31, LLM gate, gpt-5.4-mini for Understand/clarify, gpt-5.5 for creatives, effort low)
 
+EVAL_NUMBERS_PENDING (re-run after the final review wave: weak-fit budget cap, new Understand
+examples, sample-cache fingerprint). Everything below in this section is the previous run.
+
 This table predates the creative-model switch. Post-switch train re-run (gpt-5.4-mini for creatives):
 83/84, with 1 transient OpenAI timeout and 2 exact duplicate-headline invariant failures. Those
 motivated the retry hardening (other headlines shown on retry, near-duplicate check at Jaccard 0.8).
