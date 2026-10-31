@@ -92,5 +92,9 @@ def test_understand_prompt_renders_grouped_vocab_and_parent_rule():
 
 def test_schema_vocab_unchanged_by_grouping():
     cat = load_catalog()
+    groups = cat.vocab_groups()
+    shown = set(groups) | {t for ts in groups.values() for t in ts} | set(cat.interest_terms())
+    assert shown == set(cat.vocab)  # the grouped prompt text names exactly the schema's terms
     for term in cat.vocab:
-        brief_schema(cat)(**_payload(categories=[term]))
+        b = brief_schema(cat)(**_payload(categories=[term]))
+        assert b.categories == [term]

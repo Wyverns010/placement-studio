@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel
 
@@ -83,16 +83,26 @@ class LineItem(BaseModel):
     extra_creative_ids: list[str] = []  # other approved ads written for it, served in rotation
 
 
+class BudgetBlock(TypedDict):
+    """config.budget: typed and validated, but still a plain dict (same JSON, `cfg.budget["..."]`)."""
+    monthly_usd: float
+    recommended_usd: float
+    source: Literal["recommended", "user"]
+    pacing: Literal["front_loaded", "even", "accelerated"]
+    unallocated_usd: float
+    test_budget: bool
+
+
 class CampaignConfig(BaseModel):
     campaign_id: str
     objective: Literal["conversions"]
     conversion_event: Literal["purchase", "subscription_start"]
-    budget: dict  # {"monthly_usd", "recommended_usd", "source": recommended|user, "pacing", "unallocated_usd", "test_budget"}
+    budget: BudgetBlock
     bid_strategy: dict  # {"type": "target_cpa", "target_usd": float}
     targeting: dict  # {"age_range", "gender", "geo", "interests", "personas"}
     line_items: list[LineItem]
     frequency_cap: dict  # {"impressions": int, "per_days": int}
-    guardrails: dict  # {"pause_if_cpa_over_x": float, "min_impressions": int}
+    guardrails: dict  # {"pause_if_cpa_over_x": float, "cpa_limit_usd": float, "min_impressions": int}
     rationales: dict[str, str]  # field name -> one line, shown on hover
     decision_trace: dict
 

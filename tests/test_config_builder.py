@@ -188,3 +188,16 @@ def test_line_items_rationale_names_reused_ads():
                        monthly_usd=None, weak_fit=False, catalog=CAT, t=T)
     r = cfg.rationales["line_items"]
     assert f"{pubs[1].name} reuses the {personas[0].name} ad written for {pubs[0].name}" in r
+
+
+def test_budget_block_is_typed_but_json_shape_unchanged():
+    import pytest
+    from pydantic import ValidationError
+    cfg, _, _ = _build()
+    assert isinstance(cfg.budget, dict)
+    assert set(cfg.model_dump(mode="json")["budget"]) == {
+        "monthly_usd", "recommended_usd", "source", "pacing", "unallocated_usd", "test_budget"}
+    bad = cfg.model_dump()
+    bad["budget"]["pacing"] = "sideways"
+    with pytest.raises(ValidationError):
+        CampaignConfig.model_validate(bad)
