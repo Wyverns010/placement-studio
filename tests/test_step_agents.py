@@ -575,7 +575,7 @@ def _agents(**kw):
 
 
 def test_creative_cap_covers_the_measured_cost():
-    assert T.agents.max_cost_usd["creative"] == 0.15  # measured mean $0.095, max $0.135
+    assert T.agents.max_cost_usd["creative"] == 0.25  # 5-ad briefs with critic rounds exceeded 0.15 live
 
 
 def test_creative_projected_over_cap_falls_back_before_any_model_call():

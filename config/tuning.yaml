@@ -147,9 +147,9 @@ agents:                         # step agents (app/stepagents). Not in the sampl
   critic_max_rounds: 2          # critic reviews per ad; later review requests are refused
   critic_stop_fraction: 0.7     # once a step has spent this share of its cap, reviews are refused
   creative_est_usd_per_ad: 0.03 # measured ≈$0.03/ad; ads × this over the cap -> code, before spending
-  max_cost_usd:                 # cost guard per step run (≈15–20¢ worst case per session); over -> fallback
+  max_cost_usd:                 # cost guard per step run (≈25–30¢ worst case per session); over -> fallback
     strategist: 0.02
-    creative: 0.15              # measured mean $0.095, max $0.135 (evals/AGENT_COMPARISON.md)
+    creative: 0.25              # measured mean $0.095, max $0.135; 5-ad briefs with critic rounds exceeded 0.15
     media_planner: 0.01
   timeout_s: 30                 # per agent model call (OpenAI client), never more than the step's
   max_retries: 1                # SDK retries per model call, still within step_timeout_s
