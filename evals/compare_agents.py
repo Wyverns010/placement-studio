@@ -44,9 +44,9 @@ load_dotenv(ROOT / ".env")  # never overrides the two model names set above
 from app.catalog import load_catalog  # noqa: E402
 from app.gate import get_gate  # noqa: E402
 from app.llm import LLMError, CachedProvider, reasoning_effort  # noqa: E402
-from app.models import CampaignResult, Creative  # noqa: E402
+from app.models import CampaignResult  # noqa: E402
 from app.pipeline import collect, make_config, make_creatives, run_stage1  # noqa: E402
-from app.samples import CACHE as SAMPLES_CACHE  # noqa: E402
+from app.samples import load_samples  # noqa: E402
 from app.stepagents import planner, steps  # noqa: E402
 from app.stepagents.runtime import Session, openai_runtime, run_step  # noqa: E402
 from app.tuning import load_tuning  # noqa: E402
@@ -376,10 +376,15 @@ def report_part1s() -> str:
 CLEAR_CASES = ["clear-pet-1", "clear-beauty-2", "clear-home-1", "clear-meal_kits-2"]
 
 
+def _sample_stage1() -> list[CampaignResult]:
+    """Stage 1 (code path) for the proceed / weak-fit example advertisers, run live."""
+    rs = [collect(run_stage1(s["text"], None, llm=SelectiveCache(Meter()), gate=GATE, catalog=CAT,
+                             t=T, meta=CODE_META)) for s in load_samples()]
+    return [r for r in rs if r.outcome in ("proceed", "weak_fit")]
+
+
 def part2_inputs() -> list[CampaignResult]:
-    raw = json.loads(SAMPLES_CACHE.read_text())["samples"]
-    out = [CampaignResult.model_validate(v["stage1"]) for v in raw.values()
-           if v["stage1"]["outcome"] in ("proceed", "weak_fit")]
+    out = _sample_stage1()
     for cid in CLEAR_CASES:
         c = _case(cid)
         r = collect(run_stage1(c["text"], None, llm=SelectiveCache(Meter()), gate=GATE, catalog=CAT,
@@ -543,9 +548,10 @@ def report_part2() -> str:
 # ---------------------------------------------------------------- part 3: media planner
 
 def _built_samples():
-    raw = json.loads(SAMPLES_CACHE.read_text())["samples"]
-    return [(CampaignResult.model_validate(v["stage1"]), [Creative.model_validate(c) for c in v["creatives"]])
-            for v in raw.values() if v["stage1"]["outcome"] in ("proceed", "weak_fit")]
+    """(stage 1, code-path creatives) for the proceed / weak-fit example advertisers, run live."""
+    return [(r, make_creatives(r.input_text, r.brief, r.publishers, r.personas,
+                               llm=SelectiveCache(Meter()), catalog=CAT, t=T))
+            for r in _sample_stage1()]
 
 
 def _planner_forced(r, cr, steer):

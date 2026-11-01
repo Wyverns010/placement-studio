@@ -5,14 +5,12 @@ import { Busy } from './ui'
 const MODE_LABEL: Record<AgentMode, string> = {
   agent: 'Agent',
   code: 'Code',
-  cached: 'Cached',
   fallback: 'Fallback (agent unavailable)',
 }
 
 const MODE_CLS: Record<AgentMode, string> = {
   agent: 'bg-violet-soft text-violet-dark',
   code: 'bg-[#eceaf2] text-muted',
-  cached: 'bg-[#eceaf2] text-muted',
   fallback: 'bg-[#FBEFDC] text-[#5B4520]',
 }
 

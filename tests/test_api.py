@@ -9,11 +9,9 @@ import app.samples as samples_mod
 from app import api
 from app.gate import get_gate
 from app.llm import FakeProvider, LLMError
-from app.models import CampaignResult
 from app.ratelimit import RateLimiter
 from app.understand import brief_schema
 from tests.conftest import CAT, T
-from app.pipeline import run_full
 from tests.test_pipeline import CLARIFY, _creatives, brief_obj
 
 
@@ -24,8 +22,7 @@ def llm():
 
 
 @pytest.fixture
-def client(llm, tmp_path, monkeypatch):
-    monkeypatch.setattr(samples_mod, "CACHE", tmp_path / "none.json")
+def client(llm):
     limiter = RateLimiter(limit=T.ratelimit.per_client_runs, window_s=T.ratelimit.per_client_window_s)
     api.app.dependency_overrides[api.get_llm] = lambda: llm
     api.app.dependency_overrides[api.get_gate_dep] = lambda: get_gate("llm", tuning=T)
@@ -159,65 +156,6 @@ def test_validation_errors_do_not_consume_limit(client):
     assert client.post("/api/campaign", json={"text": "dog food"}).status_code == 200
 
 
-def _cache_sample(llm, tmp_path, monkeypatch, text="We sell dog food"):
-    """Write a format-2 cache holding `text`'s three stages and point the app at it."""
-    full = run_full(text, None, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T)
-    path = tmp_path / "samples.json"
-    samples_mod.write_cache([samples_mod.SampleEntry(
-        stage1=full.model_copy(update={"creatives": [], "config": None}),
-        creatives=full.creatives, config=full.config)], path)
-    monkeypatch.setattr(samples_mod, "CACHE", path)
-    monkeypatch.setattr(T.api, "replay_delay_s", 0)
-    return full
-
-
-def test_cached_sample_skips_pipeline_and_limit(client, llm, tmp_path, monkeypatch):
-    text = "We sell dog food"
-    _cache_sample(llm, tmp_path, monkeypatch, text)
-    calls = len(llm.calls)
-    for _ in range(15):
-        r = client.post("/api/campaign", json={"text": "We  sell\ndog food"})
-        assert r.status_code == 200 and r.json()["creatives"] == []
-    assert client.post("/api/campaign", json={"text": text, "budget_usd": 1000}).json()["budget_usd"] == 1000
-    assert len(llm.calls) == calls
-    ev = sse(client.get("/api/campaign/stream", params={"text": text}))
-    assert [e for e, _ in ev] == STAGE1_EVENTS
-    # answers bypass the cache
-    client.post("/api/campaign", json={"text": text, "answers": {"Q": "A"}})
-    assert len(llm.calls) > calls
-
-
-def test_cached_creatives_skip_llm_and_limit_and_config_matches_cache(client, llm, tmp_path, monkeypatch):
-    full = _cache_sample(llm, tmp_path, monkeypatch)
-    s1 = client.post("/api/campaign", json={"text": "We sell dog food"}).json()
-    calls = len(llm.calls)
-    for _ in range(15):
-        r = client.post("/api/creatives", json=_stage2(s1))
-        assert r.status_code == 200
-    assert len(llm.calls) == calls
-    assert r.json()["creatives"] == [c.model_dump() for c in full.creatives]
-    cfg = client.post("/api/config", json=_stage3(s1, r.json()["creatives"])).json()["config"]
-    assert cfg == full.config.model_dump()
-    # a different persona selection is not the cached one: it runs live
-    r = client.post("/api/creatives", json=_resign({**_stage2(s1), "personas": s1["personas"][:1]}))
-    assert r.status_code == 200 and len(llm.calls) > calls
-
-
-def test_cache_rules(tmp_path):
-    res = CampaignResult(input_text="a  b", budget_usd=None, outcome="no_signal", message=None,
-                         brief=None, gate=None, publishers=[], personas=[], creatives=[],
-                         clarify=[], config=None)
-    p = tmp_path / "s.json"
-    assert samples_mod.cached_stage1("a b", path=p) is None
-    samples_mod.write_cache([samples_mod.SampleEntry(stage1=res)], p)
-    assert samples_mod.cached_stage1("a\tb", path=p) is not None
-    assert samples_mod.cached_stage1("a b", 1000, path=p).budget_usd == 1000
-    assert samples_mod.cached_creatives("a b", [], [], path=p) is None  # nothing built
-    assert json.loads(p.read_text())["format"] == 2
-    p.write_text(json.dumps({"a b": res.model_dump()}))  # the old format is ignored
-    assert samples_mod.cached_stage1("a b", path=p) is None
-
-
 def test_answers_capped(client):
     ans = {f"q{i}": "x" * 500 for i in range(9)}
     r = client.post("/api/campaign", json={"text": "dog food", "answers": ans}).json()
@@ -225,68 +163,13 @@ def test_answers_capped(client):
     assert len(lines) == 5 and all(len(l) <= len("- q0: ") + 200 for l in lines)
 
 
-@pytest.mark.parametrize("over", [dict(self_confidence=0.3), dict()])
-def test_replay_mirrors_live(over):
-    from app.pipeline import result_events, run_stage1, collect
-    from tests.test_pipeline import fake
-    llm = fake(**over)
-    live = list(run_stage1("dog food", None, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T))
-    replay = result_events(collect(iter(live)), T)
-    assert [(e.stage, e.data) for e in replay] == [(e.stage, e.data) for e in live]
-
-
-def test_cache_memoised(tmp_path, monkeypatch):
-    res = CampaignResult(input_text="a", budget_usd=None, outcome="no_signal", message=None,
-                         brief=None, gate=None, publishers=[], personas=[], creatives=[],
-                         clarify=[], config=None)
-    p = tmp_path / "s.json"
-    samples_mod.write_cache([samples_mod.SampleEntry(stage1=res)], p)
-    assert samples_mod.cached_stage1("a", path=p)
-    calls = []
-    orig = samples_mod.SampleEntry.model_validate
-    monkeypatch.setattr(samples_mod.SampleEntry, "model_validate",
-                        classmethod(lambda c, *a, **k: calls.append(1) or orig(*a, **k)))
-    assert samples_mod.cached_stage1("a", path=p)
-    assert calls == []
-
-
-class _Boom:
-    calls: list = []
-
-    def parse(self, **kw):
-        raise AssertionError("LLM must not be called for a cached sample")
-
-
-def test_cached_sample_skips_llm(monkeypatch):
-    """The committed cache serves sample #1's stage 1 and creatives even when the LLM provider
-    always raises; stage 3 is code."""
-    monkeypatch.setattr(T.api, "replay_delay_s", 0)
-    api.app.dependency_overrides[api.get_llm] = lambda: _Boom()
-    try:
-        c = TestClient(api.app)
-        s1 = samples_mod.load_samples()[0]
-        r = c.post("/api/campaign", json={"text": s1["text"]})
-        assert r.status_code == 200 and r.json()["outcome"] == "proceed"
-        ev = sse(c.get("/api/campaign/stream", params={"text": s1["text"]}))
-        assert [e for e, _ in ev] == STAGE1_EVENTS
-        cr = c.post("/api/creatives", json=_stage2(r.json()))
-        assert cr.status_code == 200 and cr.json()["creatives"]
-        cfg = c.post("/api/config", json=_stage3(r.json(), cr.json()["creatives"]))
-        assert cfg.status_code == 200
-        assert cfg.json()["config"] == samples_mod.cached_entry(s1["text"]).config.model_dump()
-    finally:
-        api.app.dependency_overrides.clear()
-
-
-def test_every_sample_is_cached_with_its_stages():
-    for s in samples_mod.load_samples():
-        e = samples_mod.cached_entry(s["text"])
-        assert e is not None, s["id"]
-        assert e.stage1.creatives == [] and e.stage1.config is None, s["id"]
-        built = e.stage1.outcome in ("proceed", "weak_fit")
-        assert bool(e.creatives) == built and (e.config is not None) == built, s["id"]
-        if built:
-            assert e.config.budget["source"] == "recommended", s["id"]
+def test_sample_text_runs_live(client, llm):
+    """The example advertisers go through the pipeline like any other input."""
+    text = samples_mod.load_samples()[0]["text"]
+    calls = len(llm.calls)
+    r = client.post("/api/campaign", json={"text": text})
+    assert r.status_code == 200 and r.json()["mode"] != "cached"
+    assert len(llm.calls) > calls
 
 
 def test_examples_path_anchored_to_repo_root(tmp_path, monkeypatch):
@@ -430,15 +313,11 @@ def test_stage2_llm_failure_is_502(client, llm, s1):
 TAMPERED = "This campaign changed or expired — run it again."
 
 
-def test_stage1_results_carry_a_token(client, llm, tmp_path, monkeypatch):
+def test_stage1_results_carry_a_token(client):
     s1 = client.post("/api/campaign", json={"text": "We sell dog food"}).json()
     assert len(s1["stage_token"]) == 64
     ev = sse(client.get("/api/campaign/stream", params={"text": "We sell dog food"}))
     assert ev[-1][1]["stage_token"] == s1["stage_token"]
-    _cache_sample(llm, tmp_path, monkeypatch)
-    hit = client.post("/api/campaign", json={"text": "We sell dog food"}).json()
-    assert hit["stage_token"] == s1["stage_token"]
-    assert "stage_token" not in json.dumps(json.loads((tmp_path / "samples.json").read_text()))
 
 
 @pytest.mark.parametrize("path", ["/api/creatives", "/api/config", "/api/creatives/regenerate"])

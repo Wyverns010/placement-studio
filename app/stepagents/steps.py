@@ -1,6 +1,6 @@
 """The three steps with their agents, each falling back to the plain code step on any agent
 failure. Every result carries `mode` ("agent" | "fallback" | "code"), `agent_trace` and
-`agent_notes`; the API adds "cached" for precomputed samples.
+`agent_notes`.
 
   stage1_events     Strategist          -> stage events (+ `agent` trace events while it works)
   creatives_step    Copywriter + Critic -> one ad per persona

@@ -40,7 +40,6 @@ describe('AgentPanel', () => {
   it.each([
     ['agent', 'Agent'],
     ['code', 'Code'],
-    ['cached', 'Cached'],
     ['fallback', 'Fallback (agent unavailable)'],
   ] as const)('badge for mode %s', (mode, label) => {
     render(<AgentPanel meta={{ mode }} />)

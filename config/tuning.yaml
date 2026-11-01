@@ -95,8 +95,6 @@ clarify:
 stage1:
   top_publishers_shown: 5       # publishers streamed in the stage-1 "publishers" event
   clarify_publishers_shown: 3   # clarify outcome: faded best guess, top N only
-api:
-  replay_delay_s: 0.3           # pause between replayed stage events for a cached sample
 llm:
   timeout_s: 25                 # OpenAI client timeout per request (no SDK retries)
 input:
@@ -116,12 +114,12 @@ audience:
 ratelimit:
   per_client_runs: 20           # live (paid) runs per client per window
   per_client_window_s: 600
-  global_runs_per_hour: 200     # process-wide cap on uncached live (paid) runs
+  global_runs_per_hour: 200     # process-wide cap on live (paid) runs
   cost_stage1: 1                # runs charged per call: stage 1 (understand + gate + match)
   cost_creatives: 2             # stage 2: one creative call per persona (3-5 calls)
   cost_regenerate: 1            # stage 2: rewrite one ad
-agents:                         # step agents (app/stepagents). Not in the sample-cache fingerprint
-  enabled: true                 # (samples cache step-② agent output made with these settings)
+agents:                         # step agents (app/stepagents)
+  enabled: true
   run_without_steer:            # live runs with no steer: use the agent, or plain code ("code" mode)
     strategist: false           # unsteered agent == code on 121/121 cases, +6 s (evals/AGENT_COMPARISON.md)
     creative: true              # the one switch for step ② (ads and Regenerate)

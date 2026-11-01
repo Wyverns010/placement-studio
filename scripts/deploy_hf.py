@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 INCLUDE_FILES = ["Dockerfile", ".dockerignore", "pyproject.toml", "uv.lock"]
-INCLUDE_DIRS = ["app", "config", "prompts", "data", "cache", "web"]
+INCLUDE_DIRS = ["app", "config", "prompts", "data", "web"]
 SKIP_DIRS = {"node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".git", ".cache"}
 SKIP_SUFFIXES = {".pyc"}
 
@@ -34,8 +34,8 @@ pinned: false
 # Placement Studio
 
 Describe a business and get a recommended set of publishers, shopper personas, ad creatives
-and a ready-to-launch campaign config. Fifteen sample advertisers load instantly from a
-precomputed cache; custom inputs run live against the model.
+and a ready-to-launch campaign config. Every input, including the fifteen sample advertisers,
+runs live against the model.
 
 Secrets: OPENAI_API_KEY (required), GATE_IMPL (optional)
 """

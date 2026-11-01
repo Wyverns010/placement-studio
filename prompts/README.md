@@ -62,7 +62,3 @@ Not prompts, but worth knowing:
   `self_confidence`, `describes_business` and `audience_type` from the Understand brief.
 - The `no_signal` outcome returns fixed questions (`NO_SIGNAL_QUESTIONS` in `app/create.py`), with no
   LLM call.
-
-Editing any file here except this README and `agents/` changes the sample-cache fingerprint
-(`app.samples.fingerprint`, with `config/tuning.yaml` minus its `agents:` block, and `data/*.json`): the samples
-then run live until `make samples` re-runs them.

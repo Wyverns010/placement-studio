@@ -107,7 +107,7 @@ class CampaignConfig(BaseModel):
     decision_trace: dict
 
 
-Mode = Literal["agent", "fallback", "cached", "code"]
+Mode = Literal["agent", "fallback", "code"]
 
 
 class TraceStep(BaseModel):
@@ -134,7 +134,7 @@ class CampaignResult(BaseModel):
     config: CampaignConfig | None
     stage_token: str | None = None  # API only: HMAC over the stage-1 fields (app/stagesign.py)
     # step agents (outside the signed fields): how this result was made and what the agent did
-    mode: Mode | None = None  # agent | fallback (agent failed, code ran) | cached | code (no agent)
+    mode: Mode | None = None  # agent | fallback (agent failed, code ran) | code (no agent)
     agent_trace: list[TraceStep] = []
     agent_notes: list[str] = []
 

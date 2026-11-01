@@ -6,13 +6,12 @@ client received from the stage before, re-validated here with the Pydantic model
   POST /api/creatives/regenerate                 stage 2 (rewrite one ad)            counts as a run
   POST /api/config                               stage 3 (config, code only)         free
 Stage 1 results carry a stage_token (app/stagesign.py); stages 2 and 3 must send it back with
-the exact stage-1 objects or get 403. Cached samples (stage 1 and their creatives) skip the LLM
-and the rate limit. Each step runs its agent (app/stepagents) when there is an optional `steer`
+the exact stage-1 objects or get 403. The example advertisers (GET /api/samples) run live like
+any other input. Each step runs its agent (app/stepagents) when there is an optional `steer`
 (or per tuning `agents.run_without_steer`); responses add mode, agent_trace and agent_notes.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import math
@@ -33,8 +32,7 @@ from app.gate import ConfidenceGate, get_gate
 from app.llm import LLMError, LLMProvider, get_provider
 from app.models import (Brief, CampaignConfig, CampaignResult, Creative, GateResult, Mode,
                         PersonaScore, PublisherScore, StageEvent, TraceStep)
-from app.pipeline import (MSG_LLM, MSG_OTHER, PipelineError, collect, recommended_of,
-                          result_events)
+from app.pipeline import MSG_LLM, MSG_OTHER, PipelineError, collect, recommended_of
 from app.stepagents.runtime import AgentRuntime, openai_runtime
 from app.stepagents.steps import config_step, creatives_step, regenerate_step, stage1_events
 from app.ratelimit import RateLimiter
@@ -156,7 +154,7 @@ class ConfigRequest(CreativesRequest):
 
 
 class AgentMeta(BaseModel):
-    """How a step result was made: agent, fallback (the agent failed; code ran), cached, code."""
+    """How a step result was made: agent, fallback (the agent failed; code ran), code."""
     mode: Mode = "code"
     agent_trace: list[TraceStep] = []
     agent_notes: list[str] = []
@@ -196,8 +194,8 @@ ANSWERS_HEADER = "\n\nAdditional details:\n"
 
 
 def _prepare(text: str, budget: float | None, answers: dict[str, str] | None,
-             t: Tuning) -> tuple[str, float | None, bool]:
-    """Validate and build the stage-1 input. Returns (text, budget, has_answers)."""
+             t: Tuning) -> tuple[str, float | None]:
+    """Validate and build the stage-1 input. Returns (text, budget)."""
     _check_encodable(text, answers)
     text = (text or "").strip()
     if not text:
@@ -208,16 +206,7 @@ def _prepare(text: str, budget: float | None, answers: dict[str, str] | None,
         n, cap = t.input.max_answers, t.input.max_answer_chars
         answers = {str(q)[:cap]: str(a)[:cap] for q, a in list(answers.items())[:n]}
         text += ANSWERS_HEADER + "\n".join(f"- {q}: {a}" for q, a in answers.items())
-    return text, budget, bool(answers)
-
-
-def _cached(text: str, budget: float | None, has_answers: bool,
-            steer: str | None = None) -> CampaignResult | None:
-    """A precomputed sample, only for its exact text with no answers and no steer."""
-    if has_answers or steer:
-        return None
-    hit = samples.cached_stage1(text, budget)
-    return hit.model_copy(update={"mode": "cached", "agent_trace": [], "agent_notes": []}) if hit else None
+    return text, budget
 
 
 STEER_TOO_LONG = "Keep the note to {n} characters."
@@ -343,11 +332,8 @@ async def campaign(req: CampaignRequest, request: Request,
                    catalog: Catalog = Depends(get_catalog), t: Tuning = Depends(get_tuning),
                    limiter: RateLimiter = Depends(get_limiter),
                    runtime: AgentRuntime | None = Depends(get_agent_runtime)):
-    text, budget, has_answers = _prepare(req.text, req.budget_usd, req.answers, t)
+    text, budget = _prepare(req.text, req.budget_usd, req.answers, t)
     steer = _steer(req.steer, t)
-    hit = _cached(text, budget, has_answers, steer)
-    if hit:
-        return _signed(hit)
     _check_rate(request, limiter, t.ratelimit.cost_stage1)
     try:
         return _signed(await run_in_threadpool(
@@ -374,24 +360,15 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
             parsed = {str(k): str(v) for k, v in parsed.items()}
         except ValueError:
             raise HTTPException(422, "answers must be a JSON object.")
-    full_text, budget, has_answers = _prepare(text, budget_usd, parsed, t)
+    full_text, budget = _prepare(text, budget_usd, parsed, t)
     steer = _steer(steer, t)
-    hit = _cached(full_text, budget, has_answers, steer)
-    if not hit:
-        _check_rate(request, limiter, t.ratelimit.cost_stage1)
+    _check_rate(request, limiter, t.ratelimit.cost_stage1)
 
     def encode(e: StageEvent) -> dict:
         data = _signed(CampaignResult.model_validate(e.data)) if e.stage == "done" else e.data
         return {"event": e.stage, "data": json.dumps(data)}
 
     async def gen():
-        if hit:
-            events = result_events(hit, t)
-            for i, e in enumerate(events):
-                if i:
-                    await asyncio.sleep(t.api.replay_delay_s)
-                yield encode(e)
-            return
         it = stage1_events(full_text, budget, steer, llm=llm, gate=gate, catalog=catalog, t=t,
                            runtime=runtime)
         async for e in iterate_in_threadpool(it):
@@ -407,9 +384,6 @@ async def creatives(req: CreativesRequest, request: Request,
                     runtime: AgentRuntime | None = Depends(get_agent_runtime)):
     text = _validate_stage(req, catalog, t)
     steer = _steer(req.steer, t)
-    hit = None if steer else samples.cached_step2(text, req.publishers, req.personas)
-    if hit:
-        return {"creatives": hit[0], "mode": "cached", "agent_trace": hit[1], "agent_notes": hit[2]}
     _check_rate(request, limiter, t.ratelimit.cost_creatives)
     out, meta = await _live(lambda: creatives_step(text, req.brief, req.publishers, req.personas,
                                                    steer, llm=llm, catalog=catalog, t=t,

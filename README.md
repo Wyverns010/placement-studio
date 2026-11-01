@@ -2,7 +2,11 @@
 
 Type one or two sentences about a business. You get ranked publishers (with why the rest lost), 3–5 ads written for different shopper personas, and a campaign config where every number is explained. Vague, B2B or empty input gets an honest answer instead of a campaign.
 
-**Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 example advertisers are precomputed, so they load instantly.
+**Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 example advertisers run live like any other input: a step takes a few seconds, the ads about 18 s.
+
+**Demo video (24 s):** [watch it](media/placement-studio-demo.mp4)
+
+[![Placement Studio demo](media/placement-studio-demo.jpg)](media/placement-studio-demo.mp4)
 
 ```
 cp .env.example .env          # add OPENAI_API_KEY

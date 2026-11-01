@@ -14,7 +14,7 @@ evals/candidates.jsonl
 # Design docs, specs and screenshots stay local
 docs/
 # Launch-video output (brag)
-brag-output/
+brag-output*/
 # Env variants (keep the example)
 .env.*
 !.env.example

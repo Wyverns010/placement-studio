@@ -75,21 +75,6 @@ def _persona_data(ps: list[PersonaScore]) -> dict:
                          for p in ps]}
 
 
-def result_events(r: CampaignResult, t: Tuning) -> list[StageEvent]:
-    """Stage events for an already-computed result (used to replay cached samples)."""
-    ev: list[StageEvent] = []
-    if r.brief:
-        ev.append(StageEvent(stage="understood", data=r.brief.model_dump()))
-    if r.gate:
-        ev.append(StageEvent(stage="gate", data=r.gate.model_dump()))
-    if r.publishers:
-        ev.append(StageEvent(stage="publishers", data=_pub_data(r.publishers, t, r.outcome)))
-    if r.personas:
-        ev.append(StageEvent(stage="personas", data=_persona_data(r.personas)))
-    ev.append(StageEvent(stage="done", data=r.model_dump()))
-    return ev
-
-
 def run_stage1(text: str, budget_usd: float | None, *, llm: LLMProvider, gate: ConfidenceGate,
                catalog: Catalog, t: Tuning, plan: Stage1Plan | None = None,
                meta: dict | None = None) -> Iterator[StageEvent]:
@@ -205,7 +190,7 @@ BUILT = ("proceed", "weak_fit")
 
 def run_full(text: str, budget_usd: float | None = None, *, llm: LLMProvider,
              gate: ConfidenceGate, catalog: Catalog, t: Tuning) -> CampaignResult:
-    """All three stages in one call (evals, precompute). Raises PipelineError for a stage-1
+    """All three stages in one call (evals). Raises PipelineError for a stage-1
     error and lets stage-2 errors (e.g. LLMError) propagate."""
     r = collect(run_stage1(text, budget_usd, llm=llm, gate=gate, catalog=catalog, t=t))
     if r.outcome not in BUILT:

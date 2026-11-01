@@ -19,7 +19,6 @@ COPY app ./app
 COPY config ./config
 COPY prompts ./prompts
 COPY data ./data
-COPY cache ./cache
 COPY --from=web /build/web/dist ./web/dist
 # the venv stays root-owned (read-only for app); re-owning it would copy it into a new layer
 RUN find /srv -path /srv/.venv -prune -o -exec chown app {} +

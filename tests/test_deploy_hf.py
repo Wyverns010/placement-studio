@@ -9,7 +9,7 @@ from scripts import deploy_hf
 
 def test_stage_excludes_secrets_and_has_front_matter(tmp_path):
     root = tmp_path / "repo"
-    for p in ["app/x.py", "config/a.yaml", "prompts/p.md", "data/d.json", "cache/samples.json",
+    for p in ["app/x.py", "config/a.yaml", "prompts/p.md", "data/d.json",
               "web/src/main.tsx", "web/node_modules/m/i.js", "web/dist/index.html",
               ".env", "app/.env", "Dockerfile", ".dockerignore", "pyproject.toml", "uv.lock",
               "app/__pycache__/x.pyc"]:
@@ -41,4 +41,4 @@ def test_assert_clean_rejects_secret_files(tmp_path):
 def test_real_repo_stage_is_clean(tmp_path):
     files = deploy_hf.stage(Path(deploy_hf.ROOT), tmp_path / "s")
     deploy_hf.assert_clean(files)
-    assert "cache/samples.json" in files
+    assert "data/example_advertisers.txt" in files

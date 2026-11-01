@@ -152,10 +152,6 @@ class Stage1Tuning(BaseModel):
     clarify_publishers_shown: int
 
 
-class ApiTuning(BaseModel):
-    replay_delay_s: float
-
-
 class LLMTuning(BaseModel):
     timeout_s: float
 
@@ -213,7 +209,6 @@ class Tuning(BaseModel):
     ratelimit: RateLimitTuning
     clarify: ClarifyTuning
     stage1: Stage1Tuning
-    api: ApiTuning
     llm: LLMTuning
     agents: AgentsTuning
 

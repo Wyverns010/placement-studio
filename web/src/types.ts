@@ -126,7 +126,7 @@ export interface CampaignResult {
   agent_notes?: string[]
 }
 
-export type AgentMode = 'agent' | 'fallback' | 'cached' | 'code'
+export type AgentMode = 'agent' | 'fallback' | 'code'
 
 /** One tool call by a step agent. */
 export interface AgentTraceEntry {
