@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Brief, CampaignResult, Outcome, StreamPartial } from '../types'
-import { clamp01, tierLabel, titleCase } from '../format'
+import { clamp01, tierLabel, titleCase, pct } from '../format'
 import { AgentTicker } from './AgentUi'
 import { Chips, ThresholdBar } from './ui'
 
@@ -81,7 +81,7 @@ function PubBars({ rows }: { rows: PubRow[] }) {
           <i
             className="h-2 rounded-full bg-violet"
             style={{ width: `${Math.round(p.fit * 100) * 0.6}%`, minWidth: 4 }}
-            title={`fit ${p.fit.toFixed(2)}`}
+            title={`fit ${pct(p.fit)}`}
           />
         </div>
       ))}
@@ -182,7 +182,7 @@ export default function ReadingPanel({ result: last, partial = {}, running = fal
           <div className="mt-1.5 text-[11.5px] text-muted">
             {gate && verdict ? (
               <>
-                {gate.confidence.toFixed(2)} vs. threshold {gate.threshold.toFixed(2)} →{' '}
+                {pct(gate.confidence)} vs. needed {pct(gate.threshold)} →{' '}
                 <b className={verdict.tone === 'ok' ? 'text-ok' : 'text-warn'}>{verdict.text}</b>
               </>
             ) : has.gate ? (

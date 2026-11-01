@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { clamp01, titleCase } from '../format'
+import { clamp01, titleCase, pct } from '../format'
 import type { CampaignResult } from '../types'
 import OutcomeBanner from './OutcomeBanner'
 import { Busy, Chips } from './ui'
@@ -60,7 +60,7 @@ function BestGuess({ result }: { result: CampaignResult }) {
               style={{ width: `${clamp01(p.fit) * 100}%` }}
             />
           </i>
-          <span className="text-right text-muted">{p.fit.toFixed(2)}</span>
+          <span className="text-right text-muted">{pct(p.fit)}</span>
         </div>
       ))}
       <p className="m-0 mt-4 text-[12.5px] text-muted">No budget or config until confidence clears.</p>
@@ -99,7 +99,7 @@ export default function ClarifyView({
             'Tell us a little about what you sell and we will build from there.'
           ) : result.gate ? (
             <>
-              Confidence <b>{result.gate.confidence.toFixed(2)}</b> / {result.gate.threshold.toFixed(2)}. Answer a
+              Brief clarity <b>{pct(result.gate.confidence)}</b>, needs {pct(result.gate.threshold)}. Answer a
               few questions and we will rebuild.
             </>
           ) : (

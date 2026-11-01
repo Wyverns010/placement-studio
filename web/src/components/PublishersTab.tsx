@@ -48,7 +48,7 @@ function PublisherCard({
         <div className="mt-[3px] text-xs text-muted">{statsLine(pub.publisher_id)}</div>
       </div>
       <div className="text-right">
-        <b className="text-[26px] leading-none tracking-[-0.02em]">{pub.fit.toFixed(2)}</b>
+        <b className="text-[26px] leading-none tracking-[-0.02em]">{pct(pub.fit)}</b>
         <small className="block text-[11.5px] text-muted">fit score</small>
       </div>
       <div className="col-start-2 col-end-4 min-w-0">
@@ -61,7 +61,7 @@ function PublisherCard({
               <div
                 key={f.key}
                 className="text-[11px] text-muted"
-                title={`${f.label}: ${score.toFixed(2)}`}
+                title={`${f.label}: ${pct(score)}`}
               >
                 {f.label}
                 <i className="relative mt-1 block h-[5px] overflow-hidden rounded-full bg-[#e9e3f5]">
@@ -97,7 +97,7 @@ function PublisherCard({
                 <span>
                   <b className="font-semibold">{titleCase(f.name)}</b> — {f.note}
                 </span>
-                <span className="shrink-0 font-semibold text-violet-dark">{f.score.toFixed(2)}</span>
+                <span className="shrink-0 font-semibold text-violet-dark">{pct(f.score)}</span>
               </li>
             ))}
           </ul>

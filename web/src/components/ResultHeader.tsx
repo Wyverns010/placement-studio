@@ -1,5 +1,5 @@
 import type { CampaignResult, Outcome } from '../types'
-import { clamp01 } from '../format'
+import { clamp01, pct } from '../format'
 import { VIOLET, briefChips } from './ReadingPanel'
 import { Chips, ThresholdBar } from './ui'
 
@@ -10,9 +10,10 @@ function audienceChip(r: CampaignResult): string | null {
   return null
 }
 
-const OUTCOME_BADGE: Record<Outcome, { text: string; cls: string }> = {
-  proceed: { text: 'Proceed', cls: 'bg-ok-soft text-ok' },
-  weak_fit: { text: 'Weak fit', cls: 'bg-warn-soft text-warn' },
+// The gate judges the brief, not the catalog: a clear brief can still be a weak fit (the banner says so).
+const GATE_BADGE: Record<Outcome, { text: string; cls: string }> = {
+  proceed: { text: 'Clear', cls: 'bg-ok-soft text-ok' },
+  weak_fit: { text: 'Clear', cls: 'bg-ok-soft text-ok' },
   clarify: { text: 'Needs detail', cls: 'bg-warn-soft text-warn' },
   out_of_scope: { text: 'Out of scope', cls: 'bg-warn-soft text-warn' },
   no_signal: { text: 'No signal', cls: 'bg-warn-soft text-warn' },
@@ -31,7 +32,7 @@ export default function ResultHeader({
   const aud = audienceChip(result)
   if (aud) chips.push(aud)
   const gate = result.gate
-  const badge = OUTCOME_BADGE[result.outcome]
+  const badge = GATE_BADGE[gate?.outcome ?? result.outcome]
   return (
     <div className="flex flex-col gap-5 pt-7 pb-4 md:flex-row md:items-end md:justify-between md:gap-8 md:pt-9">
       <div className="min-w-0">
@@ -51,14 +52,14 @@ export default function ResultHeader({
       {gate && (
         <div className="min-w-0 rounded-2xl border border-line bg-white p-3.5 md:min-w-[270px]">
           <div className="mb-2.5 flex justify-between text-[12.5px] text-muted">
-            <span>Confidence gate</span>
+            <span>Brief clarity</span>
             <span className={`rounded-full px-[9px] py-[3px] text-[11.5px] font-semibold ${badge.cls}`}>
               {badge.text}
             </span>
           </div>
           <ThresholdBar fill={clamp01(gate.confidence) * 100} threshold={clamp01(gate.threshold)} gradient={VIOLET} />
           <div className="mt-2 text-xs text-muted">
-            {gate.confidence.toFixed(2)} — threshold {gate.threshold.toFixed(2)}
+            {pct(gate.confidence)} — needs {pct(gate.threshold)}
           </div>
         </div>
       )}

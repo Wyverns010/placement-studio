@@ -1,3 +1,4 @@
+import { pct } from '../format'
 import type { ReactNode } from 'react'
 import { personaById } from '../catalog'
 import type { Creative, PersonaScore, PublisherScore } from '../types'
@@ -40,7 +41,7 @@ export default function PersonasTab({
             <div className="border-b border-line bg-[#faf8fe] px-[18px] py-4">
               <h4 className="m-0 flex items-baseline justify-between gap-2 text-base font-semibold">
                 {p.name}
-                <span className="font-bold text-violet-dark">{p.fit.toFixed(2)}</span>
+                <span className="font-bold text-violet-dark">{pct(p.fit)}</span>
               </h4>
               {cr && (
                 <p className="m-0 mt-2 text-[12.5px] leading-normal text-[#3b3850]">

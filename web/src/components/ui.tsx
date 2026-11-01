@@ -1,3 +1,4 @@
+import { pct } from '../format'
 // Small presentational pieces shared by more than one view.
 import type { PublisherScore } from '../types'
 
@@ -59,7 +60,7 @@ export function ExcludedCard({ pub }: { pub: PublisherScore }) {
       data-testid="excluded"
       className="mb-2 rounded-[14px] border border-dashed border-[#d6cde6] px-3.5 py-3 text-[12.5px]"
     >
-      <span className="float-right text-[11.5px] font-semibold text-bad">{pub.fit.toFixed(2)}</span>
+      <span className="float-right text-[11.5px] font-semibold text-bad">{pct(pub.fit)}</span>
       <b className="text-[13.5px]">{pub.name}</b>
       <p className="m-0 mt-1 leading-snug text-muted">{pub.reason}</p>
     </div>

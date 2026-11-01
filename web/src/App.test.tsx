@@ -355,6 +355,10 @@ describe('Outcome states', () => {
     expect(await screen.findByText('Few publishers match this closely.')).toBeInTheDocument()
     expect(screen.getByText('Weak fit — treat this as a test.')).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
+    // the gate card judges the brief: still "Clear", as a percentage
+    expect(screen.getByText('Brief clarity')).toBeInTheDocument()
+    expect(screen.getByText('Clear')).toBeInTheDocument()
+    expect(screen.getByText(/% — needs \d+%/)).toBeInTheDocument()
   })
 
   it('stage 2 gets the API input_text (answers appended); a 403 Run it again re-runs stage 1', async () => {
@@ -408,7 +412,7 @@ describe('Live streaming', () => {
     expect(panel().getAllByLabelText('working')).toHaveLength(3)
 
     act(() => emit({ stage: 'gate', data: result.gate as unknown as Record<string, unknown> }))
-    expect(panel().getByText(/0\.91 vs\. threshold 0\.70/)).toBeInTheDocument()
+    expect(panel().getByText(/91% vs\. needed 70%/)).toBeInTheDocument()
     expect(panel().getByText('enough to proceed')).toBeInTheDocument()
 
     act(() =>

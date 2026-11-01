@@ -183,7 +183,7 @@ describe('PublishersTab', () => {
     render(<PublishersTab publishers={pubs} config={config} />)
     const card = screen.getByRole('article', { name: 'Pawline' })
     expect(within(card).getByText('$10,250 · 41%')).toBeInTheDocument()
-    expect(within(card).getByText('0.88')).toBeInTheDocument()
+    expect(within(card).getByText('88%')).toBeInTheDocument()
     expect(within(card).getByText('Stretch')).toBeInTheDocument()
     expect(within(card).getAllByTestId('factor-bar')).toHaveLength(4)
     expect(within(card).queryByText(/category note text/)).toBeNull()
