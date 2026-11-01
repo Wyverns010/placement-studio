@@ -47,6 +47,7 @@ persona:
   cutoff: 0.45
   min: 3
   max: 5
+  mode_bonus: 0.15               # affinity = max(link, family) + this when the brief names the mode
   attribute_affinities:          # personas whose data describes them by a mode, not a category
     persona_010: [gifting]        # The Gifter: "any shopper within 30 days of a gifting holiday"
     persona_006: [sustainable]    # The Sustainability Buyer

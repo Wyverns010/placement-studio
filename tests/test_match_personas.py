@@ -148,7 +148,7 @@ def test_sibling_affinity_scores_below_family():
 def test_gifting_brief_reaches_the_gifter():
     s = _by_id(score_personas(brief(categories=["gifting"]), CAT, T), "persona_010")
     f = _factor(s, "affinity")
-    assert f.score == T.persona.affinity_scores.family and f.note == "Shops for: gifting"
+    assert f.score == T.persona.affinity_scores.family + T.persona.mode_bonus and f.note == "Shops for: gifting"
 
 
 def test_niche_persona_is_penalised_only_without_affinity():
@@ -189,5 +189,9 @@ def test_shopping_mode_in_adjacent_counts_like_in_categories():
     # "mostly bought as gifts": the brief puts gifting next to the product, not as its category
     s = {p.name: p for p in score_personas(
         brief(categories=[], adjacent_categories=["gifting", "home_goods"], price_tier="premium"), CAT, T)}
-    assert s["The Gifter"].factors[0].score == T.persona.affinity_scores.family
+    assert s["The Gifter"].factors[0].score == T.persona.affinity_scores.family + T.persona.mode_bonus
     assert s["The Gifter"].fit > s["The Affluent Classic"].fit
+    # read as a home product, every home persona links at "family"; the gifting mode still wins
+    home = score_personas(brief(categories=["home"], adjacent_categories=["home_goods", "gifting"],
+                                price_tier="unknown"), CAT, T)
+    assert home[0].name == "The Gifter" and home[0].fit > home[1].fit

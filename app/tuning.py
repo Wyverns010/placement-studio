@@ -71,6 +71,7 @@ class PersonaTuning(BaseModel):
     age_mismatch_penalty: float = 0.0  # the brief states ages and this persona's range misses them
     niche_penalty: float = 0.0  # a one-category shopper (pet owners) with no affinity to this brief
     attribute_affinities: dict[str, list[str]] = {}  # persona id -> brief attribute tags it shops by
+    mode_bonus: float = 0.15  # added to affinity (at least family) when the brief names the mode
 
 
 class BudgetTuning(BaseModel):

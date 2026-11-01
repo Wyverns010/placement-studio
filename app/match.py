@@ -204,6 +204,18 @@ def term_parents(catalog: Catalog, t: Tuning) -> dict[str, set[str]]:
 
 
 def _affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> Factor:
+    """The best category link, plus a bonus when the brief names this persona's shopping mode
+    ("mostly bought as gifts" -> The Gifter), wherever the brief puts it."""
+    base = _category_affinity(b, p, t, parents)
+    mode = sorted(set(t.persona.attribute_affinities.get(p.id, []))
+                  & (set(b.categories) | set(b.adjacent_categories)))
+    if not mode:
+        return base
+    score = min(1.0, max(base.score, t.persona.affinity_scores.family) + t.persona.mode_bonus)
+    return Factor(name="affinity", score=score, note=f"Shops for: {mode[0]}")
+
+
+def _category_affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> Factor:
     sc = t.persona.affinity_scores
     attrs = set(t.publisher.attribute_tags)
     aff = set(p.category_affinities) - attrs
@@ -216,11 +228,6 @@ def _affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> 
     if family:
         a, c = family[0]
         return Factor(name="affinity", score=sc.family, note=f"Affinity: {a} (under {c})")
-    # a shopping mode is a buying signal wherever the brief puts it ("mostly bought as gifts")
-    mode = sorted(set(t.persona.attribute_affinities.get(p.id, []))
-                  & (set(b.categories) | set(b.adjacent_categories)))
-    if mode:
-        return Factor(name="affinity", score=sc.family, note=f"Shops for: {mode[0]}")
     sib = sorted((a, c) for a in aff for c in cats if parents.get(a, set()) & parents.get(c, set()))
     if sib:
         a, c = sib[0]
