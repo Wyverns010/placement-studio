@@ -216,14 +216,16 @@ def _affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> 
     if family:
         a, c = family[0]
         return Factor(name="affinity", score=sc.family, note=f"Affinity: {a} (under {c})")
-    mode = sorted(set(t.persona.attribute_affinities.get(p.id, [])) & set(b.categories))
+    # a shopping mode is a buying signal wherever the brief puts it ("mostly bought as gifts")
+    mode = sorted(set(t.persona.attribute_affinities.get(p.id, []))
+                  & (set(b.categories) | set(b.adjacent_categories)))
     if mode:
         return Factor(name="affinity", score=sc.family, note=f"Shops for: {mode[0]}")
     sib = sorted((a, c) for a in aff for c in cats if parents.get(a, set()) & parents.get(c, set()))
     if sib:
         a, c = sib[0]
         return Factor(name="affinity", score=sc.sibling, note=f"Related: {a} ~ {c}")
-    adj = sorted((aff | set(t.persona.attribute_affinities.get(p.id, []))) & set(b.adjacent_categories))
+    adj = sorted(aff & set(b.adjacent_categories))
     if adj:
         return Factor(name="affinity", score=sc.adjacent, note=f"Adjacent affinity: {adj[0]}")
     return Factor(name="affinity", score=0.0, note="No affinity overlap")

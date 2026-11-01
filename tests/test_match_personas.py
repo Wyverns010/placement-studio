@@ -183,3 +183,11 @@ def test_subscription_brief_reaches_the_convenience_first_millennial():
     ids = [s.persona_id for s in sel]
     assert ids[:2] == ["persona_004", "persona_002"] and "persona_007" in ids
     assert "persona_009" not in ids  # the Fitness Enthusiast has no link to dog food
+
+
+def test_shopping_mode_in_adjacent_counts_like_in_categories():
+    # "mostly bought as gifts": the brief puts gifting next to the product, not as its category
+    s = {p.name: p for p in score_personas(
+        brief(categories=[], adjacent_categories=["gifting", "home_goods"], price_tier="premium"), CAT, T)}
+    assert s["The Gifter"].factors[0].score == T.persona.affinity_scores.family
+    assert s["The Gifter"].fit > s["The Affluent Classic"].fit
