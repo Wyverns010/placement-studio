@@ -107,7 +107,6 @@ class GateTuning(BaseModel):
     proceed_threshold: float
     no_signal_threshold: float
     business_threshold: float
-    category_disagreement_factor: float
 
 
 class CreativeTuning(BaseModel):

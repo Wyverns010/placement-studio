@@ -139,7 +139,6 @@ def test_write_tuning_preserves_other_keys(tmp_path):
                                "business_threshold": 0.6})
     new, old = yaml.safe_load(p.read_text()), yaml.safe_load(src)
     assert new["gate"]["proceed_threshold"] == 0.55
-    assert new["gate"]["category_disagreement_factor"] == old["gate"]["category_disagreement_factor"]
     assert list(new) == list(old)
     assert {k: v for k, v in new.items() if k != "gate"} == {k: v for k, v in old.items() if k != "gate"}
 
