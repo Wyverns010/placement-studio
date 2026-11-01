@@ -15,7 +15,7 @@ from app.models import Brief, CampaignConfig, Creative, GateResult, PersonaScore
 from app.pipeline import is_weak, make_config, recommended_of
 from app.prompts import render, wrap_steer
 from app.stepagents.guards import floor, floor_note, named_in_steer, unnamed_note
-from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, run_agent
+from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, keep_agent_notes, run_agent
 from app.tuning import Tuning
 
 ROLE = "media_planner"
@@ -204,6 +204,4 @@ async def run(desk: PlanDesk, runtime: AgentRuntime) -> None:
     if desk.request_budget is not None and steer_amounts(desk.steer):
         desk.session.note("Your budget field wins over an amount in the note.")
     out: PlannerOutput = result.final_output
-    for n in out.notes:
-        if not any(ch.isdigit() for ch in n):  # numbers come from code only
-            desk.session.note(n)
+    keep_agent_notes(desk.session, out.notes)

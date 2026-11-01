@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
-from typing import Iterator
+from typing import Any, Awaitable, Callable, Iterator
 
 from app.catalog import Catalog
 from app.gate import ConfidenceGate
@@ -76,52 +76,48 @@ def _projected_over_cap(n_ads: int, session: Session) -> CostCapExceeded | None:
     return None
 
 
+def _agent_or_code(step: str, wants: str | None, code: Callable[[], Any],
+                   agent: Callable[[Session], Awaitable[Any]], *, t: Tuning,
+                   runtime: AgentRuntime | None, n_ads: int | None = None) -> tuple[Any, dict]:
+    """The one shape of every request/response step: plain code unless this step wants its agent;
+    a projected cost over the cap, an agent error or a timeout runs the code instead."""
+    if runtime is None or not wants_agent(step, wants, t):
+        return code(), dict(CODE)
+    session = Session(step, runtime, t)
+    if n_ads is not None and (over := _projected_over_cap(n_ads, session)):
+        return code(), session.fallback_meta(over)
+    try:
+        return run_step(lambda: agent(session), t, runtime), session.meta("agent")
+    except Exception as e:  # noqa: BLE001 - any agent failure falls back to code
+        log.warning("%s agent failed, falling back: %r", step, e)
+        return code(), session.fallback_meta(e)
+
+
 def creatives_step(text: str, brief: Brief, publishers: list[PublisherScore],
                    personas: list[PersonaScore], steer: str | None, *, llm: LLMProvider,
                    catalog: Catalog, t: Tuning,
                    runtime: AgentRuntime | None) -> tuple[list[Creative], dict]:
     """Stage 2: (creatives, meta). Code errors in the fallback propagate (the API maps them)."""
-    def code():
-        return make_creatives(text, brief, publishers, personas, llm=llm, catalog=catalog, t=t)
-
-    if runtime is None or not wants_agent("creative", steer, t):
-        return code(), dict(CODE)
-    session = Session("creative", runtime, t)
-    if (over := _projected_over_cap(creative.n_ads(personas, publishers, catalog), session)):
-        return code(), session.fallback_meta(over)
-    try:
-        out = run_step(lambda: creative.write_all(text, brief, publishers, personas, steer,
-                                                  catalog=catalog, t=t, runtime=runtime,
-                                                  session=session), t, runtime)
-        return out, session.meta("agent")
-    except Exception as e:  # noqa: BLE001
-        log.warning("creative agents failed, falling back: %r", e)
-        meta = session.fallback_meta(e)
-        return code(), meta
+    return _agent_or_code(
+        "creative", steer,
+        lambda: make_creatives(text, brief, publishers, personas, llm=llm, catalog=catalog, t=t),
+        lambda session: creative.write_all(text, brief, publishers, personas, steer, catalog=catalog,
+                                           t=t, runtime=runtime, session=session),
+        t=t, runtime=runtime, n_ads=creative.n_ads(personas, publishers, catalog))
 
 
 def regenerate_step(text: str, brief: Brief, publishers: list[PublisherScore],
                     personas: list[PersonaScore], creatives: list[Creative], persona_id: str,
                     note: str | None, steer: str | None, *, llm: LLMProvider, catalog: Catalog,
                     t: Tuning, runtime: AgentRuntime | None) -> tuple[Creative, dict]:
-    def code():
-        return regenerate(text, brief, publishers, personas, creatives, persona_id, note,
-                          llm=llm, catalog=catalog, t=t)
-
-    if runtime is None or not wants_agent("creative", steer or note, t):
-        return code(), dict(CODE)
-    session = Session("creative", runtime, t)
-    if (over := _projected_over_cap(1, session)):
-        return code(), session.fallback_meta(over)
-    try:
-        out = run_step(lambda: creative.rewrite_one(text, brief, publishers, personas, creatives,
-                                                    persona_id, note, steer, catalog=catalog, t=t,
-                                                    runtime=runtime, session=session), t, runtime)
-        return out, session.meta("agent")
-    except Exception as e:  # noqa: BLE001
-        log.warning("creative agents failed on regenerate, falling back: %r", e)
-        meta = session.fallback_meta(e)
-        return code(), meta
+    return _agent_or_code(
+        "creative", steer or note,
+        lambda: regenerate(text, brief, publishers, personas, creatives, persona_id, note,
+                           llm=llm, catalog=catalog, t=t),
+        lambda session: creative.rewrite_one(text, brief, publishers, personas, creatives, persona_id,
+                                             note, steer, catalog=catalog, t=t, runtime=runtime,
+                                             session=session),
+        t=t, runtime=runtime, n_ads=1)
 
 
 def config_step(brief: Brief, gate: GateResult, publishers: list[PublisherScore],
@@ -130,19 +126,14 @@ def config_step(brief: Brief, gate: GateResult, publishers: list[PublisherScore]
                 runtime: AgentRuntime | None) -> tuple[CampaignConfig, dict]:
     """Stage 3: (config, meta). The config is always built by code; the planner only picks the
     budget (validated against the steer), exclusions and pacing."""
-    def code():
-        return make_config(brief, gate, publishers, personas, creatives, budget_usd,
-                           catalog=catalog, t=t)
+    async def plan(session: Session) -> CampaignConfig:
+        desk = planner.PlanDesk(brief, gate, publishers, personas, creatives, budget_usd, steer,
+                                catalog=catalog, t=t, session=session)
+        await planner.run(desk, runtime)
+        return desk.build()
 
-    if runtime is None or not wants_agent("media_planner", steer, t):
-        return code(), dict(CODE)
-    session = Session("media_planner", runtime, t)
-    desk = planner.PlanDesk(brief, gate, publishers, personas, creatives, budget_usd, steer,
-                            catalog=catalog, t=t, session=session)
-    try:
-        run_step(lambda: planner.run(desk, runtime), t, runtime)
-        return desk.build(), session.meta("agent")
-    except Exception as e:  # noqa: BLE001
-        log.warning("media planner failed, falling back: %r", e)
-        meta = session.fallback_meta(e)
-        return code(), meta
+    return _agent_or_code(
+        "media_planner", steer,
+        lambda: make_config(brief, gate, publishers, personas, creatives, budget_usd,
+                            catalog=catalog, t=t),
+        plan, t=t, runtime=runtime)

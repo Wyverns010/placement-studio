@@ -244,6 +244,13 @@ async def run_agent(session: Session, agent, input: str, context, role: str):
                             hooks=session.hooks, run_config=session.run_config)
 
 
+def keep_agent_notes(session: Session, notes: list[str]) -> None:
+    """An agent's own notes go to the user, except any with a digit: numbers come from code only."""
+    for n in notes:
+        if not any(ch.isdigit() for ch in n):
+            session.note(n)
+
+
 def run_step(coro_fn: Callable[[], Any], t: Tuning, runtime: AgentRuntime):
     """Run a step's agent coroutine to completion on a fresh event loop, within
     agents.step_timeout_s; the runtime's client is opened and closed on that loop.

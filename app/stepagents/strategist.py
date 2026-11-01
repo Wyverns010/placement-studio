@@ -17,7 +17,7 @@ from app.models import Brief, ClarifyQuestion, GateResult, PublisherScore
 from app.pipeline import Stage1Plan
 from app.prompts import category_word, render, wrap_advertiser_text, wrap_steer
 from app.stepagents.guards import floor, floor_note, named_in_steer, unnamed_note
-from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, run_agent
+from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, keep_agent_notes, run_agent
 from app.tuning import Tuning
 from app.understand import clamp_brief, understand
 
@@ -283,6 +283,4 @@ async def run(ws: Stage1Workspace, runtime: AgentRuntime) -> None:
     for n in ws.change_notes():
         ws.session.note(n)
     out: StrategistOutput = result.final_output
-    for n in out.notes:
-        if not any(ch.isdigit() for ch in n):  # numbers come from code only
-            ws.session.note(n)
+    keep_agent_notes(ws.session, out.notes)
