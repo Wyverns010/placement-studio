@@ -4,9 +4,9 @@ Type one or two sentences about a business. You get ranked publishers (with why 
 
 **Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 example advertisers run live like any other input: a step takes a few seconds, the ads about 18 s.
 
-**Demo video (24 s):** [watch it](media/placement-studio-demo.mp4)
+**Demo video (24 s):** [watch it](https://byash010-placement-studio.hf.space/demo.mp4)
 
-[![Placement Studio demo](media/placement-studio-demo.jpg)](media/placement-studio-demo.mp4)
+[![Placement Studio demo](media/placement-studio-demo.jpg)](https://byash010-placement-studio.hf.space/demo.mp4)
 
 ```
 cp .env.example .env          # add OPENAI_API_KEY
