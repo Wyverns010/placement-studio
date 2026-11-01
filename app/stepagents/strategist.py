@@ -3,6 +3,7 @@ steer only through tool parameters (exclude catalog publishers/personas, add/rem
 categories, an age range within bounds). Code then assembles the stage-1 result from those
 choices (app.pipeline.Stage1Plan); the gate's outcome is never the agent's to change."""
 import json
+import re
 
 from agents import Agent, RunContextWrapper, function_tool
 from pydantic import BaseModel
@@ -139,6 +140,21 @@ def _ws(ctx: RunContextWrapper[Stage1Workspace]) -> Stage1Workspace:
     return ctx.context
 
 
+def _ids(given: list[str], items: dict[str, str], kind: str) -> list[str]:
+    """Ids for what the agent passed: an id, or a name in any case, "The" optional ("busy parent")."""
+    def key(name: str) -> str:
+        return re.sub(r"^the\s+", "", name.strip().lower())
+    by_name = {key(name): i for i, name in items.items()}
+    out, bad = [], []
+    for g in given:
+        i = g if g in items else by_name.get(key(g))
+        (out if i else bad).append(i or g)
+    if bad:
+        valid = ", ".join(f"{i} ({n})" for i, n in items.items())
+        raise ToolRefused(f"unknown {kind}: {', '.join(bad)}. Valid ids: {valid}")
+    return out
+
+
 def _brief_view(b: Brief) -> str:
     return json.dumps({"product": b.product, "audience_type": b.audience_type,
                        "categories": b.categories, "adjacent_categories": b.adjacent_categories,
@@ -212,12 +228,9 @@ def rank_publishers(ctx: RunContextWrapper[Stage1Workspace], exclude_ids: list[s
     def run() -> str:
         if exclude_ids:
             ws.require_steer()
-        known = {p.id for p in ws.catalog.publishers}
-        bad = [i for i in exclude_ids if i not in known]
-        if bad:
-            raise ToolRefused(f"unknown publisher ids: {', '.join(bad)}")
-        ws.guard(ws.current(), frozenset(exclude_ids))
-        ws.exclude_publishers = frozenset(exclude_ids)
+        ids = _ids(exclude_ids, {p.id: p.name for p in ws.catalog.publishers}, "publisher ids")
+        ws.guard(ws.current(), frozenset(ids))
+        ws.exclude_publishers = frozenset(ids)
         cat = {p.id: p.category for p in ws.catalog.publishers}
         scored = score_publishers(ws.current(), ws.catalog, ws.t, ws.exclude_publishers)
         return json.dumps([{"id": s.publisher_id, "name": s.name, "category": cat[s.publisher_id],
@@ -236,11 +249,8 @@ def pick_personas(ctx: RunContextWrapper[Stage1Workspace], exclude_ids: list[str
     def run() -> str:
         if exclude_ids:
             ws.require_steer()
-        known = {p.id for p in ws.catalog.personas}
-        bad = [i for i in exclude_ids if i not in known]
-        if bad:
-            raise ToolRefused(f"unknown persona ids: {', '.join(bad)}")
-        ws.exclude_personas = frozenset(exclude_ids)
+        ids = _ids(exclude_ids, {p.id: p.name for p in ws.catalog.personas}, "persona ids")
+        ws.exclude_personas = frozenset(ids)
         scores = [p for p in score_personas(ws.current(), ws.catalog, ws.t)
                   if p.persona_id not in ws.exclude_personas]
         chosen = {p.persona_id for p in select_personas(scores, ws.t)}
@@ -283,4 +293,5 @@ async def run(ws: Stage1Workspace, runtime: AgentRuntime) -> None:
     for n in ws.change_notes():
         ws.session.note(n)
     out: StrategistOutput = result.final_output
-    keep_agent_notes(ws.session, out.notes)
+    keep_agent_notes(ws.session, out.notes,
+                     [p.name for p in ws.catalog.publishers] + [p.name for p in ws.catalog.personas])

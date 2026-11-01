@@ -50,6 +50,21 @@ def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Fact
     return Factor(name="category", score=0.0, note="No category overlap"), "none"
 
 
+def scoped(b: Brief, catalog: Catalog, t: Tuning) -> Brief:
+    """The brief without scoped terms whose category it doesn't otherwise name ("toys" for kids'
+    toys is not a pet store's toys)."""
+    groups = catalog.vocab_groups()
+    terms = set(b.categories) | set(b.adjacent_categories)
+
+    def keep(c: str) -> bool:
+        parent = t.publisher.scoped_terms.get(c)
+        return parent is None or bool((terms - {c}) & ({parent} | set(groups.get(parent, []))))
+    if all(keep(c) for c in terms):
+        return b
+    return b.model_copy(update={"categories": [c for c in b.categories if keep(c)],
+                                "adjacent_categories": [c for c in b.adjacent_categories if keep(c)]})
+
+
 def age_bounds(b: Brief, t: Tuning) -> tuple[int, int] | None:
     """The brief's age range with a missing bound filled from tuning ("over 50" -> 50-80);
     None when the brief gives no age at all."""
@@ -117,6 +132,7 @@ def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
                      exclude: frozenset[str] = frozenset()) -> list[PublisherScore]:
     """Every publisher, best fit first. `exclude` ids (a user's steer) keep their fit but are never
     recommended and don't take a recommendation slot."""
+    brief = scoped(brief, catalog, t)
     pt = t.publisher
     w = pt.weights
     weights = {"category": w.category, "audience": w.audience, "income": w.income, "aov": w.aov}
@@ -156,16 +172,15 @@ def is_weak_fit(scores: list[PublisherScore], t: Tuning) -> bool:
 
 def mark_stretch(scores: list[PublisherScore], t: Tuning,
                  excluded: frozenset[str] = frozenset()) -> list[PublisherScore]:
-    """The closest weak_fit_show publishers (skipping `excluded`) become recommended stretch picks:
-    only ones with some category overlap, unless none has any (then the closest overall)."""
+    """The closest weak_fit_show publishers (skipping `excluded`) with some category overlap become
+    recommended stretch picks; when none overlaps, nothing is picked (no test worth running)."""
     n = t.publisher.weak_fit_show
 
     def related(s: PublisherScore) -> bool:
         return any(f.name == "category" and f.score > 0 for f in s.factors)
-    need_related = any(related(s) for s in scores if s.publisher_id not in excluded)
     out, picked = [], 0
     for s in scores:
-        pick = s.publisher_id not in excluded and picked < n and (related(s) or not need_related)
+        pick = s.publisher_id not in excluded and picked < n and related(s)
         picked += pick
         out.append(s.model_copy(update={"recommended": pick, "stretch": pick}))
     return out
@@ -258,6 +273,7 @@ def _persona_raw(b: Brief, p: Persona, t: Tuning,
 
 
 def score_personas(brief: Brief, catalog: Catalog, t: Tuning) -> list[PersonaScore]:
+    brief = scoped(brief, catalog, t)
     parents = term_parents(catalog, t)
     rows = []
     for p in catalog.personas:

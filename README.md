@@ -51,7 +51,7 @@ uv run pytest -q; (cd web && npx vitest run)                   # tests
 
 - Outcomes: train **85/85**, held out **35/36**, the 15 given examples **15/15**.
 - Publishers: must-have hit 96% / 100%, never a must-not.
-- Personas (79 labelled cases): right shoppers 92% / 86%; wrong ones avoided 99% / 100%.
+- Personas (79 labelled cases): right shoppers 92% / 93%; wrong ones avoided 99% / 100%.
 
 ## Hard vs easy
 

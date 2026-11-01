@@ -17,7 +17,7 @@ import os
 import re
 import threading
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 from agents import ModelSettings, RunConfig, RunHooks, Runner, set_tracing_disabled
 from agents.models.interface import Model, ModelProvider
@@ -244,10 +244,12 @@ async def run_agent(session: Session, agent, input: str, context, role: str):
                             hooks=session.hooks, run_config=session.run_config)
 
 
-def keep_agent_notes(session: Session, notes: list[str]) -> None:
-    """An agent's own notes go to the user, except any with a digit: numbers come from code only."""
+def keep_agent_notes(session: Session, notes: list[str], names: Iterable[str] = ()) -> None:
+    """An agent's own notes go to the user, except any with a digit (numbers come from code only)
+    and any naming something (of `names`) that code's notes already explain."""
+    said = [n for n in names if any(n in m for m in session.notes)]
     for n in notes:
-        if not any(ch.isdigit() for ch in n):
+        if not any(ch.isdigit() for ch in n) and not any(x in n for x in said):
             session.note(n)
 
 

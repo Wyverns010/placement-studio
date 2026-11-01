@@ -27,7 +27,7 @@ def test_invariants_pass_on_valid_proceed():
 
 
 def test_invariants_pass_on_other_outcomes():
-    assert check(result_for(fake(categories=[], adjacent_categories=[], product="w")), T) == []
+    assert check(result_for(fake(categories=[], adjacent_categories=["subscription"], product="w")), T) == []
     assert check(result_for(fake(self_confidence=0.3)), T) == []
     assert check(result_for(fake(audience_type="business")), T) == []
     nosig = fake(describes_business=False, product=None, categories=[], adjacent_categories=[])

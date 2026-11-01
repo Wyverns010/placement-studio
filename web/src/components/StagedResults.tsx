@@ -248,7 +248,10 @@ export default function StagedResults({
     <div className="pb-20">
       {result.outcome === 'weak_fit' && (
         <div className="mb-4">
-          <OutcomeBanner variant="amber" title="Weak fit — treat this as a test.">
+          <OutcomeBanner
+            variant="amber"
+            title={recCount === 0 ? 'No publisher fits.' : 'Weak fit — treat this as a test.'}
+          >
             {result.message && <p className="m-0">{result.message}</p>}
             {step === 'config' && typeof testBudget === 'number' && (
               <p className="m-0 mt-1 font-semibold">Test budget: {usd(testBudget)} / month</p>

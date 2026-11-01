@@ -37,6 +37,7 @@ class PublisherTuning(BaseModel):
     aov_below_log2_scale: float
     no_category_penalty: float
     affinity_parents: dict[str, str] = {}
+    scoped_terms: dict[str, str] = {}
     aov_gate_floor: float
     unknown_factor: float
     cutoff: float

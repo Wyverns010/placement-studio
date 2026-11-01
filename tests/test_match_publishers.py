@@ -232,3 +232,18 @@ def test_weak_fit_stretch_picks_only_related_publishers():
                                price_usd=3), CAT, T)
     picked = [p for p in mark_stretch(s, T) if p.recommended]
     assert picked and all(next(f for f in p.factors if f.name == "category").score > 0 for p in picked)
+
+
+def test_audience_words_are_not_a_category_match():
+    # "women" / "mid-life" describe shoppers: apparel stores tagged with them don't get skincare credit
+    s = score_publishers(brief(categories=["skincare", "women", "mid-life"], adjacent_categories=[]), CAT, T)
+    assert s[0].name == "Velvetline"
+    assert all(_by_id(s, pid).factors[0].score <= T.publisher.category_scores.attribute
+               for pid in ("pub_004", "pub_005"))  # Marlowe & Co., Linden Park
+
+
+def test_kids_toys_do_not_match_pet_toys():
+    s = score_publishers(brief(categories=["toys"], adjacent_categories=["kids_products"]), CAT, T)
+    assert _by_id(s, "pub_018").factors[0].score == 0 and is_weak_fit(s, T)  # Tailcrate
+    dog = score_publishers(brief(categories=["toys"], adjacent_categories=["pet"]), CAT, T)
+    assert _by_id(dog, "pub_018").factors[0].score > 0.5

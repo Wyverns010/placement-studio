@@ -23,6 +23,8 @@ from tests.test_pipeline import fake
 
 GATE = get_gate("llm", tuning=T)
 PET = sorted(p.id for p in CAT.publishers if p.category == "pet")
+# dog food sold on subscription: without the pet stores, subscription stores still relate
+DOG = {"adjacent_categories": ["pet", "subscription"]}
 _n = iter(range(10_000))
 
 
@@ -59,7 +61,7 @@ def test_strategist_skip_pet_stores_excludes_pet_publishers_and_says_so():
         call("rank_publishers", {"exclude_ids": PET}), call("pick_personas", {"exclude_ids": []}),
         final(notes=[]),
     ])
-    evs = stage1(fake(), "skip pet stores", AgentRuntime(models={"strategist": model}))
+    evs = stage1(fake(**DOG), "skip pet stores", AgentRuntime(models={"strategist": model}))
     model.assert_complete()
     kinds = [e.stage for e in evs]
     assert kinds[:5] == ["agent"] * 5  # one trace event per tool call, while the agent works
@@ -74,7 +76,7 @@ def test_strategist_skip_pet_stores_excludes_pet_publishers_and_says_so():
     assert [s.tool for s in r.agent_trace] == ["read_brief", "decide", "rank_publishers",
                                               "rank_publishers", "pick_personas"]
     # code did the scoring: same fits as the plain pipeline
-    base = {p.publisher_id: p.fit for p in plain().publishers}
+    base = {p.publisher_id: p.fit for p in plain(**DOG).publishers}
     assert {p.publisher_id: p.fit for p in r.publishers} == base
 
 
@@ -105,6 +107,28 @@ def test_strategist_tool_refuses_unknown_ids_and_changes_without_steer():
     assert r.mode == "agent"
     assert [s.result_summary.startswith("Refused") for s in r.agent_trace] == [False, True, True]
     assert r.publishers == plain().publishers and r.brief == plain().brief
+
+
+def test_strategist_persona_by_name_is_excluded():
+    model = ScriptedModel([call("pick_personas", {"exclude_ids": ["Busy Parent"]}), final(notes=[])])
+    r = done(stage1(fake(), "drop the Busy Parent persona", AgentRuntime(models={"strategist": model})))
+    assert "persona_002" not in {p.persona_id for p in r.personas}
+    assert "Left out the persona The Busy Parent because of your note." in r.agent_notes
+
+
+def test_strategist_unknown_persona_refusal_lists_valid_ids():
+    model = ScriptedModel([call("pick_personas", {"exclude_ids": ["Night Owl"]}), final(notes=[])])
+    r = done(stage1(fake(), "drop night owls", AgentRuntime(models={"strategist": model})))
+    refusal = r.agent_trace[0].result_summary
+    assert refusal.startswith("Refused") and "persona_002 (The Busy Parent)" in refusal
+
+
+def test_strategist_note_repeating_a_code_note_is_dropped():
+    model = ScriptedModel([call("rank_publishers", {"exclude_ids": ["pub_013"]}),
+                           final(notes=["Could not skip Velvetline.", "Canada is not in the catalog."])])
+    r = done(stage1(fake(), "skip Velvetline", AgentRuntime(models={"strategist": model})))
+    assert not any(n.startswith("Could not skip") for n in r.agent_notes)
+    assert "Canada is not in the catalog." in r.agent_notes
 
 
 def test_strategist_notes_with_numbers_are_dropped():
@@ -275,7 +299,7 @@ def rt_box():
 @pytest.fixture
 def client(rt_box):
     limiter = RateLimiter(limit=1000, window_s=60)
-    api.app.dependency_overrides[api.get_llm] = lambda: fake()
+    api.app.dependency_overrides[api.get_llm] = lambda: fake(**DOG)
     api.app.dependency_overrides[api.get_gate_dep] = lambda: GATE
     api.app.dependency_overrides[api.get_catalog] = lambda: CAT
     api.app.dependency_overrides[api.get_tuning] = lambda: T
@@ -303,7 +327,7 @@ def test_api_steer_runs_strategist_and_stage_token_still_verifies(client, rt_box
     cfg = client.post("/api/config", json={**stage, "creatives": []})
     assert cfg.status_code == 200 and cfg.json()["mode"] == "code"
     assert not any(li["publisher_id"] in PET for li in cfg.json()["config"]["line_items"])
-    unsteered = [p.model_dump() for p in plain().publishers]  # swap back the excluded publishers
+    unsteered = [p.model_dump() for p in plain(**DOG).publishers]  # swap back the excluded publishers
     assert client.post("/api/config", json={**stage, "publishers": unsteered,
                                             "creatives": []}).status_code == 403
 

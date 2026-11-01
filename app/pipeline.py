@@ -31,6 +31,9 @@ MSG_NO_SIGNAL = "Nothing to go on yet — tell us a little about what you sell."
 
 
 def msg_weak_fit(product: str | None, n: int) -> str:
+    if n == 0:
+        return (f"Nothing in this catalog fits {product or 'this product'}: no publisher sells "
+                "anything close, so we don't recommend spending here.")
     return (f"Nothing in this catalog is a strong match for {product or 'this product'}. "
             f"These are the closest {n} — run them as a small test.")
 

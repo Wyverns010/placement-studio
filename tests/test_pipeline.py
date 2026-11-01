@@ -128,7 +128,7 @@ def test_no_signal_skips_llm_creatives():
 
 
 def test_weak_fit_outcome_from_proceed_gate():
-    evs = run(fake(categories=[], adjacent_categories=[], product="widgets"))
+    evs = run(fake(categories=[], adjacent_categories=["subscription"], product="widgets"))
     assert evs[1].data["outcome"] == "proceed"
     r = collect(iter(evs))
     assert r.outcome == "weak_fit" and r.config is None
@@ -137,7 +137,13 @@ def test_weak_fit_outcome_from_proceed_gate():
     assert "widgets" in r.message and str(len(rec)) in r.message
     cfg = make_config(r.brief, r.gate, r.publishers, r.personas, [], None, catalog=CAT, t=T)
     assert cfg.budget["test_budget"] and cfg.budget["pacing"] == "front_loaded"
-    assert full(fake(categories=[], adjacent_categories=[], product="widgets")).config.budget["test_budget"]
+    assert full(fake(categories=[], adjacent_categories=["subscription"], product="widgets")).config.budget["test_budget"]
+
+
+def test_weak_fit_with_no_related_publisher_picks_none():
+    r = collect(iter(run(fake(categories=[], adjacent_categories=[], product="wooden toys"))))
+    assert r.outcome == "weak_fit" and not any(p.recommended for p in r.publishers)
+    assert "Nothing in this catalog fits wooden toys" in r.message
 
 
 def test_out_of_scope_all_excluded():

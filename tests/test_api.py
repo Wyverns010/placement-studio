@@ -225,7 +225,7 @@ def test_staged_flow_end_to_end(client, llm, s1):
 
 
 def test_weak_fit_config_is_a_test(client, llm):
-    llm.responses["BriefSchema"] = brief_obj(categories=[], adjacent_categories=[], product="widgets")
+    llm.responses["BriefSchema"] = brief_obj(categories=[], adjacent_categories=["subscription"], product="widgets")
     s1 = client.post("/api/campaign", json={"text": "widgets"}).json()
     assert s1["outcome"] == "weak_fit"
     cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
