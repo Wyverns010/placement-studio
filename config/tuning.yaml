@@ -46,6 +46,7 @@ persona:
   attribute_affinities:          # personas whose data describes them by a mode, not a category
     persona_010: [gifting]        # The Gifter: "any shopper within 30 days of a gifting holiday"
     persona_006: [sustainable]    # The Sustainability Buyer
+    persona_007: [subscription]   # Convenience-First Millennial: "Heavy subscription user"
 budget:
   min_usd: 500
   max_usd: 5000000

@@ -175,3 +175,11 @@ def test_persona_outside_stated_ages_is_penalised():
     assert _factor(s, "age_mismatch").score == -T.persona.age_mismatch_penalty
     unknown = _by_id(score_personas(brief(categories=["apparel"]), CAT, T), "persona_003")
     assert all(f.name != "age_mismatch" for f in unknown.factors)
+
+
+def test_subscription_brief_reaches_the_convenience_first_millennial():
+    # senior dog food on subscription: a heavy subscription user is the plausible third shopper
+    sel = select_personas(score_personas(brief(**DOG), CAT, T), T)
+    ids = [s.persona_id for s in sel]
+    assert ids[:2] == ["persona_004", "persona_002"] and "persona_007" in ids
+    assert "persona_009" not in ids  # the Fitness Enthusiast has no link to dog food

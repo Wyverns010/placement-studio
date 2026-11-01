@@ -208,7 +208,7 @@ def _affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> 
     if sib:
         a, c = sib[0]
         return Factor(name="affinity", score=sc.sibling, note=f"Related: {a} ~ {c}")
-    adj = sorted(aff & set(b.adjacent_categories))
+    adj = sorted((aff | set(t.persona.attribute_affinities.get(p.id, []))) & set(b.adjacent_categories))
     if adj:
         return Factor(name="affinity", score=sc.adjacent, note=f"Adjacent affinity: {adj[0]}")
     return Factor(name="affinity", score=0.0, note="No affinity overlap")
