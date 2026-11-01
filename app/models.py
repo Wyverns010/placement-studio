@@ -6,6 +6,10 @@ from pydantic import BaseModel
 
 Outcome = Literal["proceed", "clarify", "out_of_scope", "no_signal", "weak_fit"]
 PriceTier = Literal["value", "mid", "premium", "luxury", "unknown"]
+# the standard ad buttons (what ad platforms offer); the writer picks one, it never invents a phrase
+CTA_OPTIONS = ("Shop now", "Buy now", "Add to cart", "Order now", "Subscribe now", "Start subscription",
+               "Get offer", "Book now", "Try it now", "Learn more")
+Cta = Literal[CTA_OPTIONS]  # type: ignore[valid-type]
 
 
 class Brief(BaseModel):

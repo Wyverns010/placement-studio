@@ -15,7 +15,7 @@ Use only the facts listed above and what the advertiser text literally says, res
 # Length limits (characters, hard maximums)
 - headline: {headline_max} characters
 - body: {body_max} characters
-- cta: {cta_max} characters (a short, specific action phrase)
+- cta: one of the standard buttons in the playbook, exactly as written
 
 # The persona
 {personas}

@@ -631,3 +631,15 @@ def test_clarify_never_reasks_an_answered_question():
     assert [q.question for q in qs] == ["Roughly what does it cost?"]
     system = llm.calls[0]["system"]
     assert "- What kind of product is it?: Beauty" in system and "- Who is it for?: Adults" in system
+
+
+def test_cta_must_be_a_standard_button():
+    from pydantic import ValidationError
+
+    from app.create import CreativeItem
+    from app.stepagents.creative import AdDraft
+    ok = dict(persona_id="persona_001", headline="h", body="b", why="w")
+    assert CreativeItem(**ok, cta="Subscribe now").cta == "Subscribe now"
+    for model, base in ((CreativeItem, ok), (AdDraft, dict(headline="h", body="b", why="w"))):
+        with pytest.raises(ValidationError):
+            model(**base, cta="Add it to your crate")

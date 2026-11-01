@@ -32,7 +32,7 @@ endorsement or health claim that is not written there. If the facts are thin, be
 # Length limits (characters, hard maximums)
 - headline: {headline_max}
 - body: {body_max}
-- cta: {cta_max} (a short, specific action phrase)
+- cta: one of the standard buttons in the playbook, exactly as written
 
 # The persona
 {persona}

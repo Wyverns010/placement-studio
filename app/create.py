@@ -10,7 +10,7 @@ from app.catalog import Catalog, Persona
 from app.copycheck import (Problem, ad_problems, headline_problems, headlines_similar,
                            normalise_headline)
 from app.llm import LLMError, LLMProvider, model_creative, model_fast
-from app.models import Brief, ClarifyQuestion, Creative, PersonaScore, PublisherScore
+from app.models import CTA_OPTIONS, Brief, ClarifyQuestion, Creative, Cta, PersonaScore, PublisherScore
 from app.prompts import category_word, feedback, render, wrap_advertiser_text, wrap_current_ad, wrap_user_note
 from app.tuning import Tuning
 
@@ -19,7 +19,7 @@ class CreativeItem(BaseModel):
     persona_id: str
     headline: str
     body: str
-    cta: str
+    cta: Cta
     why: str
 
 
@@ -86,7 +86,7 @@ def _playbook(t: Tuning) -> str:
     return render("copywriting_playbook",
                   banned_phrases=", ".join(f'"{w}"' for w in t.creative.banned_phrases),
                   headline_max=t.creative.headline_max_chars, body_max=t.creative.body_max_chars,
-                  cta_max=t.creative.cta_max_chars).strip()
+                  cta_max=t.creative.cta_max_chars, ctas=", ".join(f'"{c}"' for c in CTA_OPTIONS)).strip()
 
 
 def _flat(s: str, limit: int) -> str:

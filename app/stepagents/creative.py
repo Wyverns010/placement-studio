@@ -14,7 +14,7 @@ from app.catalog import Catalog, Persona
 from app.copycheck import ad_problems, headlines_similar, normalise_headline
 from app.create import (_persona_block, _playbook, _publisher_block, creative_targets,
                         rewrite_problems, set_problems)
-from app.models import Brief, Creative, PersonaScore, PublisherScore
+from app.models import Brief, Creative, Cta, PersonaScore, PublisherScore
 from app.pipeline import recommended_of
 from app.prompts import (feedback, render, wrap_advertiser_text, wrap_current_ad, wrap_steer,
                          wrap_user_note)
@@ -27,7 +27,7 @@ _TIMES = {1: "once", 2: "twice"}
 class AdDraft(BaseModel):
     headline: str
     body: str
-    cta: str
+    cta: Cta
     why: str
 
 
