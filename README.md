@@ -18,6 +18,8 @@ uv run pytest -q; (cd web && npx vitest run)                   # tests
 
 ## How it works
 
+![Architecture: three steps; purple boxes call an LLM, green boxes are plain code](media/architecture.png)
+
 ```
 ① Understand → Gate → Match      publishers + personas      POST /api/campaign
 ② Copywriter + Critic agents     one ad per persona          POST /api/creatives (+ /regenerate)

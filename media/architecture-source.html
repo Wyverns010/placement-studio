@@ -1,0 +1,93 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap">
+<style>
+:root{--paper:#ffffff;--ink:#1c2230;--muted:#5b6475;--pencil:#2c5bc7;--llm:#8a3fd1;--llm-soft:#f1e8fb;--code:#1f7a55;--code-soft:#e3f3ec;--red:#c93a32;--card:#ffffff;--hand:"Kalam","Comic Sans MS",cursive}
+html,body{margin:0;background:#fff}svg{display:block;width:1180px;height:640px}
+</style></head><body>
+<svg id="s" viewBox="0 0 1180 640"></svg>
+<script src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.js"></script>
+<script>(function(){var NS="http://www.w3.org/2000/svg";function tok(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+  function make(svg, spec, seed){
+    var ink=tok("--ink"),muted=tok("--muted"),red=tok("--red"),
+        fills={c:tok("--code-soft"),l:tok("--llm-soft"),d:tok("--card")},
+        strokes={c:tok("--code"),l:tok("--llm"),d:ink,n:ink,g:muted};
+    var rc=window.rough?rough.svg(svg):null;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+    function o(stroke,ex){var r={stroke:stroke,strokeWidth:1.6,roughness:1.1,bowing:1.1,seed:seed++};for(var k in ex||{})r[k]=ex[k];return r}
+    function text(t,x,y,size,bold,anchor,fill){var e=el("text",{x:x,y:y,"font-family":tok("--hand"),"font-size":size,"font-weight":bold?700:400,fill:fill||ink,"text-anchor":anchor||"start"});e.textContent=t}
+    function rect(b){
+      var st=b.red?red:strokes[b.k];
+      if(fills[b.k])el("rect",{x:b.x+2,y:b.y+2,width:b.w-4,height:b.h-4,rx:8,fill:fills[b.k]});
+      var ex=b.k==="g"?{strokeLineDash:[4,6],roughness:.7}:(b.k==="n"&&!b.red?{roughness:.6}:{});
+      if(b.red)ex={strokeLineDash:[7,5]};
+      if(rc)svg.appendChild(rc.rectangle(b.x,b.y,b.w,b.h,o(st,ex)));
+      else el("rect",{x:b.x,y:b.y,width:b.w,height:b.h,rx:10,fill:"none",stroke:st,"stroke-width":1.6});
+      if(!b.lines)return;
+      var lh=19,top=b.y+b.h/2-(b.lines.length-1)*lh/2+6;
+      b.lines.forEach(function(l,i){text(l[0],b.x+b.w/2,top+i*lh,i===0?18:14.5,i===0,"middle",b.red&&i===0?red:ink)});
+    }
+    function path(pts,dashed){
+      var st=dashed?tok("--pencil"):ink, ex=dashed?{strokeLineDash:[7,6]}:{};
+      if(rc)svg.appendChild(rc.linearPath(pts,o(st,ex)));
+      else el("polyline",{points:pts.map(function(p){return p.join(",")}).join(" "),fill:"none",stroke:st,"stroke-width":1.6});
+      var a=pts[pts.length-2],b=pts[pts.length-1];if(a[0]===b[0]&&a[1]===b[1])return;
+      var ang=Math.atan2(b[1]-a[1],b[0]-a[0]),L=11,s=.45;
+      [ang+Math.PI-s,ang+Math.PI+s].forEach(function(t){el("line",{x1:b[0],y1:b[1],x2:b[0]+L*Math.cos(t),y2:b[1]+L*Math.sin(t),stroke:st,"stroke-width":1.8,"stroke-linecap":"round"})});
+    }
+    Object.keys(spec.boxes).forEach(function(k){rect(spec.boxes[k])});
+    (spec.diamonds||[]).forEach(function(d){
+      var x=d[0],y=d[1],w=150,h=45,pts=[[x,y-h],[x+w,y],[x,y+h],[x-w,y]];
+      el("polygon",{points:pts.map(function(p){return p.join(",")}).join(" "),fill:tok("--code-soft")});
+      if(rc)svg.appendChild(rc.polygon(pts,o(tok("--code"))));
+      text(d[2],x,y+6,16,true,"middle");
+    });
+    if(spec.legend){var L=spec.boxes.legend;spec.legend.forEach(function(l,i){if(l[0])text(l[0],L.x+18,L.y+34+i*24,l[1]?17:15,!!l[1])})}
+    spec.edges.forEach(function(e){path(e[0],!!e[4]);if(e[1])text(e[1],e[2],e[3],14,false,"start",e[4]?tok("--pencil"):muted)});
+    spec.texts.forEach(function(t){text(t[0],t[1],t[2],t[3],!!t[4],"start",t[4]?tok("--pencil"):muted)});
+    spec.badges.forEach(function(d){
+      el("circle",{cx:d[1],cy:d[2],r:14,fill:tok("--paper")});
+      if(rc)svg.appendChild(rc.circle(d[1],d[2],28,o(tok("--pencil"),{roughness:.7})));
+      else el("circle",{cx:d[1],cy:d[2],r:14,fill:"none",stroke:tok("--pencil"),"stroke-width":1.8});
+      text(String(d[0]),d[1],d[2]+5,15,true,"middle",tok("--pencil"));
+    });
+  }
+  var S={
+    boxes:{
+      user:{x:20,y:200,w:150,h:96,k:"d",lines:[["Advertiser"],["one or two"],["sentences"]]},
+      und:{x:230,y:60,w:160,h:90,k:"l",lines:[["Understand"],["text → brief"]]},
+      gate:{x:430,y:60,w:140,h:90,k:"c",lines:[["Gate"],["4 rules"]]},
+      match:{x:610,y:60,w:160,h:90,k:"c",lines:[["Match"],["publishers + personas"]]},
+      stop:{x:430,y:175,w:340,h:62,k:"n",red:1,lines:[["stop and say why"],["clarify · out_of_scope · no_signal"]]},
+      copy:{x:230,y:290,w:160,h:90,k:"l",lines:[["Copywriter"],["agent · 1 ad / persona"]]},
+      critic:{x:430,y:290,w:140,h:90,k:"l",lines:[["Critic"],["agent"]]},
+      checks:{x:610,y:290,w:160,h:90,k:"c",lines:[["Copy checks"],["no invented facts"]]},
+      config:{x:430,y:450,w:180,h:90,k:"c",lines:[["Config builder"],["budget · bid · caps"]]},
+      out:{x:660,y:462,w:170,h:66,k:"d",lines:[["campaign JSON"]]},
+      oai:{x:860,y:60,w:300,h:96,k:"d",lines:[["OpenAI"],["gpt-5.4-mini reads · gpt-5.5 writes"]]},
+      data:{x:860,y:215,w:300,h:120,k:"d",lines:[["Data + settings"],["20 publishers · 10 personas"],["tuning.yaml · prompts/"]]}
+    },
+    edges:[
+      [[[170,248],[200,248],[200,105],[230,105]],"",0,0],
+      [[[200,335],[230,335]],"",0,0],
+      [[[200,248],[200,495],[430,495]],"",0,0],
+      [[[390,105],[430,105]],"",0,0],
+      [[[570,105],[610,105]],"",0,0],
+      [[[500,150],[500,175]],"",0,0],
+      [[[390,320],[430,320]],"",0,0],
+      [[[570,320],[610,320]],"",0,0],
+      [[[430,352],[390,352]],"≤ 2 rewrites",360,400],
+      [[[690,380],[690,420],[520,420],[520,450]],"approved ads",700,412],
+      [[[610,495],[660,495]],"",0,0],
+      [[[310,60],[310,34],[1010,34],[1010,60]],"structured output · catalog words only",470,26],
+      [[[310,290],[310,262],[830,262],[830,130],[860,130]],"agent calls",640,254],
+      [[[860,275],[772,125]],"catalog + weights",872,196]
+    ],
+    texts:[["① publishers + personas",214,180,16,1],["② ads",214,410,16,1],["③ config",214,560,16,1],
+           ["purple = LLM · green = plain code · every number comes from code",440,590,16,0],
+           ["each step is its own request; results are signed (HMAC), so an edited step gets 403",440,612,16,0]],
+    badges:[]
+  };
+  function go(){try{make(document.getElementById("s"),S,11)}catch(e){console.error(e)}}
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(go);else go();
+})();</script></body></html>
