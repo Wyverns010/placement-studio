@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CampaignConfig, CampaignResult, Creative, StepMeta } from '../types'
@@ -56,15 +56,13 @@ const applyAt = async (user: ReturnType<typeof userEvent.setup>, text: string) =
 }
 
 describe('step agents UI', () => {
-  it('step 1: Apply calls onSteer with the text; panel shows notes and trace from the result', async () => {
+  it('step 1: Apply calls onSteer with the text; the notes from the result show, with no agent panel', async () => {
     const user = userEvent.setup()
     const onSteer = vi.fn()
     render(<Results result={result} onBack={() => {}} onSteer={onSteer} />)
     expect(screen.getByPlaceholderText(/skip pet stores/i)).toBeInTheDocument()
-    expect(screen.getByTestId('mode-badge')).toHaveTextContent('Agent')
-    await user.click(screen.getByRole('button', { name: /what the agent did/i }))
     expect(screen.getByText('Left out Skipped (pet) because of your note.')).toBeInTheDocument()
-    expect(within(screen.getByTestId('agent-timeline')).getByText('rank_publishers')).toBeInTheDocument()
+    expect(screen.queryByText(/what the agent did/i)).not.toBeInTheDocument()
     await applyAt(user, 'Skip pet stores')
     expect(onSteer).toHaveBeenCalledWith('Skip pet stores')
   })
@@ -79,9 +77,7 @@ describe('step agents UI', () => {
     await applyAt(user, 'Make them more playful')
     await waitFor(() => expect(createCreatives).toHaveBeenCalledTimes(2))
     expect(vi.mocked(createCreatives).mock.calls[1][0]).toMatchObject({ steer: 'Make them more playful' })
-    await user.click(screen.getByRole('button', { name: /what the agent did/i }))
     expect(await screen.findByText('Made the ads playful.')).toBeInTheDocument()
-    expect(screen.getByTestId('mode-badge')).toHaveTextContent('Agent')
   })
 
   it('step 2: a 422 steer error shows inline', async () => {
@@ -94,7 +90,7 @@ describe('step agents UI', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Keep the note to 300 characters.')
   })
 
-  it('step 3: Apply re-requests config with the steer and shows the mode badge', async () => {
+  it('step 3: Apply re-requests config with the steer and shows its notes', async () => {
     const user = userEvent.setup()
     render(<Results result={result} onBack={() => {}} />)
     await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
@@ -110,7 +106,7 @@ describe('step agents UI', () => {
     await applyAt(user, 'Keep it under $5,000')
     await waitFor(() => expect(buildConfig).toHaveBeenCalledTimes(2))
     expect(vi.mocked(buildConfig).mock.calls[1][0]).toMatchObject({ steer: 'Keep it under $5,000' })
-    expect(await screen.findByText('Fallback (agent unavailable)')).toBeInTheDocument()
+    expect(await screen.findByText('Agent stopped; code result used.')).toBeInTheDocument()
   })
 
   it('step 2: per-ad Regenerate sends the step steer that was applied', async () => {

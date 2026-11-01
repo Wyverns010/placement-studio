@@ -1,60 +1,30 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { AgentPanel, AgentSteer, AgentTicker, AgentWorking } from './AgentUi'
+import { AgentNotes, AgentSteer, AgentTicker, AgentWorking } from './AgentUi'
 
-const meta = {
-  mode: 'agent' as const,
-  agent_notes: ['Left out Pawline (pet) because of your note.'],
-  agent_trace: [
-    { agent: 'strategist', tool: 'decide', args_summary: '{}', result_summary: 'proceed: build the campaign', ms: 0 },
-    { agent: 'strategist', tool: 'rank_publishers', args_summary: '{"exclude_ids":["pub_007"]}', result_summary: '[{"id":"pub_020"', ms: 3 },
-  ],
-}
-
-describe('AgentPanel', () => {
-  it('is collapsed by default, with the mode badge visible', async () => {
-    render(<AgentPanel meta={meta} />)
-    const toggle = screen.getByRole('button', { name: /what the agent did/i })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.getByTestId('mode-badge')).toHaveTextContent('Agent')
-    expect(screen.queryByTestId('agent-notes')).not.toBeInTheDocument()
+describe('AgentNotes', () => {
+  it('lists the notes', () => {
+    render(<AgentNotes notes={['Left out Pawline (pet) because of your note.']} />)
+    expect(within(screen.getByTestId('agent-notes')).getByText('Left out Pawline (pet) because of your note.')).toBeInTheDocument()
   })
 
-  it('shows notes first, then the trace timeline when opened', async () => {
-    const user = userEvent.setup()
-    render(<AgentPanel meta={meta} />)
-    await user.click(screen.getByRole('button', { name: /what the agent did/i }))
-    const notes = screen.getByTestId('agent-notes')
-    const timeline = screen.getByTestId('agent-timeline')
-    expect(within(notes).getByText('Left out Pawline (pet) because of your note.')).toBeInTheDocument()
-    expect(notes.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    const items = within(timeline).getAllByRole('listitem')
-    expect(items).toHaveLength(2)
-    expect(items[1]).toHaveTextContent('strategist')
-    expect(items[1]).toHaveTextContent('rank_publishers')
-    expect(items[1]).toHaveTextContent('3 ms')
-    expect(items[1]).toHaveTextContent('exclude_ids')
-  })
-
-  it.each([
-    ['agent', 'Agent'],
-    ['code', 'Code'],
-    ['fallback', 'Fallback (agent unavailable)'],
-  ] as const)('badge for mode %s', (mode, label) => {
-    render(<AgentPanel meta={{ mode }} />)
-    expect(screen.getByTestId('mode-badge')).toHaveTextContent(label)
-  })
-
-  it('renders nothing without any agent data', () => {
-    const { container } = render(<AgentPanel meta={{}} />)
+  it('renders nothing without notes', () => {
+    const { container } = render(<AgentNotes notes={[]} />)
     expect(container).toBeEmptyDOMElement()
   })
 })
 
 describe('AgentTicker', () => {
   it('shows the latest tool call', () => {
-    render(<AgentTicker trace={meta.agent_trace} />)
+    render(
+      <AgentTicker
+        trace={[
+          { agent: 'strategist', tool: 'decide', args_summary: '{}', result_summary: 'proceed', ms: 0 },
+          { agent: 'strategist', tool: 'rank_publishers', args_summary: '{}', result_summary: '[]', ms: 3 },
+        ]}
+      />,
+    )
     expect(screen.getByTestId('agent-ticker')).toHaveTextContent('Agent: rank_publishers …')
   })
 })

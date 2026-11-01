@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError, buildConfig, createCreatives, regenerateCreative } from '../api'
 import { usd } from '../format'
 import type { CampaignConfig, CampaignResult, Creative, StagePayload, StepMeta } from '../types'
-import { AgentPanel, AgentSteer, AgentWorking } from './AgentUi'
+import { AgentNotes, AgentSteer, AgentWorking } from './AgentUi'
 import ConfigStep from './ConfigStep'
 import OutcomeBanner from './OutcomeBanner'
 import PersonasTab from './PersonasTab'
@@ -281,10 +281,7 @@ export default function StagedResults({
               allowBlank={!!initialSteer}
             />
           )}
-          <AgentPanel
-            className="mb-5"
-            meta={{ mode: result.mode, agent_trace: result.agent_trace, agent_notes: result.agent_notes }}
-          />
+          <AgentNotes className="mb-5" notes={result.agent_notes} />
           <PublishersTab publishers={result.publishers} config={config} />
           <h4 className="m-0 mt-8 mb-3 text-[13px] font-semibold tracking-[0.06em] text-muted uppercase">
             Personas · {result.personas.length}
@@ -324,7 +321,7 @@ export default function StagedResults({
           />
           {pending === 'creatives' && <AgentWorking className="-mt-2 mb-4" />}
           {errorBlock}
-          <AgentPanel className="mb-5" meta={meta2} />
+          <AgentNotes className="mb-5" notes={meta2?.agent_notes} />
           <PersonasTab
             personas={result.personas}
             creatives={creatives}
@@ -378,7 +375,7 @@ export default function StagedResults({
             onApply={(t) => updateBudget(budgetChoice, t)}
             busy={configBusy}
           />
-          <AgentPanel className="mb-5" meta={meta3} />
+          <AgentNotes className="mb-5" notes={meta3?.agent_notes} />
           <ConfigStep
             config={config}
             publishers={result.publishers}
