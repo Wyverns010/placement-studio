@@ -56,10 +56,12 @@ const applyAt = async (user: ReturnType<typeof userEvent.setup>, text: string) =
 }
 
 describe('step agents UI', () => {
-  it('step 1: Apply calls onSteer with the text; the notes from the result show, with no agent panel', async () => {
+  it('step 1: Apply calls onSteer with the text; notes show only for a steered result, with no agent panel', async () => {
     const user = userEvent.setup()
     const onSteer = vi.fn()
-    render(<Results result={result} onBack={() => {}} onSteer={onSteer} />)
+    const { rerender } = render(<Results result={result} onBack={() => {}} onSteer={onSteer} />)
+    expect(screen.queryByText('Left out Skipped (pet) because of your note.')).not.toBeInTheDocument()
+    rerender(<Results result={result} onBack={() => {}} onSteer={onSteer} steer="Skip pet stores" />)
     expect(screen.getByPlaceholderText(/skip pet stores/i)).toBeInTheDocument()
     expect(screen.getByText('Left out Skipped (pet) because of your note.')).toBeInTheDocument()
     expect(screen.queryByText(/what the agent did/i)).not.toBeInTheDocument()

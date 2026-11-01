@@ -137,7 +137,7 @@ export default function StagedResults({
     setStepError(null)
     setMeta2(undefined)
     try {
-      const out = await createCreatives(withSteer(steer), t.signal, setMeta2)
+      const out = await createCreatives(withSteer(steer), t.signal, steer ? setMeta2 : undefined)
       if (steer) {
         cancelConfig()
         setConfig(null)
@@ -281,7 +281,7 @@ export default function StagedResults({
               allowBlank={!!initialSteer}
             />
           )}
-          <AgentNotes className="mb-5" notes={result.agent_notes} />
+          <AgentNotes className="mb-5" notes={initialSteer ? result.agent_notes : undefined} />
           <PublishersTab publishers={result.publishers} config={config} />
           <h4 className="m-0 mt-8 mb-3 text-[13px] font-semibold tracking-[0.06em] text-muted uppercase">
             Personas · {result.personas.length}
