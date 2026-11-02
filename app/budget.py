@@ -62,14 +62,26 @@ def allocate(recommended: list[PublisherScore], catalog: Catalog, monthly_usd: f
             spend[i] = caps[i]
             remaining -= caps[i]
         active = [i for i in active if i not in capped]
+    spend = _whole_dollars(spend)
     total = sum(spend)
     items = []
     for p, s in zip(recommended, spend):
         cpm = cpm_usd(catalog.publisher(p.publisher_id), t)
         items.append(LineItem(publisher_id=p.publisher_id, share=(s / total if total else 0.0),
                               budget_usd=round(s, 2), creative_id=None, cpm_usd=cpm,
-                              est_impressions=int(s / cpm * 1000) if cpm else 0))
+                              est_impressions=round(s / cpm * 1000) if cpm else 0))
     return items, round(max(0.0, monthly_usd - total), 2)
+
+
+def _whole_dollars(spend: list[float]) -> list[float]:
+    """Round each line item to whole dollars, keeping the total (largest remainders get the extra
+    dollar), so every figure shown can be checked by hand."""
+    floors = [math.floor(x) for x in spend]
+    short = round(sum(spend)) - sum(floors)
+    order = sorted(range(len(spend)), key=lambda i: spend[i] - floors[i], reverse=True)
+    for i in order[:max(0, short)]:
+        floors[i] += 1
+    return [float(x) for x in floors]
 
 
 def target_cpa(brief: Brief, recommended: list[PublisherScore], catalog: Catalog, t: Tuning) -> float:
@@ -142,10 +154,10 @@ class Projection(NamedTuple):
 def projection(items: list[LineItem], cpa: float, order_value: float, t: Tuning) -> Projection:
     spend = sum(li.budget_usd for li in items)
     imps = sum(li.est_impressions for li in items)
-    conv = spend / cpa if cpa else 0.0
+    conv = int(spend / cpa) if cpa else 0  # whole conversions, as shown
     per_1k = conv / imps * 1000 if imps else 0.0
-    revenue = conv * order_value
-    return Projection(impressions=imps, conversions=int(conv), revenue_usd=round(revenue, 2),
+    revenue = conv * round(order_value)  # whole-dollar value, as shown
+    return Projection(impressions=imps, conversions=conv, revenue_usd=float(revenue),
                       roas=round(revenue / spend, 2) if spend else 0.0,
                       conversions_per_1k=round(per_1k, 2),
                       stretch=per_1k > t.budget.max_conversions_per_1k_impressions)

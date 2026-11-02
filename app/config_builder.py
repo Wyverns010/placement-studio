@@ -100,7 +100,7 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
                   f"{_pacing_rationale(brief, weak_fit, code_pace, monthly_usd, rec.usd).split(': ', 1)[1]})",
         "guardrails": f"Pause if CPA exceeds ${cpa_limit:,.0f} ({bid.guardrail_cpa_multiple:g}× target) "
                       f"after {bid.guardrail_min_impressions:,} impressions",
-        "line_items": f"{len(items)} publishers, budget share proportional to fit with a "
+        "line_items": f"{len(items)} publisher{'' if len(items) == 1 else 's'}, budget share proportional to fit with a "
                       f"{t.budget.min_share:.0%} floor" + _rotation_note(items, publishers)
                       + _reuse_note(items, publishers, personas, creatives),
     }

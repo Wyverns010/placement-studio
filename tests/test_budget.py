@@ -49,7 +49,7 @@ def test_too_many_publishers_for_floor_falls_back_to_equal():
     pubs = [ps(p.id, 0.9 - 0.05 * i) for i, p in enumerate(CAT.publishers[:12])]
     items, _ = allocate(pubs, CAT, 1000, T)
     assert sum(i.share for i in items) == pytest.approx(1.0, abs=1e-6)
-    assert max(i.share for i in items) == pytest.approx(min(i.share for i in items))
+    assert max(i.share for i in items) == pytest.approx(min(i.share for i in items), abs=0.002)  # whole dollars
 
 
 def test_target_cpa_subscription():
@@ -184,3 +184,12 @@ def test_projection_is_plain_arithmetic_on_the_line_items():
     assert p.conversions == 250 and p.revenue_usd == 25_000 and p.roas == 2.5
     assert p.conversions_per_1k == round(250 / p.impressions * 1000, 2) and not p.stretch
     assert projection(items, 1, 100, T).stretch  # a $1 CPA needs far too many conversions
+
+
+def test_line_items_are_whole_dollars_and_the_shown_arithmetic_adds_up():
+    pubs = [ps(PAW, 0.9), ps(RUFF, 0.8), ps(TAIL, 0.7)]
+    items, unalloc = allocate(pubs, CAT, 19_500, T)
+    assert all(li.budget_usd == int(li.budget_usd) for li in items)
+    assert sum(li.budget_usd for li in items) + unalloc == 19_500
+    for li in items:  # budget / CPM x 1,000, by hand
+        assert li.est_impressions == round(li.budget_usd / li.cpm_usd * 1000)
