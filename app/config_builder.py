@@ -165,9 +165,10 @@ def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, 
     b = t.budget
     capped = sum(1 for p in rec.per_publisher if p < rec.cpa * b.conversions_per_line_item)
     why = (f"Recommended ${rec.usd:,.0f}/mo: ${rec.cpa:,.0f} target CPA × {b.conversions_per_line_item} "
-           f"conversions per line item (enough to optimise the bid) across {n_pubs} publishers"
+           f"conversions per line item (enough to optimise the bid) across {n_pubs} "
+           f"publisher{'' if n_pubs == 1 else 's'}"
            + (f", {capped} capped at reach (${b.assumed_cpm_usd:g} CPM)" if capped else "")
-           + f", rounded to ${b.round_to_usd:,.0f} within ${b.min_usd:,.0f}–${b.max_usd:,.0f}")
+           + f", rounded up to ${b.round_to_usd:,.0f} within ${b.min_usd:,.0f}–${b.max_usd:,.0f}")
     if weak_fit:
         share = rec.full_usd * b.weak_fit_test_fraction
         why += (f", then a test because fit is weak: {b.weak_fit_test_fraction:.0%} of "

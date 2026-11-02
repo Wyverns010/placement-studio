@@ -109,13 +109,14 @@ def weak_fit_test_usd(full_usd: float, t: Tuning) -> float:
 def recommended_budget(brief: Brief, publishers: list[PublisherScore], catalog: Catalog,
                        weak_fit: bool, t: Tuning) -> Recommendation:
     """Enough for each line item to reach `conversions_per_line_item` at the target CPA, capped at
-    its reach; rounded, clamped to the budget bounds; a weak fit gets a capped test share of that."""
+    its reach; rounded up, clamped to the budget bounds; a weak fit gets a capped test share of that."""
     b = t.budget
     cpa = target_cpa(brief, publishers, catalog, t)
     want = cpa * b.conversions_per_line_item
     parts = [min(reach_cap_usd(catalog.publisher(p.publisher_id).monthly_impressions, t), want)
              for p in publishers]
-    full = min(b.max_usd, max(b.min_usd, _round_to(sum(parts), b.round_to_usd)))
+    # rounded up: rounding down would leave too little for the conversions the bid needs
+    full = min(b.max_usd, max(b.min_usd, math.ceil(sum(parts) / b.round_to_usd) * b.round_to_usd))
     usd = weak_fit_test_usd(full, t) if weak_fit else full
     return Recommendation(usd=float(usd), full_usd=float(full), per_publisher=parts, cpa=cpa)
 

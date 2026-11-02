@@ -78,14 +78,14 @@ def test_recommended_is_cpa_times_conversions_per_publisher_rounded_to_500():
     # price $60 one-off -> CPA round(0.35 x 60) = $21 -> $21 x 50 = $1,050 per publisher
     rec = recommended_budget(brief(price_usd=60), [ps(PAW, 0.9), ps(RUFF, 0.8)], CAT, False, T)
     assert rec.cpa == 21 and rec.per_publisher == [1050, 1050]
-    assert rec.full_usd == 2000 and rec.usd == 2000  # 2,100 rounds to the nearest $500
+    assert rec.full_usd == 2500 and rec.usd == 2500  # 2,100 rounds up to $2,500: enough for the 50
 
 
 def test_recommended_capped_at_each_publishers_reach():
     # CPA $3,500 -> $175,000 wanted per publisher; Pawline can only absorb $57,600 at $12 CPM
     rec = recommended_budget(brief(price_usd=10000), [ps(PAW, 0.9), ps(RUFF, 0.8)], CAT, False, T)
     assert rec.per_publisher == [57600, 175000]
-    assert rec.usd == 232500
+    assert rec.usd == 233000  # 232,600 rounded up
 
 
 @pytest.mark.parametrize("price,n_pubs,want", [(1, 1, 500), (5, 1, 500), (10**7, 3, None)])
@@ -99,8 +99,8 @@ def test_recommended_clamped_to_budget_bounds(price, n_pubs, want):
 
 def test_weak_fit_recommends_a_20_percent_test():
     pubs = [ps(PAW, 0.3), ps(RUFF, 0.3), ps(TAIL, 0.3)]
-    rec = recommended_budget(brief(price_usd=80), pubs, CAT, True, T)  # $28 x 50 x 3 = 4,200 -> 4,000
-    assert rec.full_usd == 4000 and rec.usd == 1000  # 20% = 800, rounded to the nearest $500
+    rec = recommended_budget(brief(price_usd=80), pubs, CAT, True, T)  # $28 x 50 x 3 = 4,200 -> 4,500
+    assert rec.full_usd == 4500 and rec.usd == 1000  # 20% = 900, rounded to the nearest $500
     small = recommended_budget(brief(price_usd=60), pubs[:2], CAT, True, T)  # 2,000 x 20% = 400
     assert small.usd == T.budget.min_usd
 
@@ -110,9 +110,9 @@ def test_weak_fit_test_capped_and_rounded():
     pubs = [ps(PAW, 0.3), ps(RUFF, 0.3), ps(TAIL, 0.3)]
     big = recommended_budget(brief(price_usd=1000), pubs, CAT, True, T)  # full >> cap
     assert big.full_usd > 15000 and big.usd == 3000
-    # 20% of 4,000 = 800 -> rounds to the nearest $500 (1,000), never an odd figure
+    # the test share rounds to the nearest $500, never an odd figure
     t = T.model_copy(deep=True)
-    t.budget.weak_fit_test_fraction = 0.17  # 0.17 x 4,000 = 680 -> 500
+    t.budget.weak_fit_test_fraction = 0.1  # 0.1 x 4,500 = 450 -> 500
     odd = recommended_budget(brief(price_usd=80), pubs, CAT, True, t)
     assert odd.usd % t.budget.round_to_usd == 0 and odd.usd == 500
 
