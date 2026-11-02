@@ -1,4 +1,4 @@
-import { personaById } from '../catalog'
+import { personaById, publisherById } from '../catalog'
 import { humanise, pct, titleCase, usd } from '../format'
 import type { CampaignConfig, Creative, PersonaScore, PublisherScore } from '../types'
 import { Chips } from './ui'
@@ -130,7 +130,9 @@ export default function ConfigFormatted({
               <thead>
                 <tr className="text-left text-muted">
                   <th className="py-1 pr-3 font-medium">Publisher</th>
+                  <th className="py-1 pr-3 font-medium">Audience income</th>
                   <th className="py-1 pr-3 text-right font-medium">CPM</th>
+                  <th className="py-1 pr-3 text-right font-medium">Share</th>
                   <th className="py-1 pr-3 text-right font-medium">Budget</th>
                   <th className="py-1 text-right font-medium">Impressions</th>
                 </tr>
@@ -139,13 +141,29 @@ export default function ConfigFormatted({
                 {config.line_items.map((li) => (
                   <tr key={li.publisher_id} className="border-t border-[#f0ebf8]">
                     <td className="py-1 pr-3">{pubName(li.publisher_id)}</td>
+                    <td className="py-1 pr-3">{publisherById(li.publisher_id)?.audience?.income_tier ?? '—'}</td>
                     <td className="py-1 pr-3 text-right">{usd(num(li.cpm_usd) ?? 0)}</td>
+                    <td className="py-1 pr-3 text-right">{pct(li.share)}</td>
                     <td className="py-1 pr-3 text-right">{usd(li.budget_usd)}</td>
                     <td className="py-1 text-right">{(num(li.est_impressions) ?? 0).toLocaleString('en-US')}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {(() => {
+              const li = config.line_items[0]
+              const cpm = num(li.cpm_usd) ?? 0
+              return (
+                <p data-testid="impressions-how" className="m-0 mt-2 text-[11.5px] leading-snug text-muted">
+                  <b className="font-semibold text-ink">How these are worked out.</b> CPM (the price of 1,000
+                  impressions) follows the publisher's audience income: mid $10, mid-high $13, high $16.
+                  Share follows fit, with a 10% floor, capped at a quarter of the publisher's monthly
+                  impressions. Budget = share × {usd(monthly)}. Impressions = budget ÷ CPM × 1,000, e.g.{' '}
+                  {pubName(li.publisher_id)}: {usd(li.budget_usd)} ÷ {usd(cpm)} × 1,000 ={' '}
+                  {(num(li.est_impressions) ?? 0).toLocaleString('en-US')}.
+                </p>
+              )
+            })()}
           </div>
         )}
       </Row>

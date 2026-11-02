@@ -8,6 +8,7 @@ export interface CatalogPublisher {
   category: string
   monthly_impressions: number
   avg_order_value_usd: number
+  audience?: { income_tier?: string }
 }
 
 export interface CatalogPersona {

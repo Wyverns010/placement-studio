@@ -64,7 +64,8 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     code_pace = pacing(brief, weak_fit, monthly_usd, rec.usd)
     pace = pacing_override or code_pace
     order_value = order_value_used(brief, publishers, catalog)
-    proj = projection(items, cpa, order_value * (bid.subscription_ltv_multiplier if subscription else 1), t)
+    order_value_ltv = order_value * (bid.subscription_ltv_multiplier if subscription else 1)
+    proj = projection(items, cpa, order_value_ltv, t)
 
     bounds = age_bounds(brief, t)
     if bounds is not None:
@@ -88,7 +89,8 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
                         f"{ltv} = ${cpa:,.0f} target CPA",
         "budget": _budget_rationale(rec, source, monthly_usd, unallocated, weak_fit, publishers,
                                     catalog, t),
-        "projection": _projection_rationale(proj, cpa, subscription, t),
+        "projection": _projection_rationale(proj, cpa, order_value_ltv, monthly_usd, items,
+                                            {p.publisher_id: p.name for p in publishers}, subscription, t),
         "targeting": f"{len(personas)} personas, interests {', '.join(interests) or 'none'}, "
                      f"{_ages_text(age_range)}, gender {gender}, US",
         "frequency_cap": _frequency_rationale(brief, weak_fit, freq_n, freq_days, t),
@@ -202,17 +204,28 @@ def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, 
     return why
 
 
-def _projection_rationale(p, cpa: float, subscription: bool, t: Tuning) -> str:
-    value = "subscription value" if subscription else "order value"
-    why = (f"About {p.impressions:,} impressions and {p.conversions:,} conversions at the ${cpa:,.0f} "
-           f"target CPA, worth ${p.revenue_usd:,.0f} in {value} (ROAS {p.roas:g}×). Hitting that CPA "
-           f"needs {p.conversions_per_1k:g} conversions per 1,000 impressions")
+def _projection_rationale(p, cpa: float, value: float, spend: float, items: list[LineItem],
+                          names: dict[str, str], subscription: bool, t: Tuning) -> str:
+    """The projection with its arithmetic shown, using the first line item as the worked example."""
+    if not items:
+        return "No line items, so nothing to project"
+    li = items[0]
+    kind = "subscription value (order value × LTV)" if subscription else "order value"
+    why = (f"Impressions: each publisher's budget ÷ its CPM × 1,000, added up "
+           f"({names.get(li.publisher_id, li.publisher_id)}: ${li.budget_usd:,.0f} ÷ ${li.cpm_usd:g} × 1,000 "
+           f"= {li.est_impressions:,}) = {p.impressions:,}. "
+           f"Conversions: ${spend:,.0f} ÷ ${cpa:,.0f} target CPA = {p.conversions:,}. "
+           f"Revenue: {p.conversions:,} × ${value:,.0f} {kind} = ${p.revenue_usd:,.0f}. "
+           f"ROAS: ${p.revenue_usd:,.0f} ÷ ${spend:,.0f} = {p.roas:g}× (about 1 ÷ "
+           f"{t.bid.cpa_fraction_of_order_value:.0%}, because the CPA is {t.bid.cpa_fraction_of_order_value:.0%} "
+           "of that value). "
+           f"Check: {p.conversions:,} ÷ {p.impressions:,} impressions = {p.conversions_per_1k:g} conversions "
+           "per 1,000 impressions")
+    cap = t.budget.max_conversions_per_1k_impressions
     if p.stretch:
-        why += (f", above the ~{t.budget.max_conversions_per_1k_impressions:g} per 1,000 that checkout "
-                "offers usually reach, so the CPA is optimistic; the guardrail will catch it")
+        why += f", above the ~{cap:g} per 1,000 checkout offers usually reach: the CPA is optimistic"
     else:
-        why += (f", under the ~{t.budget.max_conversions_per_1k_impressions:g} per 1,000 that checkout "
-                "offers usually reach")
+        why += f", under the ~{cap:g} per 1,000 checkout offers usually reach, so the CPA is realistic"
     return why
 
 
