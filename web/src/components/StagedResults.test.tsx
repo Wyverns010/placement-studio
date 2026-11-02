@@ -81,7 +81,7 @@ const cfg = (monthly: number, source: 'recommended' | 'user', extra: Partial<Cam
   guardrails: {},
   rationales: {
     budget:
-      'Recommended $6,000/mo: $41 target CPA × 50 conversions per line item across 2 publishers, rounded to $500',
+      'Recommended $6,000/mo. Goal: 200 conversions per publisher a month (50 a week) × $41 target CPA across 2 publishers. Rounded up to $500',
     pacing: 'Even: a premium-tier purchase is considered, so reminders are spread out',
     frequency_cap: 'At most 4 impressions per person every 14 days (premium tier, +1 for a subscription)',
   },
@@ -270,7 +270,7 @@ describe('Staged results', () => {
     )
     expect(stepBtn(/campaign config/i)).toHaveAttribute('aria-current', 'step')
     expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('6,000')
-    expect(screen.getByText(/Recommended \$6,000 — based on \$41 target CPA/)).toBeInTheDocument()
+    expect(screen.getByText(/Recommended \$6,000\. Goal: 200 conversions/)).toBeInTheDocument()
     expect(screen.getByTestId('budget-source')).toHaveTextContent(/recommended/i)
     expect(screen.getByText(/Target CPA · \$41/)).toBeInTheDocument()
     expect(screen.getAllByText(/Even: a premium-tier purchase/).length).toBeGreaterThan(0)

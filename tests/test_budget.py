@@ -1,6 +1,6 @@
 import pytest
 
-from app.budget import allocate, target_cpa
+from app.budget import allocate, reach_cap_usd, target_cpa
 from app.models import Factor, PublisherScore
 from tests.conftest import CAT, T, brief
 
@@ -27,7 +27,7 @@ def test_budget_exceeds_reach_reports_unallocated():
     items, unalloc = allocate(pubs, CAT, 5_000_000, T)
     assert unalloc > 0
     for i in items:
-        cap = CAT.publisher(i.publisher_id).monthly_impressions / 1000 * T.budget.assumed_cpm_usd
+        cap = reach_cap_usd(CAT.publisher(i.publisher_id), T)
         assert i.budget_usd <= cap + 0.01
 
 
@@ -70,22 +70,30 @@ from app.budget import frequency_cap, pacing, recommended_budget  # noqa: E402
 PAW, RUFF, TAIL = by_name("Pawline"), by_name("Ruffco"), by_name("Tailcrate")
 
 
-def test_conversions_per_line_item_and_rounding_are_tunables():
-    assert T.budget.conversions_per_line_item == 50 and T.budget.round_to_usd == 500
+def test_conversion_goal_and_rounding_are_tunables():
+    b = T.budget
+    assert b.learning_conversions_per_week == 50 and b.weeks_per_month == 4
+    assert b.conversions_per_month == 200 and b.round_to_usd == 500
 
 
-def test_recommended_is_cpa_times_conversions_per_publisher_rounded_to_500():
-    # price $60 one-off -> CPA round(0.35 x 60) = $21 -> $21 x 50 = $1,050 per publisher
+def test_cpm_and_reach_follow_the_publishers_audience():
+    paw, ruff = CAT.publisher(PAW), CAT.publisher(RUFF)  # mid-high 4.8M, mid 62M impressions
+    assert reach_cap_usd(paw, T) == 4_800_000 * 0.25 / 1000 * 13 == 15600
+    assert reach_cap_usd(ruff, T) == 62_000_000 * 0.25 / 1000 * 10 == 155000
+
+
+def test_recommended_is_cpa_times_monthly_conversions_per_publisher_rounded_up():
+    # price $60 one-off -> CPA round(0.35 x 60) = $21 -> $21 x 200 = $4,200 per publisher
     rec = recommended_budget(brief(price_usd=60), [ps(PAW, 0.9), ps(RUFF, 0.8)], CAT, False, T)
-    assert rec.cpa == 21 and rec.per_publisher == [1050, 1050]
-    assert rec.full_usd == 2500 and rec.usd == 2500  # 2,100 rounds up to $2,500: enough for the 50
+    assert rec.cpa == 21 and rec.per_publisher == [4200, 4200] and rec.capped == []
+    assert rec.full_usd == 8500 and rec.usd == 8500  # 8,400 rounds up: enough for the 200
 
 
 def test_recommended_capped_at_each_publishers_reach():
-    # CPA $3,500 -> $175,000 wanted per publisher; Pawline can only absorb $57,600 at $12 CPM
+    # CPA $3,500 -> $700,000 wanted per publisher; both can only absorb their reach
     rec = recommended_budget(brief(price_usd=10000), [ps(PAW, 0.9), ps(RUFF, 0.8)], CAT, False, T)
-    assert rec.per_publisher == [57600, 175000]
-    assert rec.usd == 233000  # 232,600 rounded up
+    assert rec.per_publisher == [15600, 155000] and rec.capped == [PAW, RUFF]
+    assert rec.usd == 171000  # 170,600 rounded up
 
 
 @pytest.mark.parametrize("price,n_pubs,want", [(1, 1, 500), (5, 1, 500), (10**7, 3, None)])
@@ -99,9 +107,9 @@ def test_recommended_clamped_to_budget_bounds(price, n_pubs, want):
 
 def test_weak_fit_recommends_a_20_percent_test():
     pubs = [ps(PAW, 0.3), ps(RUFF, 0.3), ps(TAIL, 0.3)]
-    rec = recommended_budget(brief(price_usd=80), pubs, CAT, True, T)  # $28 x 50 x 3 = 4,200 -> 4,500
-    assert rec.full_usd == 4500 and rec.usd == 1000  # 20% = 900, rounded to the nearest $500
-    small = recommended_budget(brief(price_usd=60), pubs[:2], CAT, True, T)  # 2,000 x 20% = 400
+    rec = recommended_budget(brief(price_usd=80), pubs, CAT, True, T)  # $28 x 200 x 3 = 16,800
+    assert rec.full_usd == 17000 and rec.usd == 3000  # 20% = 3,400, capped at the $3,000 test max
+    small = recommended_budget(brief(price_usd=5), pubs[:2], CAT, True, T)  # $2 x 400 = 800 -> 1,000 x 20%
     assert small.usd == T.budget.min_usd
 
 
@@ -112,9 +120,9 @@ def test_weak_fit_test_capped_and_rounded():
     assert big.full_usd > 15000 and big.usd == 3000
     # the test share rounds to the nearest $500, never an odd figure
     t = T.model_copy(deep=True)
-    t.budget.weak_fit_test_fraction = 0.1  # 0.1 x 4,500 = 450 -> 500
+    t.budget.weak_fit_test_fraction = 0.1  # 0.1 x 17,000 = 1,700 -> 1,500
     odd = recommended_budget(brief(price_usd=80), pubs, CAT, True, t)
-    assert odd.usd % t.budget.round_to_usd == 0 and odd.usd == 500
+    assert odd.usd % t.budget.round_to_usd == 0 and odd.usd == 1500
 
 
 def test_round_to_usd_must_be_positive():
@@ -165,3 +173,14 @@ def test_frequency_never_below_one():
 ])
 def test_pacing_rules(tier, weak, monthly, rec, want):
     assert pacing(brief(price_tier=tier), weak, monthly, rec) == want
+
+
+def test_projection_is_plain_arithmetic_on_the_line_items():
+    from app.budget import projection
+    pubs = [ps(PAW, 0.9), ps(RUFF, 0.8)]
+    items, _ = allocate(pubs, CAT, 10_000, T)
+    p = projection(items, 40, 100, T)
+    assert p.impressions == sum(li.est_impressions for li in items)
+    assert p.conversions == 250 and p.revenue_usd == 25_000 and p.roas == 2.5
+    assert p.conversions_per_1k == round(250 / p.impressions * 1000, 2) and not p.stretch
+    assert projection(items, 1, 100, T).stretch  # a $1 CPA needs far too many conversions

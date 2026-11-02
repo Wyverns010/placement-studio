@@ -4,8 +4,8 @@ import hashlib
 import math
 import re
 
-from app.budget import (Pacing, allocate, frequency_cap, order_value_used, pacing,
-                        recommended_budget)
+from app.budget import (Pacing, allocate, cpm_usd, frequency_cap, order_value_used, pacing,
+                        projection, recommended_budget)
 from app.catalog import Catalog
 from app.match import age_bounds
 from app.models import (Brief, CampaignConfig, Creative, GateResult, LineItem,
@@ -64,6 +64,7 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
     code_pace = pacing(brief, weak_fit, monthly_usd, rec.usd)
     pace = pacing_override or code_pace
     order_value = order_value_used(brief, publishers, catalog)
+    proj = projection(items, cpa, order_value * (bid.subscription_ltv_multiplier if subscription else 1), t)
 
     bounds = age_bounds(brief, t)
     if bounds is not None:
@@ -85,7 +86,9 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
                      + ("subscription starts" if subscription else "purchases"),
         "bid_strategy": f"{bid.cpa_fraction_of_order_value:.0%} of ${order_value:,.0f} order value ({src})"
                         f"{ltv} = ${cpa:,.0f} target CPA",
-        "budget": _budget_rationale(rec, source, monthly_usd, unallocated, weak_fit, len(publishers), t),
+        "budget": _budget_rationale(rec, source, monthly_usd, unallocated, weak_fit, publishers,
+                                    catalog, t),
+        "projection": _projection_rationale(proj, cpa, subscription, t),
         "targeting": f"{len(personas)} personas, interests {', '.join(interests) or 'none'}, "
                      f"{_ages_text(age_range)}, gender {gender}, US",
         "frequency_cap": _frequency_rationale(brief, weak_fit, freq_n, freq_days, t),
@@ -104,7 +107,11 @@ def build_config(*, brief: Brief, gate: GateResult, publishers: list[PublisherSc
         objective="conversions",
         conversion_event="subscription_start" if subscription else "purchase",
         budget={"monthly_usd": round(monthly_usd, 2), "recommended_usd": rec.usd, "source": source,
-                "pacing": pace, "unallocated_usd": unallocated, "test_budget": weak_fit and source == "recommended"},
+                "pacing": pace, "unallocated_usd": unallocated, "test_budget": weak_fit and source == "recommended",
+                "conversions_goal": t.budget.conversions_per_month,
+                "est_impressions": proj.impressions, "est_conversions": proj.conversions,
+                "est_revenue_usd": proj.revenue_usd, "est_roas": proj.roas,
+                "conversions_per_1k": proj.conversions_per_1k, "cpa_is_stretch": proj.stretch},
         bid_strategy={"type": "target_cpa", "target_usd": cpa},
         targeting={"age_range": age_range, "gender": gender, "geo": GEO,
                    "interests": interests, "personas": [p.persona_id for p in personas]},
@@ -161,14 +168,21 @@ def _rotation_note(items: list[LineItem], publishers: list[PublisherScore]) -> s
 
 
 def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, weak_fit: bool,
-                      n_pubs: int, t: Tuning) -> str:
+                      publishers: list[PublisherScore], catalog: Catalog, t: Tuning) -> str:
     b = t.budget
-    capped = sum(1 for p in rec.per_publisher if p < rec.cpa * b.conversions_per_line_item)
-    why = (f"Recommended ${rec.usd:,.0f}/mo: ${rec.cpa:,.0f} target CPA × {b.conversions_per_line_item} "
-           f"conversions per line item (enough to optimise the bid) across {n_pubs} "
-           f"publisher{'' if n_pubs == 1 else 's'}"
-           + (f", {capped} capped at reach (${b.assumed_cpm_usd:g} CPM)" if capped else "")
-           + f", rounded up to ${b.round_to_usd:,.0f} within ${b.min_usd:,.0f}–${b.max_usd:,.0f}")
+    n = len(publishers)
+    goal = b.conversions_per_month
+    names = {p.publisher_id: p.name for p in publishers}
+    why = (f"Recommended ${rec.usd:,.0f}/mo. Goal: {goal} conversions per publisher a month "
+           f"({b.learning_conversions_per_week} a week, what a CPA bid needs to leave learning) × "
+           f"${rec.cpa:,.0f} target CPA = ${rec.cpa * goal:,.0f} each, across {n} "
+           f"publisher{'' if n == 1 else 's'}")
+    for pid in rec.capped:
+        pub = catalog.publisher(pid)
+        cap = pub.monthly_impressions * b.max_share_of_impressions / 1000 * cpm_usd(pub, t)
+        why += (f"; {names.get(pid, pid)} capped at its reach ({b.max_share_of_impressions:.0%} of "
+                f"{pub.monthly_impressions / 1e6:g}M impressions at ${cpm_usd(pub, t):g} CPM = ${cap:,.0f})")
+    why += f". Rounded up to ${b.round_to_usd:,.0f}, within ${b.min_usd:,.0f}–${b.max_usd:,.0f}"
     if weak_fit:
         share = rec.full_usd * b.weak_fit_test_fraction
         why += (f", then a test because fit is weak: {b.weak_fit_test_fraction:.0%} of "
@@ -181,9 +195,24 @@ def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, 
                 "in the catalog is a strong match")
     elif source == "user":
         why += f". You set ${monthly_usd:,.0f}/mo, which is used instead"
-    why += f". Split by fit, capped at each publisher's reach at ${b.assumed_cpm_usd:g} CPM"
+    why += (". Split by fit; each publisher's CPM follows its audience's income "
+            f"({', '.join(f'{k} ${v:g}' for k, v in b.cpm_by_income_usd.items())})")
     if unallocated:
         why += f"; ${unallocated:,.0f} unallocated (beyond publisher reach)"
+    return why
+
+
+def _projection_rationale(p, cpa: float, subscription: bool, t: Tuning) -> str:
+    value = "subscription value" if subscription else "order value"
+    why = (f"About {p.impressions:,} impressions and {p.conversions:,} conversions at the ${cpa:,.0f} "
+           f"target CPA, worth ${p.revenue_usd:,.0f} in {value} (ROAS {p.roas:g}×). Hitting that CPA "
+           f"needs {p.conversions_per_1k:g} conversions per 1,000 impressions")
+    if p.stretch:
+        why += (f", above the ~{t.budget.max_conversions_per_1k_impressions:g} per 1,000 that checkout "
+                "offers usually reach, so the CPA is optimistic; the guardrail will catch it")
+    else:
+        why += (f", under the ~{t.budget.max_conversions_per_1k_impressions:g} per 1,000 that checkout "
+                "offers usually reach")
     return why
 
 

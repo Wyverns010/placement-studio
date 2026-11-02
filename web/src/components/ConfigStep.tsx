@@ -7,12 +7,12 @@ import { Busy, StageError, type StageErr } from './ui'
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
 /**
- * "Recommended $6,000/mo: $41 target CPA × 50 …" → "$41 target CPA × 50 …".
+ * "Recommended $6,000/mo. Goal: 200 conversions …" → "Goal: 200 conversions …".
  * Falls back to the whole line when it doesn't have that shape.
  */
 function budgetBasis(rationale: string | undefined): string | null {
   if (!rationale) return null
-  const m = /^Recommended [^:]*:\s*(.+)$/s.exec(rationale)
+  const m = /^Recommended \$[\d,]+\/mo[.:]\s*(.+)$/s.exec(rationale)
   // The backend's line already says "You set $Y/mo, which is used instead" for a user budget.
   return humanise((m ? m[1] : rationale).trim())
 }
@@ -112,7 +112,7 @@ export default function ConfigStep({
             <span className="text-bad">{problem}</span>
           ) : recommended != null ? (
             <span>
-              {`Recommended ${usd(recommended)}${basis ? ` — based on ${basis}` : ''}`}
+              {`Recommended ${usd(recommended)}${basis ? `. ${basis}` : ''}`}
             </span>
           ) : (
             basis

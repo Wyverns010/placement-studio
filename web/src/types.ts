@@ -76,6 +76,9 @@ export interface LineItem {
   creative_id: string | null
   /** More ads rotating on this line item (when personas outnumber publishers); may be absent. */
   extra_creative_ids?: string[]
+  /** What 1,000 impressions cost on this publisher (by audience income). */
+  cpm_usd?: number
+  est_impressions?: number
 }
 
 export type Pacing = 'front_loaded' | 'even' | 'accelerated'
@@ -87,6 +90,15 @@ export interface ConfigBudget {
   pacing: Pacing
   unallocated_usd: number
   test_budget: boolean
+  /** Conversions per line item per month (learning conversions per week x weeks). */
+  conversions_goal?: number
+  est_impressions?: number
+  est_conversions?: number
+  est_revenue_usd?: number
+  est_roas?: number
+  /** What the target CPA needs per 1,000 impressions; cpa_is_stretch when above the usual rate. */
+  conversions_per_1k?: number
+  cpa_is_stretch?: boolean
 }
 
 export interface CampaignConfig {

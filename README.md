@@ -39,7 +39,8 @@ uv run pytest -q; (cd web && npx vitest run)                   # tests
 | Field | Why |
 |---|---|
 | `objective`, `conversion_event` | Purchase vs subscription_start: what the bidder optimises |
-| `budget` | Σ per publisher of min(reach cap, target CPA × 50 conversions), rounded to $500; weak fit = a small test. Your number wins |
+| `budget` | Per publisher: target CPA × 200 conversions a month (50 a week, what a CPA bid needs to leave learning), capped at 25% of its impressions at a CPM set by its audience's income; summed and rounded up to $500. Weak fit = a small test. Your number, or one in your note, wins |
+| `projection` | What that buys: impressions, conversions, revenue, ROAS, and the conversions per 1,000 impressions the CPA needs (flagged if unrealistic) |
 | `bid_strategy` | Target CPA = 35% of order value (× 2 for subscriptions) |
 | `targeting` | Buyer ages, gender, interests, personas |
 | `line_items` | Publisher, budget share by fit (10% floor, reach cap), its ad |
@@ -61,7 +62,7 @@ Easy: calling an LLM. Hard: knowing when *not* to build a campaign; matching tha
 
 ## What I cut, and why
 
-Image ads, accounts and saved campaigns, auction modelling (a flat $12 CPM caps reach), an ad-policy engine: none changes the core decisions. Tried and dropped (code removed, results kept): a Laya classifier gate (the LLM gate measured better) and a graph matcher (tied the formula; [comparison](evals/GRAPH_COMPARISON.md)). Known limit: most one-liners give no age or gender, so category and price decide the ranking.
+Image ads, accounts and saved campaigns, auction modelling (CPMs are set by audience income, not bid), an ad-policy engine: none changes the core decisions. Tried and dropped (code removed, results kept): a Laya classifier gate (the LLM gate measured better) and a graph matcher (tied the formula; [comparison](evals/GRAPH_COMPARISON.md)). Known limit: most one-liners give no age or gender, so category and price decide the ranking.
 
 ## With another week, and at scale
 

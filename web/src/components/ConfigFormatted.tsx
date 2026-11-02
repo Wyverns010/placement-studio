@@ -124,7 +124,53 @@ export default function ConfigFormatted({
           ))}
           {unallocated > 0 && <span>Unallocated {usd(unallocated)}</span>}
         </div>
+        {config.line_items.some((li) => num(li.cpm_usd) != null) && (
+          <div className="mt-3 overflow-x-auto">
+            <table data-testid="budget-breakdown" className="w-full border-collapse text-[12px]">
+              <thead>
+                <tr className="text-left text-muted">
+                  <th className="py-1 pr-3 font-medium">Publisher</th>
+                  <th className="py-1 pr-3 text-right font-medium">CPM</th>
+                  <th className="py-1 pr-3 text-right font-medium">Budget</th>
+                  <th className="py-1 text-right font-medium">Impressions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {config.line_items.map((li) => (
+                  <tr key={li.publisher_id} className="border-t border-[#f0ebf8]">
+                    <td className="py-1 pr-3">{pubName(li.publisher_id)}</td>
+                    <td className="py-1 pr-3 text-right">{usd(num(li.cpm_usd) ?? 0)}</td>
+                    <td className="py-1 pr-3 text-right">{usd(li.budget_usd)}</td>
+                    <td className="py-1 text-right">{(num(li.est_impressions) ?? 0).toLocaleString('en-US')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Row>
+      {num(b.est_conversions) != null && (
+        <Row label="Projection" rkey="projection" config={config}>
+          <div data-testid="projection" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ['Impressions', (num(b.est_impressions) ?? 0).toLocaleString('en-US')],
+              ['Conversions', (num(b.est_conversions) ?? 0).toLocaleString('en-US')],
+              ['Revenue', usd(num(b.est_revenue_usd) ?? 0)],
+              ['ROAS', `${num(b.est_roas) ?? 0}×`],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-lg bg-[#f7f4fd] px-2.5 py-1.5">
+                <div className="text-[11px] text-muted">{k}</div>
+                <b className="text-[14px] font-semibold">{v}</b>
+              </div>
+            ))}
+          </div>
+          {b.cpa_is_stretch === true && (
+            <p className="m-0 mt-2 text-[12px] font-semibold text-warn">
+              This CPA needs more conversions per impression than checkout offers usually get.
+            </p>
+          )}
+        </Row>
+      )}
       <Row label="Targeting" rkey="targeting" config={config}>
         <Chips
           items={[

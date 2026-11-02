@@ -85,8 +85,11 @@ def test_budget_defaults_to_recommended_with_source():
     assert cfg.budget["monthly_usd"] == cfg.budget["recommended_usd"] == rec.usd
     assert cfg.budget["source"] == "recommended"
     r = cfg.rationales["budget"]
-    # the inputs: target CPA, conversions per line item, publisher count, rounding unit
-    assert "$42" in r and "50 conversions" in r and f"{len(pubs)} publishers" in r and "$500" in r
+    # the inputs: target CPA, the monthly conversion goal and why, publisher count, rounding unit
+    assert f"${rec.cpa:,.0f} target CPA" in r and "200 conversions" in r and "50 a week" in r
+    assert f"{len(pubs)} publishers" in r and "$500" in r
+    p = cfg.rationales["projection"]
+    assert "impressions" in p and "ROAS" in p and "per 1,000 impressions" in p
 
 
 def test_user_budget_wins_and_rationale_names_both():
@@ -117,7 +120,7 @@ def test_pacing_accelerated_for_mid_tier_below_recommendation():
 
 
 def test_weak_fit_rationale_names_the_minimum_floor():
-    b = B.model_copy(update={"price_usd": 10, "business_model": "one_off"})
+    b = B.model_copy(update={"price_usd": 8, "business_model": "one_off"})
     cfg, pubs, _ = _build(weak_fit=True, monthly=None, b=b)
     rec = recommended_budget(b, pubs, CAT, True, T)
     assert rec.full_usd * T.budget.weak_fit_test_fraction < T.budget.min_usd == rec.usd
@@ -199,7 +202,9 @@ def test_budget_block_is_typed_but_json_shape_unchanged():
     cfg, _, _ = _build()
     assert isinstance(cfg.budget, dict)
     assert set(cfg.model_dump(mode="json")["budget"]) == {
-        "monthly_usd", "recommended_usd", "source", "pacing", "unallocated_usd", "test_budget"}
+        "monthly_usd", "recommended_usd", "source", "pacing", "unallocated_usd", "test_budget",
+        "conversions_goal", "est_impressions", "est_conversions", "est_revenue_usd", "est_roas",
+        "conversions_per_1k", "cpa_is_stretch"}
     bad = cfg.model_dump()
     bad["budget"]["pacing"] = "sideways"
     with pytest.raises(ValidationError):

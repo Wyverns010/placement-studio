@@ -77,12 +77,20 @@ class PersonaTuning(BaseModel):
 class BudgetTuning(BaseModel):
     min_usd: float
     max_usd: float
-    assumed_cpm_usd: float
+    assumed_cpm_usd: float  # CPM for an income tier missing from cpm_by_income_usd
+    cpm_by_income_usd: dict[str, float] = {}  # publisher audience income tier -> CPM
+    max_share_of_impressions: float = Field(gt=0, le=1)  # most of a publisher one campaign can buy
     min_share: float
     weak_fit_test_fraction: float
     weak_fit_test_max_usd: float
-    conversions_per_line_item: int
+    learning_conversions_per_week: int  # what a CPA bid needs per line item to leave learning
+    weeks_per_month: int
+    max_conversions_per_1k_impressions: float  # above this the target CPA is flagged as a stretch
     round_to_usd: float = Field(gt=0)
+
+    @property
+    def conversions_per_month(self) -> int:
+        return self.learning_conversions_per_week * self.weeks_per_month
 
 
 class FrequencyCap(BaseModel):

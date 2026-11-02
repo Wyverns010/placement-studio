@@ -85,6 +85,8 @@ class LineItem(BaseModel):
     budget_usd: float
     creative_id: str | None  # the primary ad on this publisher
     extra_creative_ids: list[str] = []  # other approved ads written for it, served in rotation
+    cpm_usd: float = 0.0  # what 1,000 impressions cost here (by audience income)
+    est_impressions: int = 0  # budget_usd / cpm_usd x 1,000
 
 
 class BudgetBlock(TypedDict):
@@ -95,6 +97,13 @@ class BudgetBlock(TypedDict):
     pacing: Literal["front_loaded", "even", "accelerated"]
     unallocated_usd: float
     test_budget: bool
+    conversions_goal: int  # per line item per month: learning conversions per week x weeks
+    est_impressions: int
+    est_conversions: int  # spend / target CPA
+    est_revenue_usd: float  # conversions x order value
+    est_roas: float
+    conversions_per_1k: float  # what the target CPA needs per 1,000 impressions
+    cpa_is_stretch: bool  # above the plausible rate for checkout offers
 
 
 class CampaignConfig(BaseModel):
