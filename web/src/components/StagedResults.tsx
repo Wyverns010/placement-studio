@@ -215,7 +215,9 @@ export default function StagedResults({
       const out = await buildConfig({ ...withSteer(steer), creatives }, budget, t.signal, steer ? setMeta3 : undefined)
       if (!t.current()) return
       setConfig(out)
-      setBudgetChoice(budget)
+      // an amount in the steer replaces the field (it's the newer instruction): keep it for later updates
+      const steered = steer && out.budget.source === 'user' ? Number(out.budget.monthly_usd) : NaN
+      setBudgetChoice(Number.isFinite(steered) ? steered : budget)
     } catch (err) {
       if (t.current() && !isAbort(err)) setConfigError(toStageErr(err))
     } finally {

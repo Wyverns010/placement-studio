@@ -65,20 +65,25 @@ class PlanDesk:
     def max_share(self, exclude: frozenset[str]) -> float:
         """The largest line-item share code would allocate with these exclusions."""
         items = make_config(self.brief, self.gate, self.publishers, self.personas, self.creatives,
-                            self.request_budget if self.request_budget is not None else self.budget,
+                            self.effective_budget(),
                             catalog=self.catalog, t=self.t, exclude=exclude).line_items
         return max((li.share for li in items), default=0.0)
 
+    def effective_budget(self) -> float | None:
+        """A steer's amount is the newest instruction, so it replaces the budget field."""
+        return self.budget if self.budget is not None else self.request_budget
+
     def build(self) -> CampaignConfig:
-        budget = self.request_budget if self.request_budget is not None else self.budget
         return make_config(self.brief, self.gate, self.publishers, self.personas, self.creatives,
-                           budget, catalog=self.catalog, t=self.t, exclude=self.exclude,
+                           self.effective_budget(), catalog=self.catalog, t=self.t, exclude=self.exclude,
                            pacing_override=self.pacing)
 
     def change_notes(self) -> list[str]:
         notes = []
-        if self.budget is not None and self.request_budget is None:
-            notes.append(f"Budget set to ${self.budget:,.0f}/mo from your note "
+        if self.budget is not None:
+            was = (f", replacing ${self.request_budget:,.0f}" if self.request_budget is not None
+                   and self.request_budget != self.budget else "")
+            notes.append(f"Budget set to ${self.budget:,.0f}/mo from your note{was} "
                          f"(recommended ${self.recommended_usd():,.0f}).")
         names = {p.publisher_id: p.name for p in self.publishers}
         for pid in sorted(self.exclude):
@@ -110,8 +115,6 @@ def set_budget(ctx: RunContextWrapper[PlanDesk], monthly_usd: float) -> str:
     def run() -> str:
         d.require_steer()
         b = d.t.budget
-        if d.request_budget is not None:
-            raise ToolRefused("the user's budget field is set and wins over the steer")
         if round(monthly_usd, 2) not in steer_amounts(d.steer):
             raise ToolRefused("that amount is not written in the user's steer")
         if not b.min_usd <= monthly_usd <= b.max_usd:
@@ -201,7 +204,5 @@ async def run(desk: PlanDesk, runtime: AgentRuntime) -> None:
     result = await run_agent(desk.session, build_agent(runtime, desk), wrap_steer(desk.steer), desk, ROLE)
     for n in desk.change_notes():
         desk.session.note(n)
-    if desk.request_budget is not None and steer_amounts(desk.steer):
-        desk.session.note("Your budget field wins over an amount in the note.")
     out: PlannerOutput = result.final_output
     keep_agent_notes(desk.session, out.notes)

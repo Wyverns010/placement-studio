@@ -1,13 +1,16 @@
 """Step ② Creative team: a Copywriter agent per persona (gpt-5.5) and a Critic agent (gpt-5.4-mini)
-the copywriter calls as a tool (SDK agents-as-tools). The critic runs code's copy checks through
-its own tool and returns accept or revision notes. Code bounds the loop (agents.critic_max_rounds
-reviews per ad; later requests are refused) and re-checks every final ad: whatever code still
-rejects ships flagged in fact_violations, never waved through."""
+the copywriter calls as its `review_draft` tool. Code runs the copy checks first: a draft they
+reject goes straight back with code's problems (no critic call); a clean one gets the critic's
+playbook review. An accepted draft is the final ad (no extra copywriter turn), and so is the draft
+sent once the review limit (agents.critic_max_rounds) or budget is reached. Code re-checks every
+final ad: whatever it still rejects ships flagged in fact_violations, never waved through."""
 import asyncio
 import json
 import time
 
-from agents import Agent, FunctionTool, RunContextWrapper, function_tool
+from agents import Agent, FunctionTool, RunContextWrapper, Runner
+from agents.agent import ToolsToFinalOutputResult
+from agents.strict_schema import ensure_strict_json_schema
 from pydantic import BaseModel
 
 from app.catalog import Catalog, Persona
@@ -49,6 +52,8 @@ class AdDesk:
         self.catalog, self.t, self.session = catalog, t, session
         self.steer, self.note, self.current = steer, note, current
         self.rounds = 0
+        self.last_draft: AdDraft | None = None  # the draft sent with the latest review request
+        self.done = False  # that draft is the final ad (accepted, or no review left)
 
     def creative(self, d: AdDraft) -> Creative:
         base = self.current or Creative(creative_id=f"cr_{self.persona.id}", persona_id=self.persona.id,
@@ -74,66 +79,61 @@ class AdDesk:
         return out
 
 
-@function_tool(failure_error_function=None)
-def check_copy(ctx: RunContextWrapper[AdDesk], headline: str, body: str, cta: str) -> str:
-    """Run code's copy checks on a draft: invented facts, length, generic copy, parroting and
-    duplicate headlines. Returns the problems, or that there are none."""
-    desk = ctx.context
-
-    def run() -> str:
-        probs = desk.problems(desk.creative(AdDraft(headline=headline, body=body, cta=cta, why="")))
-        return json.dumps(probs) if probs else "No problems found by code."
-
-    return desk.session.tool("critic", "check_copy", {"headline": headline}, run)
-
-
 def _critic(runtime: AgentRuntime, desk: AdDesk) -> Agent:
     t = desk.t
     return Agent(name="critic", model=runtime.model("critic"), model_settings=runtime.settings(),
                  instructions=render("agents/critic", playbook=_playbook(t),
                                      persona=_persona_block(desk.persona),
                                      publisher=_publisher_block(desk.pub, desk.catalog)),
-                 tools=[check_copy], output_type=Review)
-
-
-async def _review_json(result) -> str:
-    out = result.final_output
-    return out.model_dump_json() if isinstance(out, BaseModel) else str(out)
+                 output_type=Review)
 
 
 def _review_tool(runtime: AgentRuntime, desk: AdDesk) -> FunctionTool:
     """The critic as the copywriter's `review_draft` tool, bounded by code to critic_max_rounds."""
     t, session = desk.t, desk.session
-    inner = _critic(runtime, desk).as_tool(
-        "review_draft", "Have the critic review a full draft.", parameters=AdDraft,
-        custom_output_extractor=_review_json, failure_error_function=None,
-        max_turns=t.agents.max_turns["critic"], hooks=session.hooks, run_config=session.run_config)
+
+    def refuse(d: AdDesk, args: dict, why: str) -> str:
+        d.done = True
+        msg = f"Refused: {why}. This draft is your final ad; code will flag anything still wrong."
+        session.record("copywriter", "review_draft", args, msg, 0)
+        return msg
 
     async def invoke(ctx, args_json: str):
         d = ctx.context
         draft = AdDraft.model_validate_json(args_json)
         d.heads[d.persona.id] = draft.headline
+        d.last_draft = draft
         args = {"persona": d.persona.id, "headline": draft.headline}
         if d.rounds >= t.agents.critic_max_rounds:
-            msg = ("Refused: the review limit is reached. Return your best draft now; code will "
-                   "flag anything still wrong.")
-            session.record("copywriter", "review_draft", args, msg, 0)
-            return msg
+            return refuse(d, args, "the review limit is reached")
         if session.cost_usd > session.cap * t.agents.critic_stop_fraction:
-            msg = ("Refused: this step's budget for reviews is used up. Return your best draft "
-                   "now; code will flag anything still wrong.")
-            session.record("copywriter", "review_draft", args, msg, 0)
-            return msg
+            return refuse(d, args, "this step's budget for reviews is used up")
         d.rounds += 1
         t0 = time.perf_counter()
-        out = await inner.on_invoke_tool(ctx, args_json)
-        session.record("copywriter", "review_draft", args, str(out),
-                       int((time.perf_counter() - t0) * 1000))
+        probs = json.loads(session.tool(
+            "critic", "check_copy", {"headline": draft.headline},
+            lambda: json.dumps(d.problems(d.creative(draft)))))
+        if probs:  # code's problems are mandatory fixes: no need to pay the critic to repeat them
+            review = Review(accept=False, notes=probs)
+        else:
+            result = await Runner.run(_critic(runtime, d), args_json, context=d,
+                                      max_turns=t.agents.max_turns["critic"],
+                                      hooks=session.hooks, run_config=session.run_config)
+            review = result.final_output
+        d.done = review.accept
+        out = review.model_dump_json()
+        session.record("copywriter", "review_draft", args, out, int((time.perf_counter() - t0) * 1000))
         return out
 
-    return FunctionTool(name=inner.name, description=inner.description,
-                        params_json_schema=inner.params_json_schema, on_invoke_tool=invoke,
-                        strict_json_schema=inner.strict_json_schema)
+    return FunctionTool(name="review_draft", description="Have the critic review a full draft.",
+                        params_json_schema=ensure_strict_json_schema(AdDraft.model_json_schema()),
+                        on_invoke_tool=invoke, strict_json_schema=True)
+
+
+def _final_when_done(ctx: RunContextWrapper[AdDesk], _results) -> ToolsToFinalOutputResult:
+    """An accepted draft, or the one sent past the review limit, is the ad: no extra turn."""
+    d = ctx.context
+    return ToolsToFinalOutputResult(is_final_output=d.done, final_output=d.last_draft if d.done else None)
 
 
 def _copywriter(runtime: AgentRuntime, desk: AdDesk, others: list[Persona]) -> Agent:
@@ -151,7 +151,8 @@ def _copywriter(runtime: AgentRuntime, desk: AdDesk, others: list[Persona]) -> A
         cta_max=c.cta_max_chars, rounds=t.agents.critic_max_rounds)
     return Agent(name="copywriter", model=runtime.model("copywriter"),
                  model_settings=runtime.settings(), instructions=system,
-                 tools=[_review_tool(runtime, desk)], output_type=AdDraft)
+                 tools=[_review_tool(runtime, desk)], output_type=AdDraft,
+                 tool_use_behavior=_final_when_done)
 
 
 def _input(desk: AdDesk) -> str:

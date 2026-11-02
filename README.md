@@ -2,7 +2,7 @@
 
 Type one or two sentences about a business. You get ranked publishers (with why the rest lost), 3–5 ads written for different shopper personas, and a campaign config where every number is explained. Vague, B2B or empty input gets an honest answer instead of a campaign.
 
-**Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 example advertisers run live like any other input: a step takes a few seconds, the ads about 18 s.
+**Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 example advertisers run live like any other input: a step takes a few seconds, the ads about 7–14 s.
 
 **Demo video (24 s):** [watch it](https://byash010-placement-studio.hf.space/demo.mp4)
 
