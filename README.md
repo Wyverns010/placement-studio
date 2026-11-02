@@ -2,7 +2,7 @@
 
 Type one or two sentences about a business. You get ranked publishers (with why the rest lost), 3–5 ads written for different shopper personas, and a campaign config where every number is explained. Vague, B2B or empty input gets an honest answer instead of a campaign.
 
-**Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 example advertisers run live like any other input: a step takes a few seconds, the ads about 7–14 s.
+**Live:** https://byash010-placement-studio.hf.space (cold start ≈1 min). The 15 example advertisers run live like any other input: a step takes a few seconds, the ads about 10 s.
 
 **Demo video (24 s):** [watch it](https://byash010-placement-studio.hf.space/demo.mp4)
 
@@ -30,7 +30,7 @@ uv run pytest -q; (cd web && npx vitest run)                   # tests
 
 **Agents and steers.** Each step has a "Tell the agent…" box; that note is the *steer* ("skip pet stores", "under $5k"). An agent ([OpenAI Agents SDK](app/stepagents/)) picks which existing functions to call and with what inputs; code still computes every number. Without a steer, ① and ③ are plain code, because agents matched code exactly there. ② always uses agents: a judge preferred their ads 67% of the time ([comparison](evals/AGENT_COMPARISON.md)). Errors, timeouts or the cost cap (≈25–30¢ per session) fall back to code.
 
-**Ads in 7–14 s, not 21–24 s.** The ads already ran in parallel per persona; the time was the calls inside each one. Code's copy checks now run before the Critic, so a draft code rejects never reaches it. The Critic reviews in one call, and an accepted draft is the final ad with no extra Copywriter turn.
+**Ads in ~10 s on average.** Personas run in parallel. Code's copy checks run before the Critic, so only clean drafts cost a review, and an accepted draft is the final ad.
 
 **Safe between steps.** Steps are stateless and signed (HMAC), so a tampered request gets a 403. Live calls are rate-limited.
 
