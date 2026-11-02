@@ -227,6 +227,10 @@ export default function StagedResults({
   }
 
   const recCount = result.publishers.filter((p) => p.recommended).length
+  const workingNames = {
+    personas: result.personas.map((p) => p.name),
+    publishers: result.publishers.filter((p) => p.recommended).map((p) => p.name),
+  }
   const steps: StepDef<Step>[] = [
     { id: 'publishers', label: 'Publishers & personas', enabled: true },
     { id: 'creatives', label: 'Creatives', enabled: !!creatives, hint: 'Write the ads first.' },
@@ -299,7 +303,7 @@ export default function StagedResults({
               {pending === 'creatives' ? <Busy label="Writing ads…" /> : 'Write ads for these publishers →'}
             </button>
           </StepActions>
-          {pending === 'creatives' && <AgentWorking className="mt-2 text-right" />}
+          {pending === 'creatives' && <AgentWorking {...workingNames} className="mt-2 justify-end" />}
           {errorBlock}
         </section>
       )}
@@ -321,7 +325,7 @@ export default function StagedResults({
             busy={pending === 'creatives'}
             disabled={pending === 'config' || anyCardBusy}
           />
-          {pending === 'creatives' && <AgentWorking className="-mt-2 mb-4" />}
+          {pending === 'creatives' && <AgentWorking {...workingNames} className="-mt-2 mb-4" />}
           {errorBlock}
           <AgentNotes className="mb-5" notes={meta2?.agent_notes} />
           <PersonasTab

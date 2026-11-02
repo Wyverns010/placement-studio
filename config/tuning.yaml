@@ -134,7 +134,7 @@ agents:                         # step agents (app/stepagents)
   max_turns: {strategist: 10, copywriter: 6, critic: 3, media_planner: 8}
   min_recommended_after_steer: 1  # the steer is the advertiser's own call: it may narrow to one publisher, never to none
   max_share_after_steer: 1.0    # the advertiser may put all of it in one publisher if they ask
-  critic_max_rounds: 2          # critic reviews per ad; later review requests are refused
+  critic_max_rounds: 1          # one critic review per ad; the revision after it is final (code still checks it)
   critic_stop_fraction: 0.7     # once a step has spent this share of its cap, reviews are refused
   creative_est_usd_per_ad: 0.03 # measured ≈$0.03/ad; ads × this over the cap -> code, before spending
   max_cost_usd:                 # cost guard per step run (≈25–30¢ worst case per session); over -> fallback

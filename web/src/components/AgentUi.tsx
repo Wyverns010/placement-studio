@@ -13,20 +13,51 @@ export function AgentTicker({ trace }: { trace?: AgentTraceEntry[] }) {
   )
 }
 
+/** What the creative team is doing, step by step, for these personas and publishers. */
+export function workingSteps(personas: string[], publishers: string[]): string[] {
+  const writes = personas.map((p, i) =>
+    publishers.length ? `Writing for ${p} on ${publishers[i % publishers.length]}…` : `Writing for ${p}…`,
+  )
+  return [
+    personas.length ? `Reading what ${personas[0]} cares about…` : 'Reading your brief…',
+    ...writes,
+    'The critic is reviewing each draft against the playbook…',
+    'Checking every claim against your text…',
+    'Picking the right button for how it is bought…',
+    'Final checks on the ads…',
+  ]
+}
+
 /**
- * Step ② while the ads are being written (the agent path takes ~20 s): what the team is doing,
- * with the seconds elapsed since it started.
+ * Step ② while the ads are being written: what the team is doing now, advancing every couple of
+ * seconds and holding on the last step (no timer to stare at).
  */
-export function AgentWorking({ className = '' }: { className?: string }) {
-  const [secs, setSecs] = useState(0)
+export function AgentWorking({
+  personas = [],
+  publishers = [],
+  className = '',
+}: {
+  personas?: string[]
+  publishers?: string[]
+  className?: string
+}) {
+  const steps = workingSteps(personas, publishers)
+  const [i, setI] = useState(0)
   useEffect(() => {
-    const start = Date.now()
-    const id = setInterval(() => setSecs(Math.floor((Date.now() - start) / 1000)), 1000)
+    const id = setInterval(() => setI((n) => Math.min(n + 1, steps.length - 1)), 2200)
     return () => clearInterval(id)
-  }, [])
+  }, [steps.length])
   return (
-    <p data-testid="agent-working" role="status" className={`m-0 text-[12.5px] text-muted ${className}`}>
-      The copywriter is drafting, the critic is reviewing… {secs} s
+    <p
+      data-testid="agent-working"
+      role="status"
+      aria-live="polite"
+      className={`m-0 flex items-center gap-2 text-[12.5px] text-muted ${className}`}
+    >
+      <span aria-hidden="true" className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-violet" />
+      <span key={i} className="animate-[fadeIn_.3s_ease]">
+        {steps[i]}
+      </span>
     </p>
   )
 }

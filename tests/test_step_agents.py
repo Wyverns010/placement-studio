@@ -183,6 +183,9 @@ def _review(n):
     return [final(accept=False, notes=["Lead with the dog's health."])]
 
 
+T2 = T.model_copy(update={"agents": T.agents.model_copy(update={"critic_max_rounds": 2})})
+
+
 def test_critic_loop_is_bounded_and_code_failures_stay_flagged():
     copywriter = ScriptedModel([
         call("review_draft", _draft("Draft A")),
@@ -194,13 +197,13 @@ def test_critic_loop_is_bounded_and_code_failures_stay_flagged():
     rt = AgentRuntime(models={"copywriter": copywriter, "critic": critic})
     r, personas = _stage1()
     out, meta = steps.creatives_step(r.input_text, r.brief, r.publishers, personas, "warmer",
-                                     llm=fake(), catalog=CAT, t=T, runtime=rt)
+                                     llm=fake(), catalog=CAT, t=T2, runtime=rt)
     copywriter.assert_complete()
     critic.assert_complete()
     assert meta["mode"] == "agent" and len(out) == 1
     reviews = [s for s in meta["agent_trace"] if s.tool == "review_draft"]
     assert len(reviews) == 3 and reviews[-1].result_summary.startswith("Refused")
-    assert sum(s.tool == "check_copy" for s in meta["agent_trace"]) == T.agents.critic_max_rounds
+    assert sum(s.tool == "check_copy" for s in meta["agent_trace"]) == T2.agents.critic_max_rounds
     assert out[0].headline == "Draft C" and out[0].creative_id == f"cr_{PERSONA}"
     assert any("50" in v for v in out[0].fact_violations)  # invented number: still flagged
     assert any("reviewed it twice" in n and "flags" in n for n in meta["agent_notes"])
@@ -215,7 +218,7 @@ def test_accepted_draft_is_final_and_code_problems_skip_the_critic():
     rt = AgentRuntime(models={"copywriter": copywriter, "critic": critic})
     r, personas = _stage1()
     out, meta = steps.creatives_step(r.input_text, r.brief, r.publishers, personas, "warmer",
-                                     llm=fake(), catalog=CAT, t=T, runtime=rt)
+                                     llm=fake(), catalog=CAT, t=T2, runtime=rt)
     copywriter.assert_complete()
     critic.assert_complete()  # one critic call: only for the clean draft
     assert out[0].headline == "Draft B" and not out[0].fact_violations

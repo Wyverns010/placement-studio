@@ -149,3 +149,14 @@
 .json .k { color: #c4b5fd; }
 .json .s { color: #9fe0b8; }
 .json .n { color: #ffc68a; }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

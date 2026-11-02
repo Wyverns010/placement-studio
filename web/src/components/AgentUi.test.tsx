@@ -51,15 +51,18 @@ describe('AgentSteer', () => {
 })
 
 describe('AgentWorking', () => {
-  it('says what the team is doing and counts the seconds', () => {
+  it('says what the team is doing, step by step, without a timer', () => {
     vi.useFakeTimers()
     try {
-      render(<AgentWorking />)
+      render(<AgentWorking personas={['The Pet Parent', 'The Busy Parent']} publishers={['Pawline']} />)
       const s = screen.getByTestId('agent-working')
       expect(s).toHaveAttribute('role', 'status')
-      expect(s).toHaveTextContent('The copywriter is drafting, the critic is reviewing… 0 s')
-      act(() => vi.advanceTimersByTime(12_000))
-      expect(s).toHaveTextContent('… 12 s')
+      expect(s).toHaveTextContent('Reading what The Pet Parent cares about…')
+      act(() => vi.advanceTimersByTime(2200))
+      expect(s).toHaveTextContent('Writing for The Pet Parent on Pawline…')
+      act(() => vi.advanceTimersByTime(60_000))
+      expect(s).toHaveTextContent('Final checks on the ads…') // holds on the last step
+      expect(s.textContent).not.toMatch(/\d+ s/)
     } finally {
       vi.useRealTimers()
     }

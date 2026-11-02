@@ -128,12 +128,12 @@ describe('step agents UI', () => {
     expect(vi.mocked(regenerateCreative).mock.calls[1][0]).toMatchObject({ steer: 'Make them more playful' })
   })
 
-  it('step 2: a long ad run says what the team is doing, with elapsed seconds', async () => {
+  it('step 2: a long ad run says what the team is doing', async () => {
     const user = userEvent.setup()
     vi.mocked(createCreatives).mockImplementationOnce(() => new Promise(() => {}))
     render(<Results result={result} onBack={() => {}} />)
     await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
     const status = await screen.findByTestId('agent-working')
-    expect(status).toHaveTextContent(/The copywriter is drafting, the critic is reviewing… \d+ s/)
+    expect(status).toHaveTextContent(/Reading what .+ cares about…/)
   })
 })
