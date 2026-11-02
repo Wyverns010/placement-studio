@@ -111,7 +111,9 @@ const stepBtn = (n: RegExp) => steps().getByRole('button', { name: n })
 
 async function toStep2(user: ReturnType<typeof userEvent.setup>, r: CampaignResult = result) {
   render(<Results result={r} onBack={() => {}} displayText="premium dog food for senior dogs" />)
-  await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+  const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+  if (pick) await user.click(pick)
+  await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
   await screen.findByRole('article', { name: 'Pet Parent' })
 }
 
@@ -122,12 +124,17 @@ async function toStep3(user: ReturnType<typeof userEvent.setup>, r: CampaignResu
 }
 
 describe('Staged results', () => {
-  it('starts on step 1 with publishers and the persona list, no ads; later steps locked', () => {
+  it('starts on step 1 with the publishers; personas come next, for those publishers', async () => {
+    const user = userEvent.setup()
     render(<Results result={result} onBack={() => {}} />)
-    expect(stepBtn(/publishers & personas/i)).toHaveAttribute('aria-current', 'step')
+    expect(stepBtn(/step 1:\s*publishers/i)).toHaveAttribute('aria-current', 'step')
+    expect(stepBtn(/step 2:\s*personas/i)).toHaveAttribute('aria-disabled', 'true')
     expect(stepBtn(/creatives/i)).toHaveAttribute('aria-disabled', 'true')
     expect(stepBtn(/campaign config/i)).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('article', { name: 'Pawline' })).toBeInTheDocument()
+    expect(screen.queryByRole('article', { name: 'Pet Parent' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /pick personas for these publishers/i }))
+    expect(stepBtn(/step 2:\s*personas/i)).toHaveAttribute('aria-current', 'step')
     expect(screen.getByRole('article', { name: 'Pet Parent' })).toBeInTheDocument()
     expect(screen.queryByText(/sponsored/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/no creative generated/i)).not.toBeInTheDocument()
@@ -153,26 +160,30 @@ describe('Staged results', () => {
     let reject!: (e: Error) => void
     vi.mocked(createCreatives).mockReturnValueOnce(new Promise((_, r) => (reject = r)))
     render(<Results result={result} onBack={() => {}} />)
-    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+    if (pick) await user.click(pick)
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
     expect(screen.getByRole('button', { name: /writing ads/i })).toBeDisabled()
     reject(new ApiError(429, 'Too many runs'))
     expect(await screen.findByRole('alert')).toHaveTextContent('Too many runs')
     expect(screen.queryByText(/writing ads/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /write ads for these publishers/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /write ads for these personas/i })).toBeEnabled()
     expect(stepBtn(/creatives/i)).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('back navigation keeps the ads; going forward again does not re-request them', async () => {
     const user = userEvent.setup()
     await toStep2(user)
-    await user.click(stepBtn(/publishers & personas/i))
-    expect(stepBtn(/publishers & personas/i)).toHaveAttribute('aria-current', 'step')
+    await user.click(stepBtn(/step 1:\s*publishers/i))
+    expect(stepBtn(/step 1:\s*publishers/i)).toHaveAttribute('aria-current', 'step')
     expect(screen.getByRole('article', { name: 'Pawline' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+    if (pick) await user.click(pick)
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
     expect(screen.getByText('Food for old friends')).toBeInTheDocument()
     expect(createCreatives).toHaveBeenCalledTimes(1)
-    await user.click(screen.getByRole('button', { name: /back to publishers/i }))
-    expect(stepBtn(/publishers & personas/i)).toHaveAttribute('aria-current', 'step')
+    await user.click(screen.getByRole('button', { name: /back to personas/i }))
+    expect(stepBtn(/step 2:\s*personas/i)).toHaveAttribute('aria-current', 'step')
   })
 
   it('steps are keyboard reachable: arrow keys move between unlocked steps', async () => {
@@ -180,9 +191,9 @@ describe('Staged results', () => {
     await toStep2(user)
     stepBtn(/creatives/i).focus()
     await user.keyboard('{ArrowLeft}')
-    expect(stepBtn(/publishers & personas/i)).toHaveFocus()
+    expect(stepBtn(/step 2:\s*personas/i)).toHaveFocus()
     await user.keyboard('{Enter}')
-    expect(stepBtn(/publishers & personas/i)).toHaveAttribute('aria-current', 'step')
+    expect(stepBtn(/step 2:\s*personas/i)).toHaveAttribute('aria-current', 'step')
   })
 
   it('regenerate sends the note and replaces only that card', async () => {
@@ -357,7 +368,9 @@ describe('Staged results', () => {
       new ApiError(403, 'This campaign changed or expired — run it again.'),
     )
     render(<Results result={result} onBack={() => {}} onRerun={onRerun} />)
-    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+    if (pick) await user.click(pick)
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/changed or expired/)
     await user.click(screen.getByRole('button', { name: /run it again/i }))
     expect(onRerun).toHaveBeenCalledTimes(1)
@@ -370,7 +383,9 @@ describe('Staged results', () => {
       new ApiError(403, 'This campaign changed or expired — run it again.'),
     )
     render(<Results result={result} onBack={() => {}} onRerun={onRerun} />)
-    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+    if (pick) await user.click(pick)
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
     const card = await screen.findByRole('article', { name: 'Pet Parent' })
     await user.click(within(card).getByRole('button', { name: /regenerate/i }))
     await user.click(await within(card).findByRole('button', { name: /run it again/i }))
@@ -381,7 +396,9 @@ describe('Staged results', () => {
     const user = userEvent.setup()
     vi.mocked(createCreatives).mockRejectedValueOnce(new ApiError(502, 'AI down'))
     render(<Results result={result} onBack={() => {}} onRerun={() => {}} />)
-    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+    if (pick) await user.click(pick)
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
     await screen.findByRole('alert')
     expect(screen.queryByRole('button', { name: /run it again/i })).not.toBeInTheDocument()
   })
@@ -394,7 +411,7 @@ describe('Staged results', () => {
     expect(cfgStep).toHaveAccessibleDescription('Approve creatives first.')
     await user.click(cfgStep)
     expect(screen.getByRole('status')).toHaveTextContent('Approve creatives first.')
-    expect(stepBtn(/publishers & personas/i)).toHaveAttribute('aria-current', 'step')
+    expect(stepBtn(/step 1:\s*publishers/i)).toHaveAttribute('aria-current', 'step')
   })
 
   it('a stale config response (after leaving step 3 and regenerating) is ignored', async () => {
@@ -480,10 +497,10 @@ describe('Staged results', () => {
     await toStep2(user)
     const card = screen.getByRole('article', { name: 'Pet Parent' })
     await user.click(within(card).getByRole('button', { name: /regenerate/i }))
-    await user.click(stepBtn(/publishers & personas/i))
+    await user.click(stepBtn(/step 1:\s*publishers/i))
     resolve(cr('a', 'p1', 'Fresh line'))
     await new Promise((r) => setTimeout(r, 20))
-    expect(stepBtn(/publishers & personas/i)).toHaveAttribute('aria-current', 'step')
+    expect(stepBtn(/step 1:\s*publishers/i)).toHaveAttribute('aria-current', 'step')
     await user.click(stepBtn(/creatives/i))
     expect(screen.getByText('Fresh line')).toBeInTheDocument()
   })
@@ -498,7 +515,9 @@ describe('Staged results', () => {
     const weak = { ...result, outcome: 'weak_fit' as const, message: 'Few publishers match this closely.' }
     render(<Results result={weak} onBack={() => {}} />)
     expect(screen.getByText('Few publishers match this closely.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+    if (pick) await user.click(pick)
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
     await screen.findByText('Food for old friends')
     expect(screen.getByText('Few publishers match this closely.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /approve creatives & build config/i }))

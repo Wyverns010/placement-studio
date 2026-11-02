@@ -3,6 +3,13 @@ import type { ReactNode } from 'react'
 import { personaById } from '../catalog'
 import type { Creative, PersonaScore, PublisherScore } from '../types'
 
+const FACTOR_LABEL: Record<string, string> = {
+  affinity: 'Category',
+  publishers: 'Your publishers',
+  price: 'Price',
+  age: 'Age',
+}
+
 /**
  * Persona cards. Without `creatives` it is a plain persona list (step 1); with them each card
  * shows its ad, plus whatever `actions` renders under it (Regenerate on step 2). `busy` dims a
@@ -48,6 +55,21 @@ export default function PersonasTab({
                   {p.stretch && <b>Stretch: </b>}
                   {cr.why.replace(/_/g, ' ')}
                 </p>
+              )}
+              {!withAds && p.factors.length > 0 && (
+                <ul data-testid="persona-factors" className="m-0 mt-2.5 list-none space-y-1 p-0 text-[12px]">
+                  {p.factors.map((f) => (
+                    <li key={f.name} className="flex justify-between gap-2">
+                      <span className="min-w-0 text-[#3b3850]">
+                        <span className="text-muted">{FACTOR_LABEL[f.name] ?? f.name.replace(/_/g, ' ')}: </span>
+                        {f.note.replace(/_/g, ' ')}
+                      </span>
+                      <span className={`shrink-0 font-semibold ${f.score < 0 ? 'text-bad' : 'text-violet-dark'}`}>
+                        {f.score < 0 ? `−${pct(-f.score)}` : pct(f.score)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
               {tags.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-[5px]">

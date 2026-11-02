@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, buildConfig, createCreatives, regenerateCreative } from '../api'
 import { usd } from '../format'
-import type { CampaignConfig, CampaignResult, Creative, StagePayload, StepMeta } from '../types'
+import { STEER_MAX, type CampaignConfig, type CampaignResult, type Creative, type StagePayload, type StepMeta } from '../types'
 import { AgentNotes, AgentSteer, AgentWorking } from './AgentUi'
 import ConfigStep from './ConfigStep'
 import OutcomeBanner from './OutcomeBanner'
@@ -11,7 +11,9 @@ import RegenerateControls from './RegenerateControls'
 import Stepper, { type StepDef } from './Stepper'
 import { Busy, StageError, type StageErr } from './ui'
 
-type Step = 'publishers' | 'creatives' | 'config'
+type Step = 'publishers' | 'personas' | 'creatives' | 'config'
+/** The steps with a stage-1 steer box: a steer re-runs stage 1 and the result opens there. */
+export type SteerStep = 'publishers' | 'personas'
 
 const FALLBACK = 'Something went wrong. Please try again.'
 
@@ -33,17 +35,23 @@ export default function StagedResults({
   onRerun,
   onSteer,
   initialSteer = '',
+  initialStep = 'publishers',
   running = false,
 }: {
   result: CampaignResult
   onRerun?: () => void
   /** Re-runs stage 1 with a steer (App owns it; omit to hide the step-1 box). */
-  onSteer?: (steer: string) => void
+  onSteer?: (steer: string, from?: SteerStep) => void
   /** The steer this stage-1 result was produced with. */
   initialSteer?: string
+  /** The step that steer was written on: the result opens there. */
+  initialStep?: SteerStep
   running?: boolean
 }) {
-  const [step, setStep] = useState<Step>('publishers')
+  const [step, setStep] = useState<Step>(initialStep)
+  // Personas come after publishers: the step opens once the publishers are accepted.
+  const [personasOpen, setPersonasOpen] = useState(initialStep === 'personas')
+  const [steerP, setSteerP] = useState('')
   const [creatives, setCreatives] = useState<Creative[] | null>(null)
   const [config, setConfig] = useState<CampaignConfig | null>(null)
   const [pending, setPending] = useState<'creatives' | 'config' | null>(null)
@@ -232,7 +240,8 @@ export default function StagedResults({
     publishers: result.publishers.filter((p) => p.recommended).map((p) => p.name),
   }
   const steps: StepDef<Step>[] = [
-    { id: 'publishers', label: 'Publishers & personas', enabled: true },
+    { id: 'publishers', label: 'Publishers', enabled: true },
+    { id: 'personas', label: 'Personas', enabled: personasOpen, hint: 'Accept the publishers first.' },
     { id: 'creatives', label: 'Creatives', enabled: !!creatives, hint: 'Write the ads first.' },
     {
       id: 'config',
@@ -241,6 +250,11 @@ export default function StagedResults({
       hint: anyCardBusy ? 'Wait for the ad to finish rewriting.' : 'Approve creatives first.',
     },
   ]
+  /** A personas steer keeps the publishers steer it was built on (the step-1 box). */
+  const personasSteer = (text: string) => {
+    const joined = [initialSteer.trim(), text.trim()].filter(Boolean).join('. ')
+    return joined.length <= STEER_MAX ? joined : text.trim()
+  }
   const testBudget = config?.budget.test_budget === true ? config.budget.monthly_usd : undefined
 
   const headingCls = 'm-0 text-lg font-semibold tracking-[-0.01em] outline-none sm:text-xl'
@@ -274,33 +288,74 @@ export default function StagedResults({
             id="step-publishers"
             headingRef={heading}
             className={headingCls}
-            title={`${recCount} publisher${recCount === 1 ? '' : 's'} and ${result.personas.length} persona${result.personas.length === 1 ? '' : 's'}`}
-            sub="Where your ads will run and who they're written for."
+            title={`${recCount} publisher${recCount === 1 ? '' : 's'}`}
+            sub="Where your ads will run. The personas are picked next, for these publishers."
           />
           {onSteer && (
             <AgentSteer
               placeholder="Skip pet stores"
               value={steer1}
               onChange={setSteer1}
-              onApply={onSteer}
+              onApply={(t) => onSteer(t, 'publishers')}
               busy={running}
               allowBlank={!!initialSteer}
             />
           )}
-          <AgentNotes className="mb-5" notes={initialSteer ? result.agent_notes : undefined} />
+          <AgentNotes
+            className="mb-5"
+            notes={initialSteer && initialStep === 'publishers' ? result.agent_notes : undefined}
+          />
           <PublishersTab publishers={result.publishers} config={config} />
-          <h4 className="m-0 mt-8 mb-3 text-[13px] font-semibold tracking-[0.06em] text-muted uppercase">
-            Personas · {result.personas.length}
-          </h4>
+          <StepActions>
+            <button
+              type="button"
+              className="pill pill-primary"
+              disabled={recCount === 0}
+              onClick={() => {
+                setPersonasOpen(true)
+                goTo('personas')
+              }}
+            >
+              Pick personas for these publishers →
+            </button>
+          </StepActions>
+        </section>
+      )}
+
+      {step === 'personas' && (
+        <section aria-labelledby="step-personas">
+          <StepHead
+            id="step-personas"
+            headingRef={heading}
+            className={headingCls}
+            title={`${result.personas.length} persona${result.personas.length === 1 ? '' : 's'}`}
+            sub="Who the ads are written for: scored on the brief and on the publishers you kept (what they sell and who shops there)."
+          />
+          {onSteer && (
+            <AgentSteer
+              placeholder="Drop the Gifter"
+              value={steerP}
+              onChange={setSteerP}
+              onApply={(t) => onSteer(personasSteer(t), 'personas')}
+              busy={running}
+            />
+          )}
+          <AgentNotes
+            className="mb-5"
+            notes={initialSteer && initialStep === 'personas' ? result.agent_notes : undefined}
+          />
           <PersonasTab personas={result.personas} publishers={result.publishers} />
           <StepActions>
+            <button type="button" className="pill" onClick={() => goTo('publishers')}>
+              ← Back to publishers
+            </button>
             <button
               type="button"
               className="pill pill-primary"
               disabled={pending === 'creatives' || recCount === 0 || result.personas.length === 0}
               onClick={() => writeAds()}
             >
-              {pending === 'creatives' ? <Busy label="Writing ads…" /> : 'Write ads for these publishers →'}
+              {pending === 'creatives' ? <Busy label="Writing ads…" /> : 'Write ads for these personas →'}
             </button>
           </StepActions>
           {pending === 'creatives' && <AgentWorking {...workingNames} className="mt-2 justify-end" />}
@@ -345,8 +400,8 @@ export default function StagedResults({
             )}
           />
           <StepActions>
-            <button type="button" className="pill" onClick={() => goTo('publishers')}>
-              ← Back to publishers
+            <button type="button" className="pill" onClick={() => goTo('personas')}>
+              ← Back to personas
             </button>
             <button
               type="button"

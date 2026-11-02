@@ -4,6 +4,7 @@ import { parseBudgetInput } from './format'
 import Landing from './components/Landing'
 import Nav from './components/Nav'
 import Results from './components/Results'
+import type { SteerStep } from './components/StagedResults'
 import type { AgentTraceEntry, CampaignRequest, CampaignResult, Sample, StageEvent, StreamPartial } from './types'
 
 export interface AppState {
@@ -50,7 +51,8 @@ export default function App() {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const viewRef = useRef<AppState['view']>('landing')
   const [rebuildError, setRebuildError] = useState<string | null>(null)
-  const [steer, setSteer] = useState('') // the strategist steer the shown result was built with
+  const [steer, setSteer] = useState('')
+  const [steerFrom, setSteerFrom] = useState<SteerStep>('publishers') // the strategist steer the shown result was built with
   const lastInput = useRef<{ text: string; budget: number | null; answers: Record<string, string>; steer: string }>({
     text: '',
     budget: null,
@@ -201,8 +203,12 @@ export default function App() {
           onPickSample={pickSample}
           onRebuild={rebuild}
           onRerun={() => rebuild({})}
-          onSteer={(st) => rebuild({}, st)}
+          onSteer={(st, from = 'publishers') => {
+            setSteerFrom(from)
+            rebuild({}, st)
+          }}
           steer={steer}
+          steerFrom={steerFrom}
           partial={state.partial}
           running={state.running}
           rebuildError={rebuildError}

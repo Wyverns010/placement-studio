@@ -255,14 +255,43 @@ def _persona_age(b: Brief, p: Persona, t: Tuning) -> Factor:
     return Factor(name="age", score=score, note=note)
 
 
+def _persona_publishers(p: Persona, pubs: list[tuple[Publisher, float]], t: Tuning,
+                        parents: dict[str, set[str]]) -> Factor:
+    """Does this persona shop on the publishers picked in step ①? Per publisher (weighted by its
+    fit): 0.6 x category link (an affinity is the publisher's category or subcategory 1.0, sits
+    under its category 0.7) + 0.4 x the share of the persona's ages in the publisher's audience."""
+    if not pubs:
+        return Factor(name="publishers", score=t.publisher.unknown_factor, note="No publishers picked yet")
+    aff = set(p.category_affinities)
+    total = sum(w for _, w in pubs) or 1.0
+    score, shops = 0.0, []
+    for pub, w in pubs:
+        where = {pub.category, *pub.subcategories}
+        link = (1.0 if aff & where
+                else t.persona.affinity_scores.family if any(pub.category in parents.get(a, ()) for a in aff)
+                else 0.0)
+        ages = _age_overlap((p.age_min, p.age_max), pub.age_min, pub.age_max, t.publisher.unknown_factor)
+        score += w / total * (0.6 * link + 0.4 * ages)
+        if link:
+            shops.append(pub.name)
+    note = f"Shops at {', '.join(shops[:2])}" if shops else "Rarely shops these publishers"
+    return Factor(name="publishers", score=round(score, 3), note=note)
+
+
 def _persona_raw(b: Brief, p: Persona, t: Tuning,
-                 parents: dict[str, set[str]] | None = None) -> tuple[float, list[Factor]]:
-    """Unclamped fit and its factors (a 4th `conflict` factor only when a penalty applies)."""
+                 parents: dict[str, set[str]] | None = None,
+                 pubs: list[tuple[Publisher, float]] | None = None) -> tuple[float, list[Factor]]:
+    """Unclamped fit and its factors (penalty factors only when they apply). `pubs` (publisher, fit)
+    are step ①'s picks; without them (pubs None) the publishers factor is left out."""
     w = t.persona.weights
     aff = _affinity(b, p, t, parents or {})
     price, age = _persona_price(b, p, t), _persona_age(b, p, t)
     factors = [aff, price, age]
     raw = w.affinity * aff.score + w.price * price.score + w.age * age.score
+    if pubs is not None and w.publishers:
+        shop = _persona_publishers(p, pubs, t, parents or {})
+        factors.append(shop)
+        raw += w.publishers * shop.score
     if aff.score <= 0 and t.persona.niche_penalty:
         cats = {c for a in p.category_affinities for c in (parents or {}).get(a, set())}
         if len(cats) == 1:
@@ -281,12 +310,17 @@ def _persona_raw(b: Brief, p: Persona, t: Tuning,
     return raw, factors
 
 
-def score_personas(brief: Brief, catalog: Catalog, t: Tuning) -> list[PersonaScore]:
+def score_personas(brief: Brief, catalog: Catalog, t: Tuning,
+                   publishers: list[PublisherScore] | None = None) -> list[PersonaScore]:
+    """Every persona, best fit first. `publishers`: step ①'s recommended ones; personas are picked
+    after them, so a persona who shops there scores higher."""
     brief = scoped(brief, catalog, t)
     parents = term_parents(catalog, t)
+    pubs = ([(catalog.publisher(s.publisher_id), s.fit) for s in publishers]
+            if publishers is not None else None)
     rows = []
     for p in catalog.personas:
-        raw, factors = _persona_raw(brief, p, t, parents)
+        raw, factors = _persona_raw(brief, p, t, parents, pubs)
         rows.append((max(0.0, min(1.0, raw)), p, factors))
     rows.sort(key=lambda r: (-r[0], r[1].id))
     return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False)

@@ -370,7 +370,9 @@ describe('Outcome states', () => {
     await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
     expect(await screen.findByText(`“${samples[0].text}”`)).toBeInTheDocument()
     vi.mocked(createCreatives).mockRejectedValueOnce(new ApiError(403, 'This campaign changed or expired — run it again.'))
-    await user.click(screen.getByRole('button', { name: /write ads for these publishers/i }))
+    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
+    if (pick) await user.click(pick)
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
     expect(vi.mocked(createCreatives).mock.calls[0][0]).toMatchObject({ input_text: echoed, stage_token: 't1' })
     await user.click(await screen.findByRole('button', { name: /run it again/i }))
     expect(runCampaign).toHaveBeenLastCalledWith({
@@ -379,7 +381,7 @@ describe('Outcome states', () => {
     })
     // the fresh result starts again at step 1 with no stale error
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
-    expect(screen.getByRole('button', { name: /write ads for these publishers/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /pick personas for these publishers/i })).toBeEnabled()
   })
 })
 

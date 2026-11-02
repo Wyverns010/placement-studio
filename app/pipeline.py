@@ -127,9 +127,13 @@ def _run(text, budget_usd, llm, gate, catalog, t, plan: Stage1Plan | None,
             "out_of_scope", msg_out_of_scope(brief.product, brief.audience_type), publishers=excluded).model_dump())
         return
 
-    persona_scores = [p for p in score_personas(brief, catalog, t) if p.persona_id not in no_personas]
+    def persona_scores_for(pubs: list[PublisherScore]) -> list[PersonaScore]:
+        """Step ①'s publishers come first; the personas are scored against the recommended ones."""
+        recs = [p for p in pubs if p.recommended]
+        return [p for p in score_personas(brief, catalog, t, recs) if p.persona_id not in no_personas]
 
     if g.outcome == "clarify":
+        persona_scores = persona_scores_for(scored)
         yield StageEvent(stage="publishers", data=_pub_data(scored, t, "clarify"))
         top = select_personas(persona_scores, t)[:1]
         yield StageEvent(stage="personas", data=_persona_data(top))
@@ -143,7 +147,7 @@ def _run(text, budget_usd, llm, gate, catalog, t, plan: Stage1Plan | None,
     if weak:
         scored = mark_stretch(scored, t, no_pubs)
     yield StageEvent(stage="publishers", data=_pub_data(scored, t))
-    personas = select_personas(persona_scores, t)
+    personas = select_personas(persona_scores_for(scored), t)
     yield StageEvent(stage="personas", data=_persona_data(personas))
     outcome = "weak_fit" if weak else "proceed"
     message = msg_weak_fit(brief.product, sum(s.recommended for s in scored)) if weak else None

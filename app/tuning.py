@@ -50,6 +50,7 @@ class PersonaWeights(BaseModel):
     affinity: float
     price: float
     age: float
+    publishers: float = 0.0  # how well the persona fits the publishers picked in step ①
 
 
 class AffinityScores(BaseModel):

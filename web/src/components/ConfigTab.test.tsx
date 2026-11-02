@@ -265,7 +265,7 @@ describe('Results', () => {
     } as CampaignResult
     render(<Results result={r} onBack={() => {}} />)
     const steps = screen.getByRole('navigation', { name: 'Campaign steps' })
-    expect(within(steps).getByRole('button', { name: /publishers & personas/i })).toHaveAttribute('aria-current', 'step')
+    expect(within(steps).getByRole('button', { name: /step 1:\s*publishers/i })).toHaveAttribute('aria-current', 'step')
     expect(screen.getByRole('article', { name: 'Pawline' })).toBeInTheDocument()
   })
 })

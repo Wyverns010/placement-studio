@@ -195,3 +195,17 @@ def test_shopping_mode_in_adjacent_counts_like_in_categories():
     home = score_personas(brief(categories=["home"], adjacent_categories=["home_goods", "gifting"],
                                 price_tier="unknown"), CAT, T)
     assert home[0].name == "The Gifter" and home[0].fit > home[1].fit
+
+
+def test_personas_are_scored_against_the_picked_publishers():
+    from app.match import score_publishers
+    b = brief(categories=["bedding", "home_textiles"], adjacent_categories=["home_goods"],
+              price_tier="premium")
+    recs = [p for p in score_publishers(b, CAT, T) if p.recommended]
+    with_pubs = {p.name: p for p in score_personas(b, CAT, T, recs)}
+    affluent = with_pubs["The Affluent Classic"]
+    shop = next(f for f in affluent.factors if f.name == "publishers")
+    assert shop.score > 0.4 and "Northbed" in shop.note  # home_goods sits under Northbed's category
+    # a persona with no link to these publishers gets less from the factor
+    golf = next(f for f in with_pubs["The Pet Parent"].factors if f.name == "publishers")
+    assert golf.score < shop.score

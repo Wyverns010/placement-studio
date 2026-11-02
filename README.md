@@ -21,14 +21,15 @@ uv run pytest -q; (cd web && npx vitest run)                   # tests
 ![Architecture: three steps; purple boxes call an LLM, green boxes are plain code](media/architecture.png)
 
 ```
-① Understand → Gate → Match      publishers + personas      POST /api/campaign
-② Copywriter + Critic agents     one ad per persona          POST /api/creatives (+ /regenerate)
-③ Config builder (code)          budget, bids, caps, pacing  POST /api/config
+① Understand → Gate → Match      publishers                     POST /api/campaign
+② Personas (code)                scored for those publishers    (same response; own steer box)
+③ Copywriter + Critic agents     one ad per persona             POST /api/creatives (+ /regenerate)
+④ Config builder (code)          budget, bids, caps, projection POST /api/config
 ```
 
-**Numbers from code, words from the LLM.** The LLM reads the text into a brief, and it can only use the catalog's own category words. A gate then picks one of five outcomes: proceed, weak_fit, clarify, out_of_scope or no_signal. Its confidence is the LLM's own estimate (not a calibrated probability) with thresholds tuned on the train split. Publishers are scored on 4 visible factors and personas on 3. Ads follow a [copywriting playbook](prompts/copywriting_playbook.md), and code checks each one for invented facts, length, generic copy and parroting.
+**Numbers from code, words from the LLM.** The LLM reads the text into a brief, and it can only use the catalog's own category words. A gate then picks one of five outcomes: proceed, weak_fit, clarify, out_of_scope or no_signal. Its confidence is the LLM's own estimate (not a calibrated probability) with thresholds tuned on the train split. Publishers are scored on 4 visible factors. Personas come after them and are scored on 4 too, one being how well they fit the chosen publishers (what they sell, who shops there). Ads follow a [copywriting playbook](prompts/copywriting_playbook.md), and code checks each one for invented facts, length, generic copy and parroting.
 
-**Agents and steers.** Each step has a "Tell the agent…" box; that note is the *steer* ("skip pet stores", "under $5k"). An agent ([OpenAI Agents SDK](app/stepagents/)) picks which existing functions to call and with what inputs; code still computes every number. Without a steer, ① and ③ are plain code, because agents matched code exactly there. ② always uses agents: a judge preferred their ads 67% of the time ([comparison](evals/AGENT_COMPARISON.md)). Errors, timeouts or the cost cap (≈25–30¢ per session) fall back to code.
+**Agents and steers.** Each step has a "Tell the agent…" box; that note is the *steer* ("skip pet stores", "under $5k"). An agent ([OpenAI Agents SDK](app/stepagents/)) picks which existing functions to call and with what inputs; code still computes every number. Without a steer, ①, ② and ④ are plain code, because agents matched code exactly there. ③ always uses agents: a judge preferred their ads 67% of the time ([comparison](evals/AGENT_COMPARISON.md)). Errors, timeouts or the cost cap (≈25–30¢ per session) fall back to code.
 
 **Ads in ~8 s on average.** Personas run in parallel, code's copy checks run before the Critic, and each ad gets one review.
 

@@ -251,7 +251,8 @@ def pick_personas(ctx: RunContextWrapper[Stage1Workspace], exclude_ids: list[str
             ws.require_steer()
         ids = _ids(exclude_ids, {p.id: p.name for p in ws.catalog.personas}, "persona ids")
         ws.exclude_personas = frozenset(ids)
-        scores = [p for p in score_personas(ws.current(), ws.catalog, ws.t)
+        recs = ws.recommended(ws.current(), ws.exclude_publishers)
+        scores = [p for p in score_personas(ws.current(), ws.catalog, ws.t, recs)
                   if p.persona_id not in ws.exclude_personas]
         chosen = {p.persona_id for p in select_personas(scores, ws.t)}
         return json.dumps([{"id": p.persona_id, "name": p.name, "fit": p.fit,

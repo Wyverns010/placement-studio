@@ -4,7 +4,7 @@ import ClarifyView from './ClarifyView'
 import OutOfScopeView from './OutOfScopeView'
 import OutcomeBanner from './OutcomeBanner'
 import ResultHeader from './ResultHeader'
-import StagedResults from './StagedResults'
+import StagedResults, { type SteerStep } from './StagedResults'
 import { Busy } from './ui'
 
 interface Props {
@@ -20,9 +20,11 @@ interface Props {
   running?: boolean
   rebuildError?: string | null
   /** Re-runs stage 1 with the same text/answers plus a steer for the strategist agent. */
-  onSteer?: (steer: string) => void
+  onSteer?: (steer: string, from?: SteerStep) => void
   /** The steer the shown result was produced with. */
   steer?: string
+  /** Which step the steer was written on (the result opens there). */
+  steerFrom?: SteerStep
   /** Live stage events of a re-run (for the agent ticker). */
   partial?: StreamPartial
 }
@@ -39,6 +41,7 @@ export default function Results({
   rebuildError = null,
   onSteer,
   steer = '',
+  steerFrom = 'publishers',
   partial,
 }: Props) {
   if (result.outcome !== 'proceed' && result.outcome !== 'weak_fit') {
@@ -89,6 +92,7 @@ export default function Results({
         result={result}
         onRerun={running ? undefined : onRerun}
         onSteer={onSteer}
+        initialStep={steerFrom}
         initialSteer={steer}
         running={running}
       />
