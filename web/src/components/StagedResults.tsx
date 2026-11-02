@@ -290,6 +290,21 @@ export default function StagedResults({
             className={headingCls}
             title={`${recCount} publisher${recCount === 1 ? '' : 's'}`}
             sub="Where your ads will run. The personas are picked next, for these publishers."
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="pill pill-primary"
+                  disabled={recCount === 0}
+                  onClick={() => {
+                    setPersonasOpen(true)
+                    goTo('personas')
+                  }}
+                >
+                  Pick personas for these publishers →
+                </button>
+              </>
+            }
           />
           {onSteer && (
             <AgentSteer
@@ -306,19 +321,6 @@ export default function StagedResults({
             notes={initialSteer && initialStep === 'publishers' ? result.agent_notes : undefined}
           />
           <PublishersTab publishers={result.publishers} config={config} />
-          <StepActions>
-            <button
-              type="button"
-              className="pill pill-primary"
-              disabled={recCount === 0}
-              onClick={() => {
-                setPersonasOpen(true)
-                goTo('personas')
-              }}
-            >
-              Pick personas for these publishers →
-            </button>
-          </StepActions>
         </section>
       )}
 
@@ -330,7 +332,23 @@ export default function StagedResults({
             className={headingCls}
             title={`${result.personas.length} persona${result.personas.length === 1 ? '' : 's'}`}
             sub="Who the ads are written for: scored on the brief and on the publishers you kept (what they sell and who shops there)."
+            actions={
+              <>
+                <button type="button" className="pill" onClick={() => goTo('publishers')}>
+                  ← Back to publishers
+                </button>
+                <button
+                  type="button"
+                  className="pill pill-primary"
+                  disabled={pending === 'creatives' || recCount === 0 || result.personas.length === 0}
+                  onClick={() => writeAds()}
+                >
+                  {pending === 'creatives' ? <Busy label="Writing ads…" /> : 'Write ads for these personas →'}
+                </button>
+              </>
+            }
           />
+          {pending === 'creatives' && <AgentWorking {...workingNames} className="-mt-2 mb-4 justify-end" />}
           {onSteer && (
             <AgentSteer
               placeholder="Drop the Gifter"
@@ -345,20 +363,6 @@ export default function StagedResults({
             notes={initialSteer && initialStep === 'personas' ? result.agent_notes : undefined}
           />
           <PersonasTab personas={result.personas} publishers={result.publishers} />
-          <StepActions>
-            <button type="button" className="pill" onClick={() => goTo('publishers')}>
-              ← Back to publishers
-            </button>
-            <button
-              type="button"
-              className="pill pill-primary"
-              disabled={pending === 'creatives' || recCount === 0 || result.personas.length === 0}
-              onClick={() => writeAds()}
-            >
-              {pending === 'creatives' ? <Busy label="Writing ads…" /> : 'Write ads for these personas →'}
-            </button>
-          </StepActions>
-          {pending === 'creatives' && <AgentWorking {...workingNames} className="mt-2 justify-end" />}
           {errorBlock}
         </section>
       )}
@@ -371,6 +375,21 @@ export default function StagedResults({
             className={headingCls}
             title="Review the ads"
             sub="One ad per persona, each written for one publisher; publishers without their own ad reuse one (the config says which). Regenerate any you'd change — add a note to steer it."
+            actions={
+              <>
+                <button type="button" className="pill" onClick={() => goTo('personas')}>
+                  ← Back to personas
+                </button>
+                <button
+                  type="button"
+                  className="pill pill-primary"
+                  disabled={pending === 'config' || anyCardBusy}
+                  onClick={approve}
+                >
+                  {pending === 'config' ? <Busy label="Building config…" /> : 'Approve creatives & build config →'}
+                </button>
+              </>
+            }
           />
           <AgentSteer
             placeholder="Make them more playful"
@@ -399,19 +418,6 @@ export default function StagedResults({
               />
             )}
           />
-          <StepActions>
-            <button type="button" className="pill" onClick={() => goTo('personas')}>
-              ← Back to personas
-            </button>
-            <button
-              type="button"
-              className="pill pill-primary"
-              disabled={pending === 'config' || anyCardBusy}
-              onClick={approve}
-            >
-              {pending === 'config' ? <Busy label="Building config…" /> : 'Approve creatives & build config →'}
-            </button>
-          </StepActions>
         </section>
       )}
 
@@ -423,6 +429,13 @@ export default function StagedResults({
             className={headingCls}
             title="Campaign config"
             sub="Launch-ready settings. Change the budget and the split, pacing and caps follow."
+            actions={
+              <>
+                <button type="button" className="pill" onClick={() => goTo('creatives')}>
+                  ← Back to creatives
+                </button>
+              </>
+            }
           />
           {approveWarning && (
             <p data-testid="approve-warning" role="status" className="m-0 mb-4 rounded-lg border border-[#F0D9B2] bg-[#FBEFDC] px-3 py-2 text-[13px] text-[#5B4520]">
@@ -447,11 +460,6 @@ export default function StagedResults({
             onRerun={onRerun}
             onBudget={updateBudget}
           />
-          <StepActions>
-            <button type="button" className="pill" onClick={() => goTo('creatives')}>
-              ← Back to creatives
-            </button>
-          </StepActions>
         </section>
       )}
     </div>
@@ -475,23 +483,26 @@ function StepHead({
   sub,
   className,
   headingRef,
+  actions,
 }: {
   id: string
   title: string
   sub: string
   className: string
   headingRef: React.Ref<HTMLHeadingElement>
+  /** The step's back / next buttons, at the top so they're in view without scrolling. */
+  actions?: React.ReactNode
 }) {
   return (
-    <div className="mb-4">
-      <h3 id={id} ref={headingRef} tabIndex={-1} className={className}>
-        {title}
-      </h3>
-      <p className="m-0 mt-1 text-[13.5px] text-muted">{sub}</p>
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0 flex-1 basis-[320px]">
+        <h3 id={id} ref={headingRef} tabIndex={-1} className={className}>
+          {title}
+        </h3>
+        <p className="m-0 mt-1 text-[13.5px] text-muted">{sub}</p>
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
     </div>
   )
 }
 
-function StepActions({ children }: { children: React.ReactNode }) {
-  return <div className="mt-6 flex flex-wrap items-center justify-end gap-3">{children}</div>
-}
