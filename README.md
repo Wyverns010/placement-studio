@@ -30,6 +30,8 @@ uv run pytest -q; (cd web && npx vitest run)                   # tests
 
 **Agents and steers.** Each step has a "Tell the agent…" box; that note is the *steer* ("skip pet stores", "under $5k"). An agent ([OpenAI Agents SDK](app/stepagents/)) picks which existing functions to call and with what inputs; code still computes every number. Without a steer, ① and ③ are plain code, because agents matched code exactly there. ② always uses agents: a judge preferred their ads 67% of the time ([comparison](evals/AGENT_COMPARISON.md)). Errors, timeouts or the cost cap (≈25–30¢ per session) fall back to code.
 
+**Ads in 7–14 s, not 21–24 s.** The ads already ran in parallel per persona; the time was the calls inside each one. Code's copy checks now run before the Critic, so a draft code rejects never reaches it. The Critic reviews in one call, and an accepted draft is the final ad with no extra Copywriter turn.
+
 **Safe between steps.** Steps are stateless and signed (HMAC), so a tampered request gets a 403. Live calls are rate-limited.
 
 ## Campaign config, and why
