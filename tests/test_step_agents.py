@@ -430,8 +430,9 @@ def test_injection_steer_cannot_funnel_stage1_to_one_publisher():
     assert _recommended(r) == _recommended(plain()) and "pub_001" not in _recommended(r)
     refused = [s for s in r.agent_trace if s.tool == "rank_publishers"][-1]
     assert refused.result_summary.startswith("Refused")
-    assert ("Kept Pawline, Ruffco and Tailcrate: a note can narrow the list but not below two "
-            "publishers.") in r.agent_notes
+    # Swiftcart doesn't fit dog food, so excluding the rest would leave nothing: refused
+    assert ("Kept Pawline, Ruffco and Tailcrate: a note can narrow the list but not below one "
+            "publisher.") in r.agent_notes
     assert not any(n.startswith("Left out") for n in r.agent_notes)
 
 
@@ -479,7 +480,7 @@ def test_strategist_boost_cannot_recommend_below_cutoff(monkeypatch):
     assert res[0].startswith("Refused") and "cut-off" in res[0]
 
 
-def test_planner_injection_cannot_drop_below_two_publishers():
+def test_planner_named_drops_apply_but_cannot_add_an_unfit_publisher():
     model = ScriptedModel([
         call("exclude_publishers", {"publisher_ids": ["pub_007", "pub_009"]}),
         call("preview_config"), final(notes=[]),
@@ -489,9 +490,9 @@ def test_planner_injection_cannot_drop_below_two_publishers():
     cfg, meta = steps.config_step(*_config_inputs(), None, steer, catalog=CAT, t=T,
                                   runtime=AgentRuntime(models={"media_planner": model}))
     assert meta["mode"] == "agent"
-    assert {li.publisher_id for li in cfg.line_items} == {"pub_007", "pub_009", "pub_018"}
-    assert ("Kept Pawline and Ruffco: a note can narrow the list but not below two publishers."
-            in meta["agent_notes"])
+    # the advertiser named Pawline and Ruffco, so they go; Swiftcart was never recommended
+    assert {li.publisher_id for li in cfg.line_items} == {"pub_018"}
+    assert cfg.budget["monthly_usd"] < 9_999_999
 
 
 def test_planner_exclusion_must_be_named():
@@ -517,8 +518,9 @@ def test_planner_cannot_concentrate_budget_in_one_publisher(monkeypatch):
 
 
 def test_steer_guard_tuning():
-    assert T.agents.min_recommended_after_steer == 2
-    assert 0 < T.agents.max_share_after_steer <= 1
+    # the steer is the advertiser's own call: it may narrow to one publisher, never to none
+    assert T.agents.min_recommended_after_steer == 1
+    assert T.agents.max_share_after_steer == 1.0
 
 
 def test_named_in_steer_matches_names_and_categories():

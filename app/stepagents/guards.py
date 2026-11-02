@@ -1,5 +1,5 @@
-"""Steer guards shared by the step agents: a steer is the advertiser's preference, so it may
-narrow a plan but never funnel it. Code checks every exclusion the agent proposes:
+"""Steer guards shared by the step agents: a steer is the advertiser's own call, so it may narrow
+a plan as far as one publisher, but only by naming what to drop. Code checks every exclusion the agent proposes:
 
 - it must be named in the steer (the publisher's name or its kind of store), and
 - the recommended set may not shrink below `agents.min_recommended_after_steer` (or the original
