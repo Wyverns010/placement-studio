@@ -121,8 +121,8 @@ const cr: Creative = {
 describe('stage 2 and 3 calls', () => {
   afterEach(() => vi.useRealTimers())
 
-  it('createCreatives posts step 1\'s result as it is with the note, and unwraps creatives', async () => {
-    const fn = mockFetch(200, { creatives: [cr] })
+  it('createCreatives posts step 1\'s result as it is with the note, and returns the ads', async () => {
+    const fn = mockFetch(200, [cr])
     expect(await createCreatives(stage, 'more playful')).toEqual([cr])
     const [url, init] = fn.mock.calls[0]
     expect(url).toBe('/api/creatives')

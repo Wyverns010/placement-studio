@@ -132,7 +132,7 @@ def campaign(body: CampaignIn, request: Request, svc: Services = Depends(service
 
 @router.post("/creatives")
 def ads(request: Request, result: CampaignResult, note: Note = Body(None),
-        svc: Services = Depends(services)) -> dict:
+        svc: Services = Depends(services)) -> list[Creative]:
     """Step 3: one ad per persona for step 1's result; the note is guidance for the writers."""
     check_stage(svc, result.brief, result)
     charge(request, svc, svc.tuning.ratelimit.cost_ads)
@@ -140,7 +140,7 @@ def ads(request: Request, result: CampaignResult, note: Note = Body(None),
                           svc.catalog, svc.tuning)
     if not creatives:
         raise HTTPException(502, MSG_NO_ADS)
-    return {"creatives": creatives}
+    return creatives
 
 
 @router.post("/config")

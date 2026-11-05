@@ -38,7 +38,7 @@ def s1(client):
 
 def with_ads(client, s1, **extra) -> dict:
     """A /config body: step 1's result and its ads."""
-    ads = client.post("/api/creatives", json={"result": s1}).json()["creatives"]
+    ads = client.post("/api/creatives", json={"result": s1}).json()
     return {"result": s1, "creatives": ads, **extra}
 
 

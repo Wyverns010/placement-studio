@@ -92,9 +92,9 @@ export function runCampaign(req: CampaignRequest, signal?: AbortSignal): Promise
 }
 
 /** Step 3: one ad per persona for step 1's result; a note is guidance for the writers. */
-export async function createCreatives(result: CampaignResult, note: string, signal?: AbortSignal): Promise<Creative[]> {
+export function createCreatives(result: CampaignResult, note: string, signal?: AbortSignal): Promise<Creative[]> {
   const body = { result, note: note || null }
-  return (await postStage<{ creatives: Creative[] }>('/api/creatives', body, signal)).creatives
+  return postStage<Creative[]>('/api/creatives', body, signal)
 }
 
 /** Step 4 (code only): the campaign config, and what a note changed; no budget means the recommended one. */
