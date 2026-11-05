@@ -6,6 +6,7 @@ import math
 import re
 
 from app import rationale
+from app.brief import names
 from app.constants.llm import MODEL_FAST
 from app.constants.plan import (
     AMOUNT,
@@ -260,7 +261,7 @@ def apply_note(note: str, publisher_scores: list[PublisherScore], llm: LLMProvid
         changes = llm.parse(system=system, user=wrap("user_note", note), schema=PlanChanges, model=MODEL_FAST)
     except LLMError:
         return None, set(), None, [NOTE_NOT_READ]
-    text, notes, settings = note.lower(), list(changes.not_applied), tuning.budget
+    notes, settings = list(changes.not_applied), tuning.budget
     written = {round(float(number.replace(",", "")) * AMOUNT_UNITS.get(unit.lower(), 1), 2)
                for number, unit in AMOUNT.findall(note) if number.replace(",", "").replace(".", "", 1).isdigit()}
     budget = changes.budget_usd
@@ -273,7 +274,7 @@ def apply_note(note: str, publisher_scores: list[PublisherScore], llm: LLMProvid
     dropped = set()
     for name in changes.drop_publishers:
         score = by_name.get(name.lower())
-        if score and re.search(rf"\b{re.escape(score.name.lower())}\b", text):
+        if score and names(note, score.name):
             dropped.add(score.publisher_id)
             notes.append(NOTE_DROPPED.format(name=score.name))
         elif score:

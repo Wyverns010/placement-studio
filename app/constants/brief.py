@@ -19,6 +19,8 @@ CLARIFY_TOPICS = {"audience": ("who ", "whom", "audience", "age", "customer"),
                   "product": ("what kind", "what type", "product", "category", "what do you sell", "service")}
 
 NOTE_NOT_READ = "Couldn't apply your note, so this is the standard result."
+# a note's word counts as a name's word at this similarity (difflib ratio): "optimiser" ~ "optimizer" (0.89)
+NAME_MATCH = 0.8
 NOTE_DROPPED = "Left out {name} because of your note."
 NOTE_NOT_NAMED = "Kept {name}: your note doesn't name it."
 NOTE_ADDED = "Added {words} to the brief's categories because of your note."

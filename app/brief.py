@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from difflib import get_close_matches
 from typing import Literal
 
 from pydantic import BaseModel, create_model
@@ -11,6 +12,7 @@ from pydantic import BaseModel, create_model
 from app.constants.brief import (
     ANSWERS_HEADER,
     CLARIFY_TOPICS,
+    NAME_MATCH,
     NOTE_ADDED,
     NOTE_AGES,
     NOTE_AGES_REFUSED,
@@ -140,6 +142,15 @@ def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalo
     return questions[: settings.max_questions]
 
 
+def names(note: str, name: str) -> bool:
+    """Whether the note names a publisher or persona: every word of the name (a leading "the"
+    ignored) is in the note or spelled close to a word in it ("optimiser" names Optimizer)."""
+    said = re.findall(r"[a-z0-9]+", note.lower())
+    wanted = re.findall(r"[a-z0-9]+", re.sub(r"^the\s+", "", name.lower()))
+    return bool(wanted) and all(word in said or get_close_matches(word, said, n=1, cutoff=NAME_MATCH)
+                                for word in wanted)
+
+
 def apply_note(note: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
                tuning: Tuning) -> tuple[Brief, set[str], set[str], list[str]]:
     """One LLM call reads the note into changes; code keeps only what it can check: publishers and
@@ -160,13 +171,12 @@ def apply_note(note: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
         changes = llm.parse(system=system, user=wrap("user_note", note), schema=BriefChanges, model=MODEL_FAST)
     except LLMError:
         return brief, set(), set(), [NOTE_NOT_READ]
-    text = note.lower()
     notes = list(changes.not_applied)
     dropped_publishers, dropped_personas = set(), set()
     named = {publisher.name.lower(): publisher for publisher in catalog.publishers}
     for name in changes.drop_publishers:
         publisher = named.get(name.lower())
-        if publisher and re.search(rf"\b{re.escape(publisher.name.lower())}\b", text):
+        if publisher and names(note, publisher.name):
             dropped_publishers.add(publisher.id)
             notes.append(NOTE_DROPPED.format(name=publisher.name))
         elif publisher:
@@ -174,9 +184,8 @@ def apply_note(note: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
     # "pet parent" names The Pet Parent
     named_personas = {re.sub(r"^the\s+", "", persona.name.lower()): persona for persona in catalog.personas}
     for name in changes.drop_personas:
-        key = re.sub(r"^the\s+", "", name.lower())
-        persona = named_personas.get(key)
-        if persona and key in text:
+        persona = named_personas.get(re.sub(r"^the\s+", "", name.lower()))
+        if persona and names(note, persona.name):
             dropped_personas.add(persona.id)
             notes.append(NOTE_DROPPED.format(name=persona.name))
         elif persona:

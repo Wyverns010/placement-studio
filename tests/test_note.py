@@ -56,3 +56,30 @@ def test_plan_note_refuses_budget_not_in_note():
                                                    not_applied=[])})
     budget, dropped, pacing, notes = apply_plan_note("keep it cheap", [pawline], llm, T)
     assert budget is None and dropped == set() and pacing is None and notes
+
+
+def test_note_names_allow_spelling_variants():
+    # "optimiser" (British) names The Wellness Optimizer; "daily forms" names Daily Form
+    llm = FakeProvider({"BriefChanges": changes(drop_personas=["The Wellness Optimizer"],
+                                                drop_publishers=["Daily Form"])})
+    _, dropped, dropped_personas, _ = apply_note("drop the wellness optimiser and daily forms", brief(**DOG), llm,
+                                                 CAT, T)
+    assert dropped_personas == {"persona_001"} and dropped == {"pub_012"}
+
+
+def test_note_still_refuses_names_it_does_not_mention():
+    llm = FakeProvider({"BriefChanges": changes(drop_personas=["The Wellness Optimizer", "The Fitness Enthusiast"])})
+    _, _, dropped_personas, notes = apply_note("drop the wellness optimiser", brief(**DOG), llm, CAT, T)
+    assert dropped_personas == {"persona_001"}
+    assert any("Fitness Enthusiast" in note and "doesn't name" in note for note in notes)
+
+
+def test_plan_note_names_allow_spelling_variants():
+    from app.models.plan import PlanChanges
+    from app.plan import apply_note as apply_plan_note
+    scores = [PublisherScore(publisher_id=pid, name=name, fit=0.7, factors=[], recommended=True, stretch=False,
+                             reason="") for pid, name in ((PAWLINE, "Pawline"), (RUFFCO, "Ruffco"))]
+    llm = FakeProvider({"PlanChanges": PlanChanges(budget_usd=None, drop_publishers=["Pawline"], pacing=None,
+                                                   not_applied=[])})
+    _, dropped, _, _ = apply_plan_note("skip pawlines", scores, llm, T)
+    assert dropped == {PAWLINE}
