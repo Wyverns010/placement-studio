@@ -161,7 +161,7 @@ def test_llm_failure_raises_for_the_api_to_map():
 
 
 
-def test_run_full_raises_on_creative_failure():
+def test_run_full_returns_no_ads_when_every_draft_fails():
     llm = FakeProvider({"BriefSchema": brief_obj(), "Draft": LLMError("x")})
-    with pytest.raises(LLMError):
-        full(llm)
+    result, ads, _ = full(llm)
+    assert result.outcome == "proceed" and ads == []

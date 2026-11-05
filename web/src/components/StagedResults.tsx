@@ -87,7 +87,7 @@ export default function StagedResults({
 
 
   /**
-   * One config request at a time. Starting a new one, regenerating, or leaving step 3 aborts the
+   * One config request at a time. Starting a new one, rewriting the ads, or leaving step 3 aborts the
    * current one and bumps the version, so a late response can't re-set a config that was cleared
    * or replaced.
    */
@@ -170,6 +170,8 @@ export default function StagedResults({
       if (!t.current()) return
       setConfig(out.config)
       setConfigNotes(note ? out.notes : [])
+      // A budget change rebuilds without the note, so the box empties to match what's shown.
+      if (!note) setNote4('')
       // an amount in the note replaces the field (it's the newer instruction): keep it for later updates
       setBudgetChoice(note && out.config.budget.source === 'user' ? out.config.budget.monthly_usd : budget)
     } catch (err) {

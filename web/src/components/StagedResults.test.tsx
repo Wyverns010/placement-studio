@@ -316,6 +316,23 @@ describe('Staged results', () => {
     expect(vi.mocked(buildConfig).mock.calls.at(-1)![1][1].headline).toBe('New joints line')
   })
 
+  it('editing the budget after a config note rebuilds without it and clears the note box', async () => {
+    const user = userEvent.setup()
+    await toStep3(user)
+    vi.mocked(buildConfig).mockResolvedValueOnce(out(cfg(6000, 'recommended'), ['Dropped Ruffco.']))
+    const note = screen.getByRole('textbox', { name: 'Note' })
+    await user.type(note, 'drop Ruffco')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByText('Dropped Ruffco.')).toBeInTheDocument()
+    const input = screen.getByLabelText('Monthly budget in USD')
+    await user.clear(input)
+    await user.type(input, '9000')
+    await user.click(screen.getByRole('button', { name: 'Update' }))
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![3]).toBe('')
+    await waitFor(() => expect(screen.queryByText('Dropped Ruffco.')).not.toBeInTheDocument())
+    expect(screen.getByRole('textbox', { name: 'Note' })).toHaveValue('')
+  })
+
   it('a note on the config is sent with the budget and its notes are listed', async () => {
     const user = userEvent.setup()
     await toStep3(user)

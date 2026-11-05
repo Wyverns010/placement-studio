@@ -14,7 +14,7 @@ from tests.test_note import changes
 from tests.test_pipeline import ACCEPT, CLARIFY, _creatives, brief_obj
 
 N = T.ratelimit.per_client_runs
-LLM_DOWN = "The AI service didn't respond — try again or pick a sample."
+NO_ADS = "The AI service didn't return any ads — try again."
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ def test_campaign_note_reuses_the_brief(client, llm, s1):
 def test_llm_failure_is_a_safe_502(client, llm, s1):
     llm.responses["Draft"] = LLMError("sk-secret")
     r = client.post("/api/creatives", json={"result": s1})
-    assert r.status_code == 502 and r.json()["detail"] == LLM_DOWN and "sk-secret" not in r.text
+    assert r.status_code == 502 and r.json()["detail"] == NO_ADS and "sk-secret" not in r.text
     llm.responses["BriefSchema"] = RuntimeError("sk-boom")
     r = client.post("/api/campaign", json={"text": "dog food"})
     assert r.status_code == 502 and "sk-boom" not in r.text

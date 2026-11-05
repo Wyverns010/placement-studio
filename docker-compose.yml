@@ -4,7 +4,5 @@ services:
     env_file:
       - path: .env
         required: false
-    environment:
-      GATE_IMPL: ${GATE_IMPL:-llm}
     ports:
       - "8000:7860"   # host 8000 -> container 7860 (the port Hugging Face Spaces expects)

@@ -154,9 +154,30 @@ def test_cta_must_be_a_standard_button():
         Draft(headline="h", body="b", cta="Grab yours", why="w")
 
 
-def test_copywriter_failure_raises_and_critic_failure_counts_as_accept():
-    with pytest.raises(LLMError):
-        write_ads(TEXT, brief(), [PAWLINE], [PET_PARENT], None, FakeProvider({"Draft": LLMError("x")}), CAT, T)
+def test_a_failed_draft_skips_only_that_persona():
+    def copywriter(system, user):
+        if "persona_002" in system:
+            raise LLMError("429")
+        return draft("Care at every meal")
+    llm = FakeProvider({"Draft": copywriter, "Review": Review(accept=True, notes=[])})
+    ads = write_ads(TEXT, brief(), [PAWLINE, RUFFCO], [PET_PARENT, BUSY_PARENT], None, llm, CAT, T)
+    assert [ad.persona_id for ad in ads] == ["persona_004"]
+    assert write_ads(TEXT, brief(), [PAWLINE], [PET_PARENT], None, FakeProvider({"Draft": LLMError("x")}), CAT, T) == []
+
+
+def test_a_failed_revision_ships_the_first_draft_flagged():
+    queue = [draft("Save big", body="Now 50% off.")]
+
+    def copywriter(system, user):  # the first call answers, the revision fails
+        if queue:
+            return queue.pop(0)
+        raise LLMError("timeout")
+    llm = FakeProvider({"Draft": copywriter})
+    [ad] = write_ads(TEXT, brief(), [PAWLINE], [PET_PARENT], None, llm, CAT, T)
+    assert ad.headline == "Save big" and any("50" in problem for problem in ad.fact_violations)
+
+
+def test_critic_failure_counts_as_accept():
     llm = FakeProvider({"Draft": writer(draft("Care at every meal")), "Review": LLMError("x")})
     [result] = write_ads(TEXT, brief(), [PAWLINE], [PET_PARENT], None, llm, CAT, T)
     assert result.headline == "Care at every meal" and schemas(llm) == ["Draft", "Review"]

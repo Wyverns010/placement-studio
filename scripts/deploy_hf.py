@@ -37,7 +37,7 @@ Describe a business and get a recommended set of publishers, shopper personas, a
 and a ready-to-launch campaign config. Every input, including the fifteen sample advertisers,
 runs live against the model.
 
-Secrets: OPENAI_API_KEY (required), GATE_IMPL (optional)
+Secrets: OPENAI_API_KEY (required)
 """
 
 

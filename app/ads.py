@@ -3,6 +3,7 @@ found it clean, revised once if anything needs fixing, then checked again: what'
 ships flagged."""
 from __future__ import annotations
 
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 
@@ -15,6 +16,8 @@ from app.models.catalog import Catalog, Persona, Publisher
 from app.models.scores import PersonaScore, PublisherScore
 from app.models.tuning import Tuning
 from app.prompts import CATEGORY_WORDS, FEEDBACK, render, wrap
+
+log = logging.getLogger(__name__)
 
 # ---- checks ----
 
@@ -117,9 +120,10 @@ def _playbook(tuning: Tuning) -> str:
 
 
 def write_ad(persona: Persona, publisher: Publisher, others: list[Persona], text: str, brief: Brief,
-             note: str | None, llm: LLMProvider, tuning: Tuning) -> Creative:
+             note: str | None, llm: LLMProvider, tuning: Tuning) -> Creative | None:
     """Write -> code checks -> Critic (only if code found it clean) -> one revision if anything needs
-    fixing -> final code check. A failed Critic call counts as accepted."""
+    fixing -> final code check. A failed Critic call counts as accepted, a failed revision ships the
+    first draft flagged, and a failed first draft means no ad for this persona (None)."""
     playbook = _playbook(tuning)
     system = render(
         "copywriter",
@@ -132,7 +136,11 @@ def write_ad(persona: Persona, publisher: Publisher, others: list[Persona], text
             for other in others) or FEEDBACK["no_others"],
     )
     user = wrap("advertiser_text", text) + ("\n" + wrap("user_note", note) if note else "")
-    draft = llm.parse(system=system, user=user, schema=Draft, model=MODEL_CREATIVE)
+    try:
+        draft = llm.parse(system=system, user=user, schema=Draft, model=MODEL_CREATIVE)
+    except LLMError as error:
+        log.warning("no ad for %s: %s", persona.id, error)
+        return None
     fixes = fact_problems(draft, text, tuning)
     if not fixes:
         try:
@@ -144,7 +152,10 @@ def write_ad(persona: Persona, publisher: Publisher, others: list[Persona], text
             fixes = []
     if fixes:
         retry = FEEDBACK["fix"].format(draft=draft.model_dump_json(), problems="; ".join(fixes))
-        draft = llm.parse(system=system, user=user + retry, schema=Draft, model=MODEL_CREATIVE)
+        try:
+            draft = llm.parse(system=system, user=user + retry, schema=Draft, model=MODEL_CREATIVE)
+        except LLMError as error:
+            log.warning("revision failed for %s, shipping the first draft: %s", persona.id, error)
     return Creative(persona_id=persona.id, publisher_id=publisher.id, **draft.model_dump(),
                     fact_violations=fact_problems(draft, text, tuning))
 
@@ -152,12 +163,13 @@ def write_ad(persona: Persona, publisher: Publisher, others: list[Persona], text
 def write_ads(text: str, brief: Brief, publisher_scores: list[PublisherScore], persona_scores: list[PersonaScore],
               note: str | None, llm: LLMProvider, catalog: Catalog, tuning: Tuning) -> list[Creative]:
     """Every persona's ad at the same time (each is an independent ~4-8 s call), then the duplicate
-    headline check across them."""
+    headline check across them. A persona whose ad couldn't be written is left out."""
     slots = ad_slots(persona_scores, publisher_scores, catalog)
     personas = [persona for persona, _ in slots]
     with ThreadPoolExecutor(max_workers=max(1, len(slots))) as pool:
-        ads = list(pool.map(lambda slot: write_ad(
+        written = list(pool.map(lambda slot: write_ad(
             slot[0], slot[1], [other for other in personas if other.id != slot[0].id], text, brief, note, llm,
             tuning), slots))
+    ads = [ad for ad in written if ad]
     flag_duplicate_headlines(ads, brief.product, {persona.id: persona.name for persona in personas}, tuning)
     return ads
