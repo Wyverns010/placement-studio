@@ -5,8 +5,7 @@ client received from the stage before, re-validated here with the Pydantic model
   POST /api/creatives                            stage 2 (one ad per persona)        counts as a run
   POST /api/creatives/regenerate                 stage 2 (rewrite one ad)            counts as a run
   POST /api/config                               stage 3 (config, code only)         free
-Stage 1 results carry a stage_token (app/stagesign.py); stages 2 and 3 must send it back with
-the exact stage-1 objects or get 403. The example advertisers (GET /api/samples) run live like
+The example advertisers (GET /api/samples) run live like
 any other input. Each step runs its agent (app/stepagents) when there is an optional `steer`
 (or per tuning `agents.run_without_steer`); responses add mode, agent_trace and agent_notes.
 """
@@ -15,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -24,26 +24,29 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
-from dotenv import load_dotenv
-
-from app import samples, stagesign
-from app.catalog import Catalog, load_catalog
 from app.gate import ConfidenceGate, get_gate
-from app.llm import LLMError, LLMProvider, get_provider
-from app.models import (Brief, CampaignConfig, CampaignResult, Creative, GateResult, Mode,
-                        PersonaScore, PublisherScore, StageEvent, TraceStep)
+from app.llm import CachedProvider, LLMError, LLMProvider, OpenAIProvider
+from app.loaders import load_catalog, load_samples, load_tuning
+from app.models.ads import Creative
+from app.models.brief import Brief, GateResult
+from app.models.catalog import Catalog
+from app.models.plan import CampaignConfig
+from app.models.result import CampaignResult, Mode, StageEvent, TraceStep
+from app.models.scores import PersonaScore, PublisherScore
+from app.models.tuning import Tuning
 from app.pipeline import MSG_LLM, MSG_OTHER, PipelineError, collect, recommended_of
-from app.stepagents.runtime import AgentRuntime, openai_runtime
-from app.stepagents.steps import config_step, creatives_step, regenerate_step, stage1_events
 from app.ratelimit import RateLimiter
-from app.tuning import Tuning, load_tuning
-
-load_dotenv()  # never overrides env vars already set
+from app.stepagents.runtime import AgentRuntime, openai_runtime
+from app.stepagents.steps import (
+    config_step,
+    creatives_step,
+    regenerate_step,
+    stage1_events,
+)
 
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
 BUSY_MSG = "The demo is busy — try a sample or come back in a bit."
 NO_ADS_MSG = "The AI service didn't return any ads — try again."
-TAMPERED_MSG = "This campaign changed or expired — run it again."
 NOT_PROCEEDING_MSG = "Ads and a config are only built for a campaign the gate let through."
 TOO_LARGE_MSG = "Request too large."
 BAD_CHARS_MSG = "The request contains invalid characters."
@@ -110,7 +113,9 @@ def get_catalog() -> Catalog:
 
 
 def get_llm() -> LLMProvider:
-    return get_provider()
+    cache = os.getenv("LLM_CACHE_DIR", "")
+    provider = OpenAIProvider(get_tuning().llm.timeout_s)
+    return CachedProvider(provider, Path(cache)) if cache else provider
 
 
 def get_gate_dep(t: Tuning = Depends(get_tuning)) -> ConfidenceGate:
@@ -131,13 +136,12 @@ class CampaignRequest(BaseModel):
 
 
 class CreativesRequest(BaseModel):
-    """Stage 2: what stage 1 returned, unchanged, with its stage_token."""
+    """Stage 2: what stage 1 returned."""
     input_text: str
     brief: Brief
     gate: GateResult
     publishers: list[PublisherScore]
     personas: list[PersonaScore]
-    stage_token: str
     steer: str | None = None  # step-level note for the step's agent(s); data
 
 
@@ -227,12 +231,8 @@ def _max_input_chars(t: Tuning) -> int:
     return t.input.max_chars + len(ANSWERS_HEADER) + t.input.max_answers * line
 
 
-def _signed(r: CampaignResult) -> dict:
-    return stagesign.sign_result(r).model_dump()
-
-
 def _check_brief(b: Brief, catalog: Catalog, t: Tuning) -> None:
-    """Size and vocabulary caps on an echoed brief (defence in depth behind the stage token)."""
+    """Size and vocabulary caps on an echoed brief (defence in depth)."""
     i = t.input
     if b.product and len(b.product) > i.brief_product_max_chars:
         raise HTTPException(422, "brief.product is too long.")
@@ -256,12 +256,9 @@ def _check_brief(b: Brief, catalog: Catalog, t: Tuning) -> None:
 
 
 def _validate_stage(req: CreativesRequest, catalog: Catalog, t: Tuning) -> str:
-    """Shared checks for stage 2/3 requests, in order: the stage token (403), the gate let it
+    """Shared checks for stage 2/3 requests, in order: the gate let it
     through, then sizes and ids (422). Returns the stripped input_text."""
     _check_encodable(req.model_dump(mode="json"))
-    if not stagesign.verify(req.stage_token, req.input_text, req.brief, req.gate, req.publishers,
-                            req.personas):
-        raise HTTPException(403, TAMPERED_MSG)
     if req.gate.outcome != "proceed":
         raise HTTPException(422, NOT_PROCEEDING_MSG)
     text = (req.input_text or "").strip()
@@ -323,7 +320,7 @@ def health():
 
 @app.get("/api/samples")
 def list_samples():
-    return samples.load_samples()
+    return load_samples()
 
 
 @app.post("/api/campaign")
@@ -336,7 +333,7 @@ async def campaign(req: CampaignRequest, request: Request,
     steer = _steer(req.steer, t)
     _check_rate(request, limiter, t.ratelimit.cost_stage1)
     try:
-        return _signed(await run_in_threadpool(
+        return (await run_in_threadpool(
             lambda: collect(stage1_events(text, budget, steer, llm=llm, gate=gate, catalog=catalog,
                                           t=t, runtime=runtime))))
     except PipelineError as e:
@@ -365,7 +362,7 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
     _check_rate(request, limiter, t.ratelimit.cost_stage1)
 
     def encode(e: StageEvent) -> dict:
-        data = _signed(CampaignResult.model_validate(e.data)) if e.stage == "done" else e.data
+        data = CampaignResult.model_validate(e.data).model_dump() if e.stage == "done" else e.data
         return {"event": e.stage, "data": json.dumps(data)}
 
     async def gen():

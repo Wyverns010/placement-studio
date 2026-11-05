@@ -6,18 +6,18 @@ import threading
 import time
 
 import pytest
-from pydantic import BaseModel
 
+from app.copycheck import check_facts
 from app.create import (
     NO_SIGNAL_QUESTIONS,
-    ClarifyBatch,
     CreativeBatch,
     clarify_questions,
     write_creatives,
 )
-from app.copycheck import check_facts
 from app.llm import FakeProvider, LLMError
-from app.models import ClarifyQuestion, Creative, PersonaScore, PublisherScore
+from app.models.ads import Creative
+from app.models.brief import ClarifyBatch, ClarifyQuestion
+from app.models.scores import PersonaScore, PublisherScore
 from tests.conftest import CAT, T, brief
 
 
@@ -65,7 +65,7 @@ def pscore(pid) -> PersonaScore:
 
 
 def pub(pid, fit=0.8, recommended=True) -> PublisherScore:
-    p = CAT.publisher(pid)
+    p = CAT.publisher_by_id[pid]
     return PublisherScore(publisher_id=pid, name=p.name, fit=fit, factors=[],
                           recommended=recommended, stretch=False, reason="r")
 
@@ -197,12 +197,12 @@ def test_llm_error_propagates():
 
 def test_one_creative_per_persona_on_matching_publisher():
     pubs = [pub("pub_001", fit=0.95), pub("pub_007", fit=0.6)]
-    assert "pet_food" not in CAT.publisher("pub_001").tags
+    assert "pet_food" not in CAT.publisher_by_id["pub_001"].tags
     llm = FakeProvider({"CreativeBatch": batch(item("persona_004"))})
     out = write_creatives("Dog treats", brief(), [pscore("persona_004")], pubs, CAT, llm, T)
     assert len(out) == 1
     assert out[0].creative_id == "cr_persona_004"
-    assert "pet" in CAT.publisher(out[0].publisher_id).tags
+    assert "pet" in CAT.publisher_by_id[out[0].publisher_id].tags
 
 
 def test_publisher_ignores_non_recommended_and_falls_back_to_top():
@@ -210,7 +210,7 @@ def test_publisher_ignores_non_recommended_and_falls_back_to_top():
     llm = FakeProvider({"CreativeBatch": batch(item("persona_004"))})
     out = write_creatives("x", brief(), [pscore("persona_004")], pubs, CAT, llm, T)
     assert out[0].publisher_id in ("pub_001", "pub_002")
-    if not (CAT.publisher("pub_001").tags | CAT.publisher("pub_002").tags) & {
+    if not (CAT.publisher_by_id["pub_001"].tags | CAT.publisher_by_id["pub_002"].tags) & {
         "pet_food", "pet_supplies", "pet_health", "subscription_boxes"
     }:
         assert out[0].publisher_id == "pub_001"
@@ -391,11 +391,12 @@ def test_length_only_retry_does_not_list_other_headlines():
 def test_every_feedback_key_requested_by_code_exists_in_yaml():
     import re
     from pathlib import Path
+
     import yaml
     keys = yaml.safe_load((Path(__file__).resolve().parent.parent / "prompts/creative_feedback.yaml").read_text())
     root = Path(__file__).resolve().parent.parent
     src = (root / "app/create.py").read_text() + (root / "app/copycheck.py").read_text()
-    used = set(re.findall(r'feedback\(\s*"(\w+)"', src))
+    used = set(re.findall(r'FEEDBACK\["(\w+)"\]', src))
     assert used and used <= set(keys), used - set(keys)
 
 
@@ -477,7 +478,7 @@ def test_prompt_includes_playbook_and_publisher_context():
     llm = FakeProvider({"CreativeBatch": batch(item("persona_004"))})
     write_creatives("Dog treats", brief(), [pscore("persona_004")], [pub("pub_007")], CAT, llm, T)
     system = llm.calls[0]["system"]
-    p = CAT.publisher("pub_007")
+    p = CAT.publisher_by_id["pub_007"]
     assert "Copywriting playbook" in system and "emotional" in system and "practical" in system
     for phrase in T.creative.banned_phrases:
         assert phrase in system
@@ -488,7 +489,7 @@ def test_prompt_includes_playbook_and_publisher_context():
 
 # ---- regenerate one ad ----
 
-from app.create import rewrite_creative  # noqa: E402
+from app.create import rewrite_creative
 
 TWO = [pscore("persona_004"), pscore("persona_001")]
 

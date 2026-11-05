@@ -1,67 +1,22 @@
-"""Prompt loader.
-
-Prompt files live in the repo-level ``prompts/`` directory as ``{name}.md`` and
-are rendered with ``str.format_map``: ``{slot}`` is substituted, a missing slot
-raises ``KeyError``. Literal braces in prompt text (e.g. JSON examples) must be
-doubled: ``{{`` and ``}}``.
-"""
+"""Prompt files from prompts/: `{slot}` is filled, a missing slot raises KeyError, and literal
+braces in a prompt are doubled (`{{`, `}}`)."""
 import re
-from functools import lru_cache
 from pathlib import Path
 
 import yaml
 
+from app.constants.paths import PROMPTS_DIR
 
-_DEFAULT_DIR = Path(__file__).resolve().parent.parent / "prompts"
+FEEDBACK: dict[str, str] = yaml.safe_load((PROMPTS_DIR / "creative_feedback.yaml").read_text(encoding="utf-8"))
+CATEGORY_WORDS: dict[str, str] = yaml.safe_load((PROMPTS_DIR / "category_words.yaml").read_text(encoding="utf-8")) or {}
 
 
-def render(name: str, /, *, prompts_dir: Path = _DEFAULT_DIR, **slots) -> str:
-    text = (Path(prompts_dir) / f"{name}.md").read_text(encoding="utf-8")
+def render(name: str, /, *, prompts_dir: Path = PROMPTS_DIR, **slots) -> str:
+    text = (prompts_dir / f"{name}.md").read_text(encoding="utf-8")
     return text.format_map(slots)
 
 
-def _wrap(tag: str, text: str) -> str:
-    """Wrap untrusted text in <tag> tags, neutralising any opening or closing tag inside it."""
-    inner = re.sub(r"<(/?)" + tag, lambda m: "\u2039" + m.group(1) + tag, text, flags=re.IGNORECASE)
+def wrap(tag: str, text: str) -> str:
+    """Untrusted text inside <tag> tags, with any opening or closing tag inside it neutralised."""
+    inner = re.sub(r"<(/?)" + tag, lambda m: "‹" + m.group(1) + tag, text, flags=re.IGNORECASE)
     return f"<{tag}>{inner}</{tag}>"
-
-
-def wrap_advertiser_text(text: str) -> str:
-    """Wrap the advertiser's untrusted text in <advertiser_text> tags."""
-    return _wrap("advertiser_text", text)
-
-
-def wrap_current_ad(text: str) -> str:
-    """Wrap the client-echoed current ad (regenerate) in <current_ad> tags."""
-    return _wrap("current_ad", text)
-
-
-def wrap_user_note(text: str) -> str:
-    """Wrap a regenerate note (untrusted, treated as data) in <user_note> tags."""
-    return _wrap("user_note", text)
-
-
-def feedback(key: str, /, *, prompts_dir: Path = _DEFAULT_DIR, **slots) -> str:
-    """A feedback template from prompts/creative_feedback.yaml, with {slots} filled."""
-    return _feedback_templates(Path(prompts_dir))[key].format_map(slots)
-
-
-def category_word(category: str, /, *, prompts_dir: Path = _DEFAULT_DIR) -> str:
-    """A publisher category as the models read it (prompts/category_words.yaml)."""
-    return _category_words(Path(prompts_dir)).get(category, category.replace("_", " "))
-
-
-@lru_cache(maxsize=8)
-def _category_words(prompts_dir: Path) -> dict[str, str]:
-    return yaml.safe_load((prompts_dir / "category_words.yaml").read_text(encoding="utf-8")) or {}
-
-
-@lru_cache(maxsize=8)
-def _feedback_templates(prompts_dir: Path) -> dict[str, str]:
-    """creative_feedback.yaml, parsed once per directory (it is read on every check message)."""
-    return yaml.safe_load((prompts_dir / "creative_feedback.yaml").read_text(encoding="utf-8"))
-
-
-def wrap_steer(text: str | None) -> str:
-    """Wrap the user's step-agent steer ("Tell the agent…", untrusted, data) in <user_steer> tags."""
-    return _wrap("user_steer", text or "")

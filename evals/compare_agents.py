@@ -41,15 +41,14 @@ from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env")  # never overrides the two model names set above
 
-from app.catalog import load_catalog  # noqa: E402
+from app.constants.llm import REASONING_EFFORT
 from app.gate import get_gate  # noqa: E402
-from app.llm import LLMError, CachedProvider, reasoning_effort  # noqa: E402
-from app.models import CampaignResult  # noqa: E402
+from app.llm import CachedProvider, LLMError
+from app.loaders import load_catalog, load_samples, load_tuning
+from app.models.result import CampaignResult
 from app.pipeline import collect, make_config, make_creatives, run_stage1  # noqa: E402
-from app.samples import load_samples  # noqa: E402
 from app.stepagents import planner, steps  # noqa: E402
 from app.stepagents.runtime import Session, openai_runtime, run_step  # noqa: E402
-from app.tuning import load_tuning  # noqa: E402
 from evals.run import load_cases, summarize  # noqa: E402
 
 T = load_tuning(ROOT / "config" / "tuning.yaml")
@@ -62,7 +61,7 @@ CODE_META = {"mode": "code", "agent_trace": [], "agent_notes": []}
 # ---------------------------------------------------------------- spend metering
 
 def price_usd(model: str, usage) -> float:
-    p = T.agents.price(model)
+    p = T.agents.prices_per_1m_usd.get(model) or T.agents.prices_per_1m_usd["default"]
     details = getattr(usage, "input_tokens_details", None)
     cached = min(getattr(details, "cached_tokens", 0) or 0, usage.input_tokens)
     return ((usage.input_tokens - cached) * p.input + cached * p.cached_input
@@ -101,8 +100,8 @@ class MeteredLive:
     def parse(self, *, system, user, schema, model):
         import openai
         extra = {}
-        if reasoning_effort() != "default":
-            extra["reasoning"] = {"effort": reasoning_effort()}
+        if REASONING_EFFORT != "default":
+            extra["reasoning"] = {"effort": REASONING_EFFORT}
         try:
             resp = _client().responses.parse(
                 model=model, **extra, text_format=schema,
@@ -272,7 +271,7 @@ def _case(cid: str) -> dict:
 
 
 def _cat(pid: str) -> str:
-    return CAT.publisher(pid).category
+    return CAT.publisher_by_id[pid].category
 
 
 def _rec_ids(r):
@@ -448,9 +447,9 @@ def _ad(c: dict) -> str:
 def judge_pair(text: str, brief, persona_id: str, publisher_id: str, x: dict, y: dict,
                agent_first: bool, meter: Meter) -> dict:
     from app.create import _persona_block, _publisher_block
-    from app.models import PublisherScore
+    from app.models.scores import PublisherScore
     persona = next(p for p in CAT.personas if p.id == persona_id)
-    p = CAT.publisher(publisher_id)
+    p = CAT.publisher_by_id[publisher_id]
     pub = PublisherScore(publisher_id=p.id, name=p.name, fit=0.0, factors=[], recommended=True,
                          stretch=False, reason="")
     a, b = (x, y) if agent_first else (y, x)

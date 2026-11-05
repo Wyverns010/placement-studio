@@ -87,23 +87,18 @@ def test_openai_provider_wraps_errors():
         )
 
 
-def test_get_provider_cache_toggle(monkeypatch, tmp_path):
-    monkeypatch.delenv("LLM_CACHE_DIR", raising=False)
-    assert isinstance(llm.get_provider(), llm.MemoProvider)  # always memoised (briefs only)
-    assert isinstance(llm.get_provider().inner, OpenAIProvider)
-    monkeypatch.setenv("LLM_CACHE_DIR", str(tmp_path))
-    assert isinstance(llm.get_provider().inner, CachedProvider)
-    monkeypatch.setenv("LLM_CACHE_DIR", "")
-    assert isinstance(llm.get_provider().inner, OpenAIProvider)
-
-
 def test_model_defaults(monkeypatch):
+    import importlib
+
+    from app.constants import llm as names
     monkeypatch.delenv("OPENAI_MODEL_FAST", raising=False)
     monkeypatch.delenv("OPENAI_MODEL_CREATIVE", raising=False)
-    assert llm.model_fast() == "gpt-5.4-mini"
-    assert llm.model_creative() == "gpt-5.5"
+    importlib.reload(names)
+    assert (names.MODEL_FAST, names.MODEL_CREATIVE) == ("gpt-5.4-mini", "gpt-5.5")
     monkeypatch.setenv("OPENAI_MODEL_FAST", "x")
-    assert llm.model_fast() == "x"
+    assert importlib.reload(names).MODEL_FAST == "x"
+    monkeypatch.undo()
+    importlib.reload(names)
 
 
 def test_cached_provider_corrupt_entry_falls_through(tmp_path):
@@ -135,25 +130,25 @@ def test_client_built_with_no_retries_and_tuned_timeout(monkeypatch):
     import openai
     seen = {}
 
-    class Stub:
+    class Stub(_Client):
         def __init__(self, **kw):
+            super().__init__(Out(answer="y"))
             seen.update(kw)
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(openai, "OpenAI", Stub)
-    llm.OpenAIProvider()._get_client()
+    llm.OpenAIProvider(25).parse(system="s", user="u", schema=Out, model="m")
     assert seen["timeout"] == 25 and seen["max_retries"] == 0
 
 
 def test_reasoning_effort_sent_and_omitted(monkeypatch):
-    monkeypatch.delenv("OPENAI_REASONING_EFFORT", raising=False)
     c = _Client(Out(answer="y"))
     OpenAIProvider(client=c).parse(system="s", user="u", schema=Out, model="m")
     assert c.kw["reasoning"] == {"effort": "low"}
-    monkeypatch.setenv("OPENAI_REASONING_EFFORT", "medium")
+    monkeypatch.setattr(llm, "REASONING_EFFORT", "medium")
     OpenAIProvider(client=c).parse(system="s", user="u", schema=Out, model="m")
     assert c.kw["reasoning"] == {"effort": "medium"}
-    monkeypatch.setenv("OPENAI_REASONING_EFFORT", "default")
+    monkeypatch.setattr(llm, "REASONING_EFFORT", "default")
     OpenAIProvider(client=c).parse(system="s", user="u", schema=Out, model="m")
     assert "reasoning" not in c.kw
 
@@ -164,13 +159,14 @@ def test_openai_client_gets_stripped_api_key(monkeypatch):
 
     seen = {}
 
-    class _Spy:
+    class _Spy(_Client):
         def __init__(self, **kw):
+            super().__init__(Out(answer="y"))
             seen.update(kw)
 
     monkeypatch.setenv("OPENAI_API_KEY", "  sk-test\n")
     monkeypatch.setattr(openai, "OpenAI", _Spy)
-    OpenAIProvider()._get_client()
+    OpenAIProvider(25).parse(system="s", user="u", schema=Out, model="m")
     assert seen == {"api_key": "sk-test", "timeout": 25, "max_retries": 0}
 
 
@@ -183,29 +179,7 @@ def test_openai_client_blank_key_raises_without_constructing(monkeypatch, raw):
     monkeypatch.setenv("OPENAI_API_KEY", raw)
     monkeypatch.setattr(openai, "OpenAI", lambda **kw: built.append(kw))
     with pytest.raises(LLMError, match="OPENAI_API_KEY is not set"):
-        OpenAIProvider()._get_client()
+        OpenAIProvider().parse(system="s", user="u", schema=Out, model="m")
     assert built == []
 
 
-def test_memo_provider_repeats_a_brief_but_not_other_schemas():
-    from app.llm import MemoProvider
-
-    class BriefSchema(BaseModel):
-        x: int
-
-    n = {"calls": 0}
-
-    def answer(system, user):
-        n["calls"] += 1
-        return n["calls"]
-
-    inner = FakeProvider({"BriefSchema": lambda s, u: BriefSchema(x=answer(s, u)),
-                          "Out": lambda s, u: Out(answer=str(answer(s, u)))})
-    memo = MemoProvider(inner, memo={})
-    a = memo.parse(system="s", user="u", schema=BriefSchema, model="m")
-    b = memo.parse(system="s", user="u", schema=BriefSchema, model="m")
-    assert a.x == b.x == 1
-    assert memo.parse(system="s", user="other", schema=BriefSchema, model="m").x == 2
-    memo.parse(system="s", user="u", schema=Out, model="m")
-    memo.parse(system="s", user="u", schema=Out, model="m")
-    assert n["calls"] == 4  # ads and other schemas always go live

@@ -5,9 +5,11 @@ from __future__ import annotations
 import math
 from typing import Literal, NamedTuple
 
-from app.catalog import Catalog, Publisher
-from app.models import Brief, LineItem, PublisherScore
-from app.tuning import Tuning
+from app.models.brief import Brief
+from app.models.catalog import Catalog, Publisher
+from app.models.plan import LineItem
+from app.models.scores import PublisherScore
+from app.models.tuning import Tuning
 
 
 def cpm_usd(pub: Publisher, t: Tuning) -> float:
@@ -45,7 +47,7 @@ def allocate(recommended: list[PublisherScore], catalog: Catalog, monthly_usd: f
     """Water-fill the budget by fit, capping each publisher at its reach. Pure numbers, no text."""
     if not recommended:
         return [], monthly_usd
-    caps = [reach_cap_usd(catalog.publisher(p.publisher_id), t) for p in recommended]
+    caps = [reach_cap_usd(catalog.publisher_by_id[p.publisher_id], t) for p in recommended]
     weights = _weights([p.fit for p in recommended], t)
     spend = [0.0] * len(recommended)
     active = list(range(len(recommended)))
@@ -66,7 +68,7 @@ def allocate(recommended: list[PublisherScore], catalog: Catalog, monthly_usd: f
     total = sum(spend)
     items = []
     for p, s in zip(recommended, spend):
-        cpm = cpm_usd(catalog.publisher(p.publisher_id), t)
+        cpm = cpm_usd(catalog.publisher_by_id[p.publisher_id], t)
         items.append(LineItem(publisher_id=p.publisher_id, share=(s / total if total else 0.0),
                               budget_usd=round(s, 2), creative_id=None, cpm_usd=cpm,
                               est_impressions=round(s / cpm * 1000) if cpm else 0))
@@ -96,7 +98,7 @@ def order_value_used(brief: Brief, recommended: list[PublisherScore], catalog: C
 
 
 def _weighted_aov(recommended: list[PublisherScore], catalog: Catalog) -> float:
-    pubs = [(catalog.publisher(p.publisher_id).avg_order_value_usd, p.fit) for p in recommended]
+    pubs = [(catalog.publisher_by_id[p.publisher_id].avg_order_value_usd, p.fit) for p in recommended]
     if not pubs:
         pubs = [(p.avg_order_value_usd, 1.0) for p in catalog.publishers]
     total = sum(w for _, w in pubs)
@@ -132,7 +134,7 @@ def recommended_budget(brief: Brief, publishers: list[PublisherScore], catalog: 
     b = t.budget
     cpa = target_cpa(brief, publishers, catalog, t)
     want = cpa * b.conversions_per_month
-    caps = {p.publisher_id: reach_cap_usd(catalog.publisher(p.publisher_id), t) for p in publishers}
+    caps = {p.publisher_id: reach_cap_usd(catalog.publisher_by_id[p.publisher_id], t) for p in publishers}
     parts = [min(caps[p.publisher_id], want) for p in publishers]
     # rounded up: rounding down would leave too little for the conversions the bid needs
     full = min(b.max_usd, max(b.min_usd, math.ceil(sum(parts) / b.round_to_usd) * b.round_to_usd))

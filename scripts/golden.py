@@ -12,13 +12,10 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-from app.catalog import load_catalog
 from app.gate import get_gate
 from app.llm import CachedProvider, LLMError, OpenAIProvider
+from app.loaders import load_catalog, load_tuning
 from app.pipeline import collect, make_config, run_stage1
-from app.tuning import load_tuning
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "evals" / "cases.jsonl"
@@ -64,7 +61,6 @@ def main(argv: list[str] | None = None) -> int:
     modes.add_argument("--write", dest="mode", action="store_const", const="--write")
     modes.add_argument("--check", dest="mode", action="store_const", const="--check")
     mode = parser.parse_args(argv).mode
-    load_dotenv(ROOT / ".env")
     os.environ.pop("LLM_CACHE_DIR", None)
     inner = OpenAIProvider() if mode == "--write" else CacheOnly()
     llm = CachedProvider(inner, CACHE)

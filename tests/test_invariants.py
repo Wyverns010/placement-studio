@@ -7,7 +7,7 @@ import yaml
 
 from app.gate import get_gate
 from app.llm import FakeProvider
-from app.models import CampaignResult
+from app.models.result import CampaignResult
 from app.pipeline import run_full
 from evals import calibrate
 from evals.invariants import check

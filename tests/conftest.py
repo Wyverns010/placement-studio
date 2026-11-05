@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.catalog import load_catalog
-from app.models import Brief
-from app.tuning import load_tuning
+from app.loaders import load_catalog, load_tuning
+from app.models.brief import Brief
 
 CAT = load_catalog()
 T = load_tuning()

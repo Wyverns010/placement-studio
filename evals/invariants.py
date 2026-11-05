@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from app.copycheck import check_facts, headlines_similar
-from app.models import CampaignConfig, CampaignResult
-from app.tuning import Tuning
+from app.models.plan import CampaignConfig
+from app.models.result import CampaignResult
+from app.models.tuning import Tuning
 
 BUILT = ("proceed", "weak_fit")
 

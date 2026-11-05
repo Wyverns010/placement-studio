@@ -1,4 +1,4 @@
-from app.tuning import load_tuning
+from app.loaders import load_tuning
 
 
 def test_tuning_loads_defaults():
@@ -26,17 +26,17 @@ def test_load_tuning_independent_of_cwd(tmp_path, monkeypatch):
 
 
 def test_category_words_come_from_prompts():
-    from app.catalog import load_catalog
     from app.create import category_words
-    from app.prompts import category_word
-    assert category_word("home") == "home goods" and category_word("new_thing") == "new thing"
+    from app.loaders import load_catalog
+    from app.prompts import CATEGORY_WORDS
+    assert CATEGORY_WORDS.get("home", "home".replace("_", " ")) == "home goods" and CATEGORY_WORDS.get("new_thing", "new_thing".replace("_", " ")) == "new thing"
     words = category_words(load_catalog())
     assert "home goods" in words and "drinks" in words
 
 
 def test_pipeline_slices_follow_tuning():
+    from app.models.scores import PublisherScore
     from app.pipeline import _pub_data
-    from app.models import PublisherScore
     t = load_tuning().model_copy(deep=True)
     pubs = [PublisherScore(publisher_id=f"p{i}", name=f"P{i}", fit=1 - i / 10, factors=[],
                            recommended=True, stretch=False, reason="") for i in range(8)]

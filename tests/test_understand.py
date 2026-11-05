@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from app.catalog import load_catalog
 from app.llm import FakeProvider
-from app.models import Brief
+from app.loaders import load_catalog
+from app.models.brief import Brief
 from app.understand import brief_schema, understand
 
 
@@ -48,6 +48,7 @@ def test_understand_prompt_contains_vocab_and_text():
 
 def test_clamp_brief_to_input_caps():
     import math
+
     from app.understand import clamp_brief
     from tests.conftest import T, brief
     i = T.input
@@ -66,10 +67,10 @@ def test_clamp_brief_to_input_caps():
 
 def test_vocab_groups_by_publisher_category_plus_interest_terms():
     cat = load_catalog()
-    groups = cat.vocab_groups()
+    groups = cat.vocab_groups
     assert {"treats", "toys", "pet_food"} <= set(groups["pet"])
     assert "supplements" in groups["wellness_dtc"] and "basics" in groups["apparel"]
-    interests = cat.interest_terms()
+    interests = cat.interest_terms
     assert "pet_health" in interests and "treats" not in interests
     # the groups and interest terms cover exactly the schema vocabulary
     assert set(groups) | {t for ts in groups.values() for t in ts} | set(interests) == set(cat.vocab)
@@ -92,8 +93,8 @@ def test_understand_prompt_renders_grouped_vocab_and_parent_rule():
 
 def test_schema_vocab_unchanged_by_grouping():
     cat = load_catalog()
-    groups = cat.vocab_groups()
-    shown = set(groups) | {t for ts in groups.values() for t in ts} | set(cat.interest_terms())
+    groups = cat.vocab_groups
+    shown = set(groups) | {t for ts in groups.values() for t in ts} | set(cat.interest_terms)
     assert shown == set(cat.vocab)  # the grouped prompt text names exactly the schema's terms
     for term in cat.vocab:
         b = brief_schema(cat)(**_payload(categories=[term]))

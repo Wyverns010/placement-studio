@@ -27,7 +27,7 @@ def test_prompt_comes_from_prompt_files():
 
 def test_generated_ids_unique_across_runs(tmp_path, monkeypatch):
     llm = _fake()
-    monkeypatch.setattr(generate, "get_provider", lambda: llm)
+    monkeypatch.setattr(generate, "make_llm", lambda: llm)
     out = tmp_path / "c.jsonl"
     stamps = iter(["20261031T100000", "20261031T100001"])
     monkeypatch.setattr(generate, "_run_stamp", lambda: next(stamps))

@@ -11,10 +11,9 @@ import re
 import sys
 from pathlib import Path
 
-import yaml
-
 from app.gate import decide_outcome
-from app.tuning import GateTuning, load_tuning
+from app.loaders import load_tuning
+from app.models.tuning import GateTuning
 
 LAST_RUN = Path(__file__).resolve().parents[1] / "evals" / "last_run.json"
 TUNING = Path(__file__).resolve().parents[1] / "config" / "tuning.yaml"

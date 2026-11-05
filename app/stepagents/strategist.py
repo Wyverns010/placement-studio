@@ -8,18 +8,30 @@ import re
 from agents import Agent, RunContextWrapper, function_tool
 from pydantic import BaseModel
 
-from app.catalog import Catalog
 from app.create import clarify_questions
 from app.gate import ConfidenceGate
 from app.llm import LLMProvider
-from app.match import (is_weak_fit, mark_stretch, score_personas, score_publishers,
-                       select_personas)
-from app.models import Brief, ClarifyQuestion, GateResult, PublisherScore
+from app.match import (
+    is_weak_fit,
+    mark_stretch,
+    score_personas,
+    score_publishers,
+    select_personas,
+)
+from app.models.brief import Brief, ClarifyQuestion, GateResult
+from app.models.catalog import Catalog
+from app.models.scores import PublisherScore
+from app.models.tuning import Tuning
 from app.pipeline import Stage1Plan
-from app.prompts import category_word, render, wrap_advertiser_text, wrap_steer
+from app.prompts import CATEGORY_WORDS, render, wrap
 from app.stepagents.guards import floor, floor_note, named_in_steer, unnamed_note
-from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, keep_agent_notes, run_agent
-from app.tuning import Tuning
+from app.stepagents.runtime import (
+    AgentRuntime,
+    Session,
+    ToolRefused,
+    keep_agent_notes,
+    run_agent,
+)
 from app.understand import clamp_brief, understand
 
 ROLE = "strategist"
@@ -117,7 +129,7 @@ class Stage1Workspace:
         pubs = {p.id: p for p in self.catalog.publishers}
         for pid in sorted(self.exclude_publishers):
             p = pubs[pid]
-            notes.append(f"Left out {p.name} ({category_word(p.category)}) because of your note.")
+            notes.append(f"Left out {p.name} ({CATEGORY_WORDS.get(p.category, p.category.replace("_", " "))}) because of your note.")
         names = {p.id: p.name for p in self.catalog.personas}
         for pid in sorted(self.exclude_personas):
             notes.append(f"Left out the persona {names[pid]} because of your note.")
@@ -191,7 +203,7 @@ def adjust_brief(ctx: RunContextWrapper[Stage1Workspace], add_categories: list[s
             raise ToolRefused(f"not in the catalog vocabulary: {', '.join(bad)}")
         unnamed = [c for c in remove_categories if not named_in_steer(ws.steer, None, c)]
         if unnamed:
-            ws.session.note(f"Kept {', '.join(category_word(c) for c in unnamed)} in the brief: "
+            ws.session.note(f"Kept {', '.join(CATEGORY_WORDS.get(c, c.replace("_", " ")) for c in unnamed)} in the brief: "
                             "your note doesn't ask to drop it.")
             raise ToolRefused(f"the steer does not ask to drop: {', '.join(unnamed)}")
         b = ws.current()
@@ -283,7 +295,7 @@ def build_agent(runtime: AgentRuntime) -> Agent:
 
 
 def agent_input(text: str, steer: str | None) -> str:
-    return wrap_advertiser_text(text) + "\n" + wrap_steer(steer)
+    return wrap("advertiser_text", text) + "\n" + wrap("user_steer", steer or "")
 
 
 async def run(ws: Stage1Workspace, runtime: AgentRuntime) -> None:

@@ -4,13 +4,23 @@ import hashlib
 import math
 import re
 
-from app.budget import (Pacing, allocate, cpm_usd, frequency_cap, order_value_used, pacing,
-                        projection, recommended_budget)
-from app.catalog import Catalog
+from app.budget import (
+    Pacing,
+    allocate,
+    cpm_usd,
+    frequency_cap,
+    order_value_used,
+    pacing,
+    projection,
+    recommended_budget,
+)
 from app.match import age_bounds
-from app.models import (Brief, CampaignConfig, Creative, GateResult, LineItem,
-                        PersonaScore, PublisherScore)
-from app.tuning import Tuning
+from app.models.ads import Creative
+from app.models.brief import Brief, GateResult
+from app.models.catalog import Catalog
+from app.models.plan import CampaignConfig, LineItem
+from app.models.scores import PersonaScore, PublisherScore
+from app.models.tuning import Tuning
 
 ID_SLUG_LEN = 32  # identifier formatting, not a tunable
 ID_HASH_LEN = 6
@@ -180,7 +190,7 @@ def _budget_rationale(rec, source: str, monthly_usd: float, unallocated: float, 
            f"${rec.cpa:,.0f} target CPA = ${rec.cpa * goal:,.0f} each, across {n} "
            f"publisher{'' if n == 1 else 's'}")
     for pid in rec.capped:
-        pub = catalog.publisher(pid)
+        pub = catalog.publisher_by_id[pid]
         cap = pub.monthly_impressions * b.max_share_of_impressions / 1000 * cpm_usd(pub, t)
         why += (f"; {names.get(pid, pid)} capped at its reach ({b.max_share_of_impressions:.0%} of "
                 f"{pub.monthly_impressions / 1e6:g}M impressions at ${cpm_usd(pub, t):g} CPM = ${cap:,.0f})")

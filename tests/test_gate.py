@@ -2,9 +2,8 @@ import pytest
 
 from app.gate import decide_outcome, get_gate
 from app.gate.llm_gate import LLMSelfReportGate
-from app.tuning import load_tuning
+from app.loaders import load_tuning
 from tests.conftest import brief
-
 
 T = load_tuning().gate
 

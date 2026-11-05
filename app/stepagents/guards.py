@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from app.prompts import category_word
+from app.prompts import CATEGORY_WORDS
 
 # words too generic to count as naming a kind of store ("skip delivery stores" names delivery)
 _GENERIC = {"store", "stores", "shop", "shops", "goods", "services", "products", "product", "kits"}
@@ -19,7 +19,7 @@ _NUM = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
 
 def _stems(category: str) -> set[str]:
     words = set(re.split(r"[^a-z]+", category.lower()))
-    words |= set(re.split(r"[^a-z]+", category_word(category).lower()))
+    words |= set(re.split(r"[^a-z]+", CATEGORY_WORDS.get(category, category.replace("_", " ")).lower()))
     return {w[:5] if len(w) > 5 else w for w in words if w and w not in _GENERIC}
 
 

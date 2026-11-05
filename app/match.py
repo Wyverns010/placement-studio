@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import math
 
-from app.catalog import Catalog, Persona, Publisher
-from app.models import Brief, Factor, PersonaScore, PublisherScore
-from app.tuning import Tuning
+from app.models.brief import Brief
+from app.models.catalog import Catalog, Persona, Publisher
+from app.models.scores import Factor, PersonaScore, PublisherScore
+from app.models.tuning import Tuning
 
 _INCOME_NAME = {1: "mid", 2: "mid-high", 3: "high"}
 EXCLUDED_REASON = "Excluded by your note"  # a publisher a steer removed
@@ -20,7 +21,7 @@ def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Fact
     attrs = set(t.publisher.attribute_tags)
     if p.category in b.categories:
         # the brief also names a narrower term in this category (kitchen) that this publisher lacks
-        narrow = sorted(set(b.categories) & set(catalog.vocab_groups().get(p.category, [])) - attrs
+        narrow = sorted(set(b.categories) & set(catalog.vocab_groups.get(p.category, [])) - attrs
                         - set(p.subcategories) - {p.category})
         if narrow and not set(b.categories) & set(p.subcategories):
             return Factor(name="category", score=cs.same_category,
@@ -53,7 +54,7 @@ def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Fact
 def scoped(b: Brief, catalog: Catalog, t: Tuning) -> Brief:
     """The brief without scoped terms whose category it doesn't otherwise name ("toys" for kids'
     toys is not a pet store's toys)."""
-    groups = catalog.vocab_groups()
+    groups = catalog.vocab_groups
     terms = set(b.categories) | set(b.adjacent_categories)
 
     def keep(c: str) -> bool:
@@ -194,7 +195,7 @@ def term_parents(catalog: Catalog, t: Tuning) -> dict[str, set[str]]:
     """Category term -> the publisher categories it sits under (catalog groups + affinity_parents)."""
     attrs = set(t.publisher.attribute_tags)
     out: dict[str, set[str]] = {}
-    for cat, subs in catalog.vocab_groups().items():
+    for cat, subs in catalog.vocab_groups.items():
         for s in subs:
             if s not in attrs and s != cat:
                 out.setdefault(s, set()).add(cat)
@@ -316,7 +317,7 @@ def score_personas(brief: Brief, catalog: Catalog, t: Tuning,
     after them, so a persona who shops there scores higher."""
     brief = scoped(brief, catalog, t)
     parents = term_parents(catalog, t)
-    pubs = ([(catalog.publisher(s.publisher_id), s.fit) for s in publishers]
+    pubs = ([(catalog.publisher_by_id[s.publisher_id], s.fit) for s in publishers]
             if publishers is not None else None)
     rows = []
     for p in catalog.personas:

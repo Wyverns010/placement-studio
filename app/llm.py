@@ -1,4 +1,4 @@
-"""LLM provider abstraction: OpenAI structured outputs, a test fake, a disk cache.
+"""LLM provider: OpenAI structured outputs, a fake for tests, a disk cache for evals.
 
 Fake and cache key on ``schema.__name__`` (a str), not the class, because some
 schemas are built dynamically per catalog.
@@ -13,19 +13,9 @@ from typing import Callable, Protocol, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app.constants.llm import REASONING_EFFORT
+
 T = TypeVar("T", bound=BaseModel)
-
-def model_fast() -> str:
-    return os.getenv("OPENAI_MODEL_FAST") or "gpt-5.4-mini"
-
-
-def model_creative() -> str:
-    return os.getenv("OPENAI_MODEL_CREATIVE") or "gpt-5.5"
-
-
-def reasoning_effort() -> str:
-    return os.getenv("OPENAI_REASONING_EFFORT") or "low"
-
 
 class LLMError(Exception):
     pass
@@ -36,31 +26,24 @@ class LLMProvider(Protocol):
 
 
 class OpenAIProvider:
-    def __init__(self, client=None):
-        self._client = client
-
-    def _get_client(self):
-        if self._client is None:
-            from openai import OpenAI
-
-            # strip: a secret pasted with a trailing newline is an illegal Authorization header
-            key = os.environ.get("OPENAI_API_KEY", "").strip()
-            if not key:  # api_key=None would let the SDK re-read the raw (unstripped) env value
-                raise LLMError("OPENAI_API_KEY is not set")
-            from app.tuning import load_tuning
-
-            self._client = OpenAI(api_key=key, timeout=load_tuning().llm.timeout_s, max_retries=0)
-        return self._client
+    def __init__(self, timeout_s: float = 25.0, client=None):
+        self.timeout_s = timeout_s
+        self.client = client  # tests pass a fake; live, it's created on the first call
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
         import openai
 
+        if self.client is None:
+            # strip: a secret pasted with a trailing newline is an illegal Authorization header
+            key = os.environ.get("OPENAI_API_KEY", "").strip()
+            if not key:  # api_key=None would let the SDK re-read the raw (unstripped) env value
+                raise LLMError("OPENAI_API_KEY is not set")
+            self.client = openai.OpenAI(api_key=key, timeout=self.timeout_s, max_retries=0)
         extra = {}
-        effort = reasoning_effort()
-        if effort != "default":
-            extra["reasoning"] = {"effort": effort}
+        if REASONING_EFFORT != "default":
+            extra["reasoning"] = {"effort": REASONING_EFFORT}
         try:
-            resp = self._get_client().responses.parse(
+            resp = self.client.responses.parse(
                 model=model,
                 **extra,
                 input=[
@@ -122,42 +105,3 @@ class CachedProvider:
             Path(tmp).unlink(missing_ok=True)
             raise
         return result
-
-
-class MemoProvider:
-    """In-process memo for the calls whose answer must not drift between requests: the same text
-    reads into the same brief (so the same gate outcome) when a steer or a retry re-runs stage 1.
-    Other schemas (ads, regenerations) always go live. The memo is shared by every instance (the
-    API builds a provider per request)."""
-
-    _shared: dict[str, BaseModel] = {}
-    _shared_lock = threading.Lock()
-
-    def __init__(self, inner: LLMProvider, schemas: frozenset[str] = frozenset({"BriefSchema"}),
-                 max_entries: int = 1024, memo: dict[str, BaseModel] | None = None):
-        self.inner, self.schemas, self.max_entries = inner, schemas, max_entries
-        self._memo = self._shared if memo is None else memo
-        self._lock = self._shared_lock
-
-    def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
-        if schema.__name__ not in self.schemas:
-            return self.inner.parse(system=system, user=user, schema=schema, model=model)
-        key = hashlib.sha256(json.dumps([model, system, user, schema.__name__]).encode()).hexdigest()
-        with self._lock:
-            hit = self._memo.get(key)
-        if hit is not None:
-            return hit.model_copy(deep=True)  # type: ignore[return-value]
-        result = self.inner.parse(system=system, user=user, schema=schema, model=model)
-        with self._lock:
-            if len(self._memo) >= self.max_entries:
-                self._memo.pop(next(iter(self._memo)))  # oldest first (dicts keep insertion order)
-            self._memo[key] = result
-        return result.model_copy(deep=True)
-
-
-def get_provider() -> LLMProvider:
-    provider: LLMProvider = OpenAIProvider()
-    cache_dir = os.getenv("LLM_CACHE_DIR", "")
-    if cache_dir:
-        provider = CachedProvider(provider, Path(cache_dir))
-    return MemoProvider(provider)

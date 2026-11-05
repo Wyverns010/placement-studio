@@ -10,13 +10,22 @@ from agents import Agent, RunContextWrapper, function_tool
 from pydantic import BaseModel
 
 from app.budget import recommended_budget
-from app.catalog import Catalog
-from app.models import Brief, CampaignConfig, Creative, GateResult, PersonaScore, PublisherScore
+from app.models.ads import Creative
+from app.models.brief import Brief, GateResult
+from app.models.catalog import Catalog
+from app.models.plan import CampaignConfig
+from app.models.scores import PersonaScore, PublisherScore
+from app.models.tuning import Tuning
 from app.pipeline import is_weak, make_config, recommended_of
-from app.prompts import render, wrap_steer
+from app.prompts import render, wrap
 from app.stepagents.guards import floor, floor_note, named_in_steer, unnamed_note
-from app.stepagents.runtime import AgentRuntime, Session, ToolRefused, keep_agent_notes, run_agent
-from app.tuning import Tuning
+from app.stepagents.runtime import (
+    AgentRuntime,
+    Session,
+    ToolRefused,
+    keep_agent_notes,
+    run_agent,
+)
 
 ROLE = "media_planner"
 PACE_WORD = {"front_loaded": "front-loaded", "even": "even", "accelerated": "accelerated"}
@@ -147,7 +156,7 @@ def exclude_publishers(ctx: RunContextWrapper[PlanDesk], publisher_ids: list[str
                                        if p.publisher_id in publisher_ids], n))
             raise ToolRefused(f"a steer may narrow the line items but not below {n}; nothing changed")
         unnamed = [i for i in publisher_ids
-                   if not named_in_steer(d.steer, names[i], d.catalog.publisher(i).category)]
+                   if not named_in_steer(d.steer, names[i], d.catalog.publisher_by_id[i].category)]
         if unnamed:
             d.session.note(unnamed_note([names[i] for i in unnamed]))
             raise ToolRefused(f"the steer does not name these as publishers to drop: "
@@ -201,7 +210,7 @@ def build_agent(runtime: AgentRuntime, desk: PlanDesk) -> Agent:
 
 
 async def run(desk: PlanDesk, runtime: AgentRuntime) -> None:
-    result = await run_agent(desk.session, build_agent(runtime, desk), wrap_steer(desk.steer), desk, ROLE)
+    result = await run_agent(desk.session, build_agent(runtime, desk), wrap("user_steer", desk.steer or ""), desk, ROLE)
     for n in desk.change_notes():
         desk.session.note(n)
     out: PlannerOutput = result.final_output

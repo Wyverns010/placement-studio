@@ -14,11 +14,11 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from app.catalog import load_catalog
 from app.gate import get_gate
+from app.llm import CachedProvider, OpenAIProvider
+from app.loaders import load_catalog, load_tuning
 from app.match import is_weak_fit, score_publishers
 from app.pipeline import collect, run_full, run_stage1
-from app.tuning import load_tuning
 from evals.invariants import check
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -197,6 +197,13 @@ def render(s: dict) -> str:
     return "\n".join(L)
 
 
+
+def make_llm():
+    """OpenAI, through the disk cache when LLM_CACHE_DIR is set."""
+    cache = os.getenv("LLM_CACHE_DIR", "")
+    return CachedProvider(OpenAIProvider(), Path(cache)) if cache else OpenAIProvider()
+
+
 def main(argv: list[str] | None = None) -> int:
     from dotenv import load_dotenv
 
@@ -217,11 +224,10 @@ def main(argv: list[str] | None = None) -> int:
         os.environ.setdefault("LLM_CACHE_DIR", str(ROOT / ".cache" / "llm"))
     t = load_tuning(ROOT / "config" / "tuning.yaml")
     gate = get_gate(tuning=t)
-    from app.llm import get_provider
 
     only = {x for x in a.only.split(",") if x} or None
     cases = load_cases(a.cases, split=a.split, only=only)
-    recs = run_cases(cases, llm=get_provider(), gate=gate, catalog=load_catalog(ROOT / "data"), t=t,
+    recs = run_cases(cases, llm=make_llm(), gate=gate, catalog=load_catalog(ROOT / "data"), t=t,
                      concurrency=a.concurrency, stage1_only=a.stage1)
     LAST_RUN.write_text(json.dumps(recs, indent=1))
     LAST_RUN.with_name(f"last_run_llm_{a.split}.json").write_text(json.dumps(recs, indent=1))

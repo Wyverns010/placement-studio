@@ -33,10 +33,3 @@ def test_understand_examples_appear_in_no_eval_case():
         assert not any(phrase.lower() in t for t in texts), phrase
     for given in ("protein bar", "candles"):
         assert given not in prompt.lower()
-
-
-def test_feedback_yaml_parsed_once(tmp_path):
-    (tmp_path / "creative_feedback.yaml").write_text("hi: 'Hi {name}'\n")
-    assert prompts.feedback("hi", name="Ada", prompts_dir=tmp_path) == "Hi Ada"
-    (tmp_path / "creative_feedback.yaml").write_text("hi: 'Changed {name}'\n")
-    assert prompts.feedback("hi", name="Bo", prompts_dir=tmp_path) == "Hi Bo"  # cached parse

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.models import Brief, GateResult
-from app.tuning import GateTuning, Tuning, load_tuning
+from app.loaders import load_tuning
+from app.models.brief import Brief, GateResult
+from app.models.tuning import GateTuning, Tuning
 
 
 class ConfidenceGate(Protocol):

@@ -4,11 +4,18 @@ import re
 
 import pytest
 
-from app.create import NO_SIGNAL_QUESTIONS, ClarifyBatch, CreativeBatch
+from app.create import NO_SIGNAL_QUESTIONS, CreativeBatch
 from app.gate import get_gate
 from app.llm import FakeProvider, LLMError
-from app.models import ClarifyQuestion
-from app.pipeline import PipelineError, collect, make_config, make_creatives, run_full, run_stage1
+from app.models.brief import ClarifyBatch, ClarifyQuestion
+from app.pipeline import (
+    PipelineError,
+    collect,
+    make_config,
+    make_creatives,
+    run_full,
+    run_stage1,
+)
 from app.understand import brief_schema
 from tests.conftest import CAT, T
 

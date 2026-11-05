@@ -7,11 +7,12 @@ from typing import Literal
 
 from pydantic import BaseModel, create_model
 
-from app.catalog import Catalog
-from app.llm import LLMProvider, model_fast
-from app.models import Brief
-from app.prompts import render, wrap_advertiser_text
-from app.tuning import Tuning
+from app.constants.llm import MODEL_FAST
+from app.llm import LLMProvider
+from app.models.brief import Brief
+from app.models.catalog import Catalog
+from app.models.tuning import Tuning
+from app.prompts import render, wrap
 
 
 @lru_cache(maxsize=None)
@@ -37,18 +38,18 @@ def brief_schema(catalog: Catalog) -> type[BaseModel]:
 
 def category_vocab_text(catalog: Catalog) -> str:
     """One line per publisher category with its subcategories: '- pet: pet_food, treats, ...'."""
-    return "\n".join(f"- {c}: {', '.join(subs)}" for c, subs in catalog.vocab_groups().items())
+    return "\n".join(f"- {c}: {', '.join(subs)}" for c, subs in catalog.vocab_groups.items())
 
 
 def understand(text: str, catalog: Catalog, llm: LLMProvider) -> Brief:
     system = render(
         "understand",
         category_vocab=category_vocab_text(catalog),
-        interest_vocab=", ".join(catalog.interest_terms()),
+        interest_vocab=", ".join(catalog.interest_terms),
         conflict_vocab=", ".join(catalog.conflict_vocab),
     )
-    user = wrap_advertiser_text(text)
-    out = llm.parse(system=system, user=user, schema=brief_schema(catalog), model=model_fast())
+    user = wrap("advertiser_text", text)
+    out = llm.parse(system=system, user=user, schema=brief_schema(catalog), model=MODEL_FAST)
     return Brief.model_validate(out.model_dump())
 
 

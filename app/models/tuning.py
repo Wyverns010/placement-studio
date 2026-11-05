@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import yaml
 from pydantic import BaseModel, Field
 
 
@@ -203,9 +200,6 @@ class AgentsTuning(BaseModel):
     ratelimit_cost_config: int
     prices_per_1m_usd: dict[str, AgentPrice]  # model name -> price; "default" for any other
 
-    def price(self, model: str) -> AgentPrice:
-        return self.prices_per_1m_usd.get(model) or self.prices_per_1m_usd["default"]
-
 
 class Tuning(BaseModel):
     publisher: PublisherTuning
@@ -223,9 +217,3 @@ class Tuning(BaseModel):
     llm: LLMTuning
     agents: AgentsTuning
 
-
-DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config/tuning.yaml"
-
-
-def load_tuning(path: Path = DEFAULT_PATH) -> Tuning:
-    return Tuning(**yaml.safe_load(Path(path).read_text()))

@@ -6,13 +6,22 @@ from concurrent.futures import ThreadPoolExecutor
 
 from pydantic import BaseModel
 
-from app.catalog import Catalog, Persona
-from app.copycheck import (Problem, ad_problems, headline_problems, headlines_similar,
-                           normalise_headline)
-from app.llm import LLMError, LLMProvider, model_creative, model_fast
-from app.models import CTA_OPTIONS, Brief, ClarifyQuestion, Creative, Cta, PersonaScore, PublisherScore
-from app.prompts import category_word, feedback, render, wrap_advertiser_text, wrap_current_ad, wrap_user_note
-from app.tuning import Tuning
+from app.constants.ads import CTA_OPTIONS
+from app.constants.llm import MODEL_CREATIVE, MODEL_FAST
+from app.copycheck import (
+    Problem,
+    ad_problems,
+    headline_problems,
+    headlines_similar,
+    normalise_headline,
+)
+from app.llm import LLMError, LLMProvider
+from app.models.ads import Creative, Cta
+from app.models.brief import Brief, ClarifyQuestion
+from app.models.catalog import Catalog, Persona
+from app.models.scores import PersonaScore, PublisherScore
+from app.models.tuning import Tuning
+from app.prompts import CATEGORY_WORDS, FEEDBACK, render, wrap
 
 
 class CreativeItem(BaseModel):
@@ -53,7 +62,7 @@ def _pick_publisher(
     fresh = [p for p in eligible if p.publisher_id not in used]
     pool = fresh or eligible
     aff = set(persona.category_affinities)
-    scored = [(len(catalog.publisher(p.publisher_id).tags & aff), p.fit, p) for p in pool]
+    scored = [(len(catalog.publisher_by_id[p.publisher_id].tags & aff), p.fit, p) for p in pool]
     best = max(scored, key=lambda s: (s[0], s[1]))
     if best[0] == 0:
         return max(pool, key=lambda p: p.fit)
@@ -61,9 +70,7 @@ def _pick_publisher(
 
 
 def _persona_block(persona: Persona) -> str:
-    return feedback(
-        "persona_block",
-        id=persona.id, name=persona.name, description=persona.description,
+    return FEEDBACK["persona_block"].format(id=persona.id, name=persona.name, description=persona.description,
         affinities=", ".join(persona.category_affinities),
         preferences="; ".join(persona.messaging_preferences),
         disinterested="; ".join(persona.disinterested_in),
@@ -71,14 +78,12 @@ def _persona_block(persona: Persona) -> str:
 
 
 def _publisher_block(pub: PublisherScore, catalog: Catalog) -> str:
-    p = catalog.publisher(pub.publisher_id)
+    p = catalog.publisher_by_id[pub.publisher_id]
     gender = ", ".join(f"{v:.0%} {k}" for k, v in sorted(p.audience.gender_split.items(),
                                                          key=lambda kv: -kv[1]) if v > 0)
-    return feedback(
-        "publisher_block",
-        name=p.name, category=category_word(p.category),
+    return FEEDBACK["publisher_block"].format(name=p.name, category=CATEGORY_WORDS.get(p.category, p.category.replace("_", " ")),
         age_min=p.age_min, age_max=p.age_max, gender=gender, income=p.audience.income_tier,
-        aov=f"{p.avg_order_value_usd:,.0f}", notes=p.notes or feedback("none"),
+        aov=f"{p.avg_order_value_usd:,.0f}", notes=p.notes or FEEDBACK["none"],
     )
 
 
@@ -102,8 +107,8 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Pro
     persona, pub = target
     system = render(
         "creative",
-        product=brief.product or feedback("product_default"),
-        facts="\n".join(f"- {f}" for f in brief.facts) or feedback("facts_default"),
+        product=brief.product or FEEDBACK["product_default"],
+        facts="\n".join(f"- {f}" for f in brief.facts) or FEEDBACK["facts_default"],
         headline_max=t.creative.headline_max_chars,
         body_max=t.creative.body_max_chars,
         cta_max=t.creative.cta_max_chars,
@@ -111,27 +116,27 @@ def _call_one(text, brief, target, others, catalog, llm, t, violations: list[Pro
         publisher=_publisher_block(pub, catalog),
         playbook=_playbook(t),
         others="\n".join(
-            feedback("other_persona_line", name=o.name,
-                     preference=o.messaging_preferences[0] if o.messaging_preferences else feedback("none"))
+            FEEDBACK["other_persona_line"].format(name=o.name,
+                     preference=o.messaging_preferences[0] if o.messaging_preferences else FEEDBACK["none"])
             for o, _ in others
         )
-        or feedback("no_others"),
+        or FEEDBACK["no_others"],
     )
-    user = wrap_advertiser_text(text)
+    user = wrap("advertiser_text", text)
     if rewrite:
         cur, note = rewrite
         c = t.creative
-        ad = feedback("current_ad_fields", headline=_flat(cur.headline, c.headline_max_chars),
+        ad = FEEDBACK["current_ad_fields"].format(headline=_flat(cur.headline, c.headline_max_chars),
                       body=_flat(cur.body, c.body_max_chars), cta=_flat(cur.cta, c.cta_max_chars))
-        user += feedback("rewrite_current", ad=wrap_current_ad(ad))
+        user += FEEDBACK["rewrite_current"].format(ad=wrap("current_ad", ad))
         if note:
-            user += feedback("rewrite_note", note=wrap_user_note(note))
+            user += FEEDBACK["rewrite_note"].format(note=wrap("user_note", note))
     if violations:
-        user += feedback("retry_preamble", problems="; ".join(v.message for v in violations))
+        user += FEEDBACK["retry_preamble"].format(problems="; ".join(v.message for v in violations))
         if other_headlines and any(v.kind in HEADLINE_KINDS for v in violations):
             clean = [_flat(h, t.creative.headline_max_chars) for h in other_headlines]
-            user += feedback("other_headlines", headlines=" | ".join(f'"{h}"' for h in clean))
-    out = llm.parse(system=system, user=user, schema=CreativeBatch, model=model_creative())
+            user += FEEDBACK["other_headlines"].format(headlines=" | ".join(f'"{h}"' for h in clean))
+    out = llm.parse(system=system, user=user, schema=CreativeBatch, model=MODEL_CREATIVE)
     return next((it for it in out.items if it.persona_id == persona.id), None)
 
 
@@ -211,7 +216,7 @@ def write_creatives(
 
     result.update({pid: build(it) for pid, it in _call_many(text, brief, targets, targets, catalog, llm, t).items()})
     check_all()
-    bad = {p.id: probs[p.id] if p.id in result else [Problem("missing", feedback("missing"))]
+    bad = {p.id: probs[p.id] if p.id in result else [Problem("missing", FEEDBACK["missing"])]
            for p, _ in targets if p.id not in result or probs[p.id]}
     if bad:
         retry_targets = [(p, pub) for p, pub in targets if p.id in bad]
@@ -231,12 +236,12 @@ def rewrite_problems(c: Creative, current: Creative, text: str, persona_name: st
     sim = t.creative.headline_similarity
     out = ad_problems(c, text, persona_name, t)
     if headlines_similar(c.headline, current.headline, sim):
-        out.append(Problem("headline_unchanged", feedback("headline_unchanged")))
+        out.append(Problem("headline_unchanged", FEEDBACK["headline_unchanged"]))
     if normalise_headline(c.headline) == normalise_headline(product or ""):
-        out.append(Problem("headline_product", feedback("headline_product")))
+        out.append(Problem("headline_product", FEEDBACK["headline_product"]))
     dup = next((pid for h, pid in other_heads if headlines_similar(h, c.headline, sim)), None)
     if dup:
-        out.append(Problem("headline_duplicate", feedback("headline_duplicate", name=names.get(dup, dup))))
+        out.append(Problem("headline_duplicate", FEEDBACK["headline_duplicate"].format(name=names.get(dup, dup))))
     return out
 
 
@@ -260,7 +265,7 @@ def rewrite_creative(
     persona = by_id[persona_id]
     pub = next((p for p in publishers if p.publisher_id == current.publisher_id), None)
     if pub is None:
-        p = catalog.publisher(current.publisher_id)
+        p = catalog.publisher_by_id[current.publisher_id]
         pub = PublisherScore(publisher_id=p.id, name=p.name, fit=0.0, factors=[], recommended=True,
                              stretch=False, reason="")
     others = [(by_id[c.persona_id], pub) for c in creatives
@@ -278,7 +283,7 @@ def rewrite_creative(
     target = (persona, pub)
     heads = [h for h, _ in other_heads]
     it = _call_one(text, brief, target, others, catalog, llm, t, rewrite=(current, note))
-    probs = problems(build(it)) if it else [Problem("missing", feedback("missing"))]
+    probs = problems(build(it)) if it else [Problem("missing", FEEDBACK["missing"])]
     if probs:
         retried = _call_one(text, brief, target, others, catalog, llm, t, probs, heads,
                             rewrite=(current, note))
@@ -293,7 +298,7 @@ def rewrite_creative(
 
 def category_words(catalog: Catalog) -> str:
     cats = sorted({p.category for p in catalog.publishers})
-    return ", ".join(category_word(c) for c in cats)
+    return ", ".join(CATEGORY_WORDS.get(c, c.replace("_", " ")) for c in cats)
 
 
 ANSWERS_HEADER = "\n\nAdditional details:\n"  # the API appends clarify answers to the text after this
@@ -329,13 +334,13 @@ def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalo
     system = render(
         "clarify",
         categories=category_words(catalog),
-        product=brief.product or feedback("product_default"),
-        facts="; ".join(brief.facts) or feedback("none"),
-        unknowns="\n".join(f"- {u}" for u in brief.unknowns) or feedback("clarify_unknowns_default"),
-        answered="\n".join(f"- {q}: {a}" for q, a in answered.items()) or feedback("none"),
+        product=brief.product or FEEDBACK["product_default"],
+        facts="; ".join(brief.facts) or FEEDBACK["none"],
+        unknowns="\n".join(f"- {u}" for u in brief.unknowns) or FEEDBACK["clarify_unknowns_default"],
+        answered="\n".join(f"- {q}: {a}" for q, a in answered.items()) or FEEDBACK["none"],
     )
-    user = wrap_advertiser_text(text)
-    out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=model_fast())
+    user = wrap("advertiser_text", text)
+    out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=MODEL_FAST)
     qs: list[ClarifyQuestion] = []
     asked = {_norm(q) for q in answered}
     asked_topics = {_topic(q) for q in answered} - {None}

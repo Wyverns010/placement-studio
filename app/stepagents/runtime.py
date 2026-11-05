@@ -23,9 +23,9 @@ from agents import ModelSettings, RunConfig, RunHooks, Runner, set_tracing_disab
 from agents.models.interface import Model, ModelProvider
 from openai.types.shared import Reasoning
 
-from app.llm import model_creative, model_fast, reasoning_effort
-from app.models import TraceStep
-from app.tuning import Tuning
+from app.constants.llm import MODEL_CREATIVE, MODEL_FAST, REASONING_EFFORT
+from app.models.result import TraceStep
+from app.models.tuning import Tuning
 
 log = logging.getLogger(__name__)
 
@@ -79,11 +79,11 @@ class AgentRuntime:
     @staticmethod
     def model_name(role: str) -> str:
         """The configured model name for a role (also the price key for the cost guard)."""
-        return model_fast() if ROLE_MODEL[role] == "fast" else model_creative()
+        return MODEL_FAST if ROLE_MODEL[role] == "fast" else MODEL_CREATIVE
 
     @staticmethod
     def settings() -> ModelSettings:
-        effort = reasoning_effort()
+        effort = REASONING_EFFORT
         return ModelSettings() if effort == "default" else ModelSettings(reasoning=Reasoning(effort=effort))
 
     def run_config(self, workflow: str) -> RunConfig:
@@ -162,7 +162,8 @@ class Session:
     # ---- cost guard ----
     def charge(self, role: str, usage) -> None:
         """Add one model response's tokens at tuning prices; over the step cap -> stop."""
-        p = self.t.agents.price(self.runtime.model_name(role))
+        prices = self.t.agents.prices_per_1m_usd
+        p = prices.get(self.runtime.model_name(role)) or prices["default"]
         details = getattr(usage, "input_tokens_details", None)
         cached = min(getattr(details, "cached_tokens", 0) or 0, usage.input_tokens)
         cost = ((usage.input_tokens - cached) * p.input + cached * p.cached_input

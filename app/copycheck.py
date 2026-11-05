@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 from typing import NamedTuple
 
-from app.models import Creative
-from app.prompts import feedback
-from app.tuning import Tuning
+from app.models.ads import Creative
+from app.models.tuning import Tuning
+from app.prompts import FEEDBACK
 
 
 class Problem(NamedTuple):
@@ -40,10 +40,10 @@ def fact_problems(creative: Creative, input_text: str, t: Tuning) -> list[Proble
     known = _numbers(input_text)
     for n in sorted(_numbers(copy)):
         if n not in known:
-            violations.append(Problem("fact_number", feedback("fact_number", number=n)))
+            violations.append(Problem("fact_number", FEEDBACK["fact_number"].format(number=n)))
     for w in t.creative.claim_words:
         if _has_word(w, copy) and not _has_word(w, input_text):
-            violations.append(Problem("fact_claim", feedback("fact_claim", word=w)))
+            violations.append(Problem("fact_claim", FEEDBACK["fact_claim"].format(word=w)))
     for field, limit in (
         ("headline", t.creative.headline_max_chars),
         ("body", t.creative.body_max_chars),
@@ -51,7 +51,7 @@ def fact_problems(creative: Creative, input_text: str, t: Tuning) -> list[Proble
     ):
         n = len(getattr(creative, field))
         if n > limit:
-            violations.append(Problem("length", feedback("length", field=field, n=n, limit=limit)))
+            violations.append(Problem("length", FEEDBACK["length"].format(field=field, n=n, limit=limit)))
     return violations
 
 
@@ -120,11 +120,11 @@ def generic_problems(creative: Creative, input_text: str, t: Tuning) -> list[Pro
     for key, phrase in found:
         p = _plain(phrase)
         if not _in_source(p, source):
-            out.append(Problem("generic_copy", feedback(key, phrase=p)))
+            out.append(Problem("generic_copy", FEEDBACK[key].format(phrase=p)))
     for w in t.creative.banned_phrases:
         pat = _phrase_pattern(w)
         if pat.search(copy) and not pat.search(input_text):
-            out.append(Problem("generic_copy", feedback("generic_phrase", phrase=w)))
+            out.append(Problem("generic_copy", FEEDBACK["generic_phrase"].format(phrase=w)))
     return out
 
 
@@ -153,7 +153,7 @@ def parroting_problems(creative: Creative, input_text: str, persona_name: str,
                     if (g := tuple(words[i:i + n])) in grams), None)
         hit = hit or next((sw for sw in sentences if _contains(words, sw)), None)
         if hit:
-            return [Problem("parroting", feedback("parroting", persona=persona_name,
+            return [Problem("parroting", FEEDBACK["parroting"].format(persona=persona_name,
                                                   phrase=" ".join(hit)))]
     return []
 
@@ -193,12 +193,12 @@ def headline_problems(creatives: list[Creative], product: str | None,
     for c in creatives:
         h = normalise_headline(c.headline)
         if prod and h == prod:
-            out.setdefault(c.persona_id, []).append(Problem("headline_product", feedback("headline_product")))
+            out.setdefault(c.persona_id, []).append(Problem("headline_product", FEEDBACK["headline_product"]))
         else:
             dup = next((pid for hl, pid in seen if headlines_similar(hl, c.headline, threshold)), None)
             if dup:
                 out.setdefault(c.persona_id, []).append(
-                    Problem("headline_duplicate", feedback("headline_duplicate", name=names.get(dup, dup))))
+                    Problem("headline_duplicate", FEEDBACK["headline_duplicate"].format(name=names.get(dup, dup))))
             else:
                 seen.append((c.headline, c.persona_id))
     return out

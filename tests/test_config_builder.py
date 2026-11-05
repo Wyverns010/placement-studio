@@ -1,7 +1,9 @@
 from app.budget import recommended_budget
 from app.config_builder import build_config
 from app.match import score_personas, score_publishers, select_personas
-from app.models import CampaignConfig, Creative, GateResult
+from app.models.ads import Creative
+from app.models.brief import GateResult
+from app.models.plan import CampaignConfig
 from tests.conftest import CAT, T, brief
 
 B = brief(product="Senior dog food", categories=["pet_food"], adjacent_categories=["pet_health", "subscription"],

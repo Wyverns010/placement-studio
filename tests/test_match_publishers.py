@@ -1,7 +1,7 @@
 import math
 
 from app.match import _pick_reason, is_weak_fit, mark_stretch, score_publishers
-from app.models import Factor
+from app.models.scores import Factor
 from tests.conftest import CAT, T, brief
 
 
@@ -67,7 +67,7 @@ def _f(scores, pid, name):
 
 
 def _pub(pid):
-    return CAT.publisher(pid)
+    return CAT.publisher_by_id[pid]
 
 
 def test_age_overlap_partial_and_single_bound_filled():
@@ -178,8 +178,8 @@ def _candles(**over):
 def test_affinity_parents_map_interest_terms_to_publisher_categories():
     m = T.publisher.affinity_parents
     assert m["home_decor"] == "home" and m["home_goods"] == "home"
-    assert set(m) <= set(CAT.interest_terms())
-    assert set(m.values()) <= set(CAT.vocab_groups())
+    assert set(m) <= set(CAT.interest_terms)
+    assert set(m.values()) <= set(CAT.vocab_groups)
 
 
 def test_candles_with_only_an_interest_term_still_reach_home_publishers():

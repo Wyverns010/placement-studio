@@ -1,7 +1,7 @@
 import pytest
 
 from app.budget import allocate, reach_cap_usd, target_cpa
-from app.models import Factor, PublisherScore
+from app.models.scores import PublisherScore
 from tests.conftest import CAT, T, brief
 
 
@@ -27,7 +27,7 @@ def test_budget_exceeds_reach_reports_unallocated():
     items, unalloc = allocate(pubs, CAT, 5_000_000, T)
     assert unalloc > 0
     for i in items:
-        cap = reach_cap_usd(CAT.publisher(i.publisher_id), T)
+        cap = reach_cap_usd(CAT.publisher_by_id[i.publisher_id], T)
         assert i.budget_usd <= cap + 0.01
 
 
@@ -58,7 +58,7 @@ def test_target_cpa_subscription():
 
 
 def test_target_cpa_falls_back_to_weighted_aov():
-    pub = CAT.publisher(by_name("Pawline"))
+    pub = CAT.publisher_by_id[by_name("Pawline")]
     got = target_cpa(brief(), [ps(pub.id, 0.9)], CAT, T)
     assert got == round(T.bid.cpa_fraction_of_order_value * pub.avg_order_value_usd)
 
@@ -77,7 +77,7 @@ def test_conversion_goal_and_rounding_are_tunables():
 
 
 def test_cpm_and_reach_follow_the_publishers_audience():
-    paw, ruff = CAT.publisher(PAW), CAT.publisher(RUFF)  # mid-high 4.8M, mid 62M impressions
+    paw, ruff = CAT.publisher_by_id[PAW], CAT.publisher_by_id[RUFF]  # mid-high 4.8M, mid 62M impressions
     assert reach_cap_usd(paw, T) == 4_800_000 * 0.25 / 1000 * 13 == 15600
     assert reach_cap_usd(ruff, T) == 62_000_000 * 0.25 / 1000 * 10 == 155000
 
@@ -128,7 +128,8 @@ def test_weak_fit_test_capped_and_rounded():
 def test_round_to_usd_must_be_positive():
     import yaml
     from pydantic import ValidationError
-    from app.tuning import Tuning
+
+    from app.models.tuning import Tuning
     raw = yaml.safe_load(open("config/tuning.yaml"))
     raw["budget"]["round_to_usd"] = 0
     with pytest.raises(ValidationError):

@@ -159,7 +159,7 @@ def test_niche_persona_is_penalised_only_without_affinity():
 
 
 def test_stretch_fill_prefers_personas_with_some_affinity():
-    from app.models import Factor, PersonaScore
+    from app.models.scores import Factor, PersonaScore
 
     def ps(pid, fit, aff):
         return PersonaScore(persona_id=pid, name=pid, fit=fit, stretch=False,

@@ -13,16 +13,23 @@ from agents.agent import ToolsToFinalOutputResult
 from agents.strict_schema import ensure_strict_json_schema
 from pydantic import BaseModel
 
-from app.catalog import Catalog, Persona
 from app.copycheck import ad_problems, headlines_similar, normalise_headline
-from app.create import (_persona_block, _playbook, _publisher_block, creative_targets,
-                        rewrite_problems, set_problems)
-from app.models import Brief, Creative, Cta, PersonaScore, PublisherScore
+from app.create import (
+    _persona_block,
+    _playbook,
+    _publisher_block,
+    creative_targets,
+    rewrite_problems,
+    set_problems,
+)
+from app.models.ads import Creative, Cta
+from app.models.brief import Brief
+from app.models.catalog import Catalog, Persona
+from app.models.scores import PersonaScore, PublisherScore
+from app.models.tuning import Tuning
 from app.pipeline import recommended_of
-from app.prompts import (feedback, render, wrap_advertiser_text, wrap_current_ad, wrap_steer,
-                         wrap_user_note)
+from app.prompts import FEEDBACK, render, wrap
 from app.stepagents.runtime import AgentRuntime, Session, run_agent
-from app.tuning import Tuning
 
 _TIMES = {1: "once", 2: "twice"}
 
@@ -71,11 +78,11 @@ class AdDesk:
             return [p.message for p in ps]
         out = [p.message for p in ad_problems(c, self.text, self.persona.name, self.t)]
         if normalise_headline(c.headline) == normalise_headline(self.brief.product or ""):
-            out.append(feedback("headline_product"))
+            out.append(FEEDBACK["headline_product"])
         sim = self.t.creative.headline_similarity
         dup = next((pid for h, pid in others if headlines_similar(h, c.headline, sim)), None)
         if dup:
-            out.append(feedback("headline_duplicate", name=self.names.get(dup, dup)))
+            out.append(FEEDBACK["headline_duplicate"].format(name=self.names.get(dup, dup)))
         return out
 
 
@@ -141,12 +148,12 @@ def _copywriter(runtime: AgentRuntime, desk: AdDesk, others: list[Persona]) -> A
     c = t.creative
     system = render(
         "agents/copywriter",
-        product=desk.brief.product or feedback("product_default"),
-        facts="\n".join(f"- {f}" for f in desk.brief.facts) or feedback("facts_default"),
+        product=desk.brief.product or FEEDBACK["product_default"],
+        facts="\n".join(f"- {f}" for f in desk.brief.facts) or FEEDBACK["facts_default"],
         persona=_persona_block(desk.persona), publisher=_publisher_block(desk.pub, desk.catalog),
-        others="\n".join(feedback("other_persona_line", name=o.name,
+        others="\n".join(FEEDBACK["other_persona_line"].format(name=o.name,
                                   preference=o.messaging_preferences[0] if o.messaging_preferences
-                                  else feedback("none")) for o in others) or feedback("no_others"),
+                                  else FEEDBACK["none"]) for o in others) or FEEDBACK["no_others"],
         playbook=_playbook(t), headline_max=c.headline_max_chars, body_max=c.body_max_chars,
         cta_max=c.cta_max_chars, rounds=t.agents.critic_max_rounds)
     return Agent(name="copywriter", model=runtime.model("copywriter"),
@@ -156,15 +163,15 @@ def _copywriter(runtime: AgentRuntime, desk: AdDesk, others: list[Persona]) -> A
 
 
 def _input(desk: AdDesk) -> str:
-    user = wrap_advertiser_text(desk.text) + "\n" + wrap_steer(desk.steer)
+    user = wrap("advertiser_text", desk.text) + "\n" + wrap("user_steer", desk.steer or "")
     if desk.current is not None:
         cur, c = desk.current, desk.t.creative
         flat = lambda s, n: " ".join(s.replace('"', "").split())[:n]  # noqa: E731
-        ad = feedback("current_ad_fields", headline=flat(cur.headline, c.headline_max_chars),
+        ad = FEEDBACK["current_ad_fields"].format(headline=flat(cur.headline, c.headline_max_chars),
                       body=flat(cur.body, c.body_max_chars), cta=flat(cur.cta, c.cta_max_chars))
-        user += feedback("rewrite_current", ad=wrap_current_ad(ad))
+        user += FEEDBACK["rewrite_current"].format(ad=wrap("current_ad", ad))
         if desk.note:
-            user += feedback("rewrite_note", note=wrap_user_note(desk.note))
+            user += FEEDBACK["rewrite_note"].format(note=wrap("user_note", desk.note))
     return user
 
 
@@ -226,7 +233,7 @@ async def rewrite_one(text: str, brief: Brief, publishers: list[PublisherScore],
     persona = by_id[persona_id]
     pub = next((p for p in publishers if p.publisher_id == current.publisher_id), None)
     if pub is None:
-        p = catalog.publisher(current.publisher_id)
+        p = catalog.publisher_by_id[current.publisher_id]
         pub = PublisherScore(publisher_id=p.id, name=p.name, fit=0.0, factors=[], recommended=True,
                              stretch=False, reason="")
     heads = {c.persona_id: c.headline for c in creatives if c.persona_id != persona_id}

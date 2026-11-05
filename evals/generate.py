@@ -20,8 +20,9 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel
 
-from app.catalog import load_catalog
-from app.llm import get_provider, model_fast
+from app.constants.llm import MODEL_FAST
+from app.llm import CachedProvider, OpenAIProvider
+from app.loaders import load_catalog
 from app.prompts import render
 from evals.run import split_for
 
@@ -63,6 +64,13 @@ def _run_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
 
 
+
+def make_llm():
+    """OpenAI, through the disk cache when LLM_CACHE_DIR is set."""
+    cache = os.getenv("LLM_CACHE_DIR", "")
+    return CachedProvider(OpenAIProvider(), Path(cache)) if cache else OpenAIProvider()
+
+
 def main(argv: list[str] | None = None) -> int:
     from dotenv import load_dotenv
 
@@ -76,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     os.environ.setdefault("LLM_CACHE_DIR", str(ROOT / ".cache" / "llm"))
 
     system, user = build_prompt(a.bucket, a.n, a.hint)
-    out = get_provider().parse(system=system, user=user, schema=CandidateBatch, model=model_fast())
+    out = make_llm().parse(system=system, user=user, schema=CandidateBatch, model=MODEL_FAST)
     stamp = _run_stamp()  # ids stay unique across runs appended to the same file
     with a.out.open("a") as f:
         for i, c in enumerate(out.items, 1):
