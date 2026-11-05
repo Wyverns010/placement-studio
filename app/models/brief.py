@@ -38,6 +38,7 @@ class ClarifyQuestion(BaseModel):
     options: list[str]
 
 
+# the clarify call's answer: structured output needs an object at the top, not a bare list
 class ClarifyBatch(BaseModel):
     questions: list[ClarifyQuestion]
 

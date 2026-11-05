@@ -1,10 +1,9 @@
-import type { CampaignResult, Sample, StreamPartial } from '../types'
-import { AgentTicker } from './AgentUi'
+import type { CampaignResult, Sample } from '../types'
 import ClarifyView from './ClarifyView'
 import OutOfScopeView from './OutOfScopeView'
 import OutcomeBanner from './OutcomeBanner'
 import ResultHeader from './ResultHeader'
-import StagedResults, { type SteerStep } from './StagedResults'
+import StagedResults, { type NoteStep } from './StagedResults'
 import { Busy } from './ui'
 
 interface Props {
@@ -12,37 +11,31 @@ interface Props {
   /** What the user typed, shown in the header (input_text may have clarify answers appended). */
   displayText?: string
   onBack: () => void
-  /** Re-runs stage 1 with the same input (after a 403: the campaign changed or expired). */
-  onRerun?: () => void
   samples?: Sample[]
   onPickSample?: (s: Sample) => void
   onRebuild?: (answers: Record<string, string>) => void
   running?: boolean
   rebuildError?: string | null
-  /** Re-runs stage 1 with the same text/answers plus a steer for the strategist agent. */
-  onSteer?: (steer: string, from?: SteerStep) => void
-  /** The steer the shown result was produced with. */
-  steer?: string
-  /** Which step the steer was written on (the result opens there). */
-  steerFrom?: SteerStep
-  /** Live stage events of a re-run (for the agent ticker). */
-  partial?: StreamPartial
+  /** Re-runs step 1 with the same text and answers plus a note. */
+  onNote?: (note: string, from?: NoteStep) => void
+  /** The note the shown result was produced with. */
+  note?: string
+  /** Which step the note was written on (the result opens there). */
+  noteFrom?: NoteStep
 }
 
 export default function Results({
   result,
   displayText,
   onBack,
-  onRerun,
   samples = [],
   onPickSample = () => {},
   onRebuild = () => {},
   running = false,
   rebuildError = null,
-  onSteer,
-  steer = '',
-  steerFrom = 'publishers',
-  partial,
+  onNote,
+  note = '',
+  noteFrom = 'publishers',
 }: Props) {
   if (result.outcome !== 'proceed' && result.outcome !== 'weak_fit') {
     return (
@@ -87,13 +80,11 @@ export default function Results({
           <Busy label="Running your campaign again…" />
         </p>
       )}
-      {running && <AgentTicker trace={partial?.agent} />}
       <StagedResults
         result={result}
-        onRerun={running ? undefined : onRerun}
-        onSteer={onSteer}
-        initialStep={steerFrom}
-        initialSteer={steer}
+        onNote={onNote}
+        initialStep={noteFrom}
+        initialNote={note}
         running={running}
       />
     </section>

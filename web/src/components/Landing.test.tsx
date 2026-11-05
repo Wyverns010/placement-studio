@@ -13,7 +13,6 @@ function setup(text: string) {
       running={false}
       error={null}
       lastResult={null}
-      partial={{}}
       onTextChange={noop}
       onBudgetChange={noop}
       onRun={noop}

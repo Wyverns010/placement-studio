@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -33,7 +33,9 @@ from app.constants.brief import ANSWERS_HEADER
 from app.constants.paths import WEB_DIST
 from app.llm import CachedProvider, LLMError, LLMProvider, OpenAIProvider
 from app.loaders import load_catalog, load_samples, load_tuning
-from app.models.api import CampaignIn, ConfigIn, StageIn
+from app.models.ads import Creative
+from app.models.api import CampaignIn, Note
+from app.models.brief import Brief
 from app.models.catalog import Catalog
 from app.models.result import CampaignResult
 from app.models.tuning import Tuning
@@ -51,16 +53,6 @@ class Services:
     catalog: Catalog
     llm: LLMProvider
     limiter: RateLimiter
-
-    @classmethod
-    def load(cls) -> Services:
-        tuning = load_tuning()
-        llm = OpenAIProvider(tuning.llm_timeout_s)
-        cache = os.getenv("LLM_CACHE_DIR")  # evals and local runs reuse earlier answers
-        limits = tuning.ratelimit
-        return cls(tuning=tuning, catalog=load_catalog(), llm=CachedProvider(llm, Path(cache)) if cache else llm,
-                   limiter=RateLimiter(limits.per_client_runs, limits.per_client_window_s,
-                                       global_limit=limits.global_runs_per_hour))
 
 
 def services(request: Request) -> Services:
@@ -82,22 +74,22 @@ def check_budget(budget_usd: float | None, tuning: Tuning) -> None:
         raise HTTPException(422, MSG_BUDGET.format(low=tuning.budget.min_usd, high=tuning.budget.max_usd))
 
 
-def check_stage(body: CampaignIn | StageIn, svc: Services) -> None:
+def check_stage(svc: Services, brief: Brief | None, result: CampaignResult | None = None,
+                creatives: list[Creative] = ()) -> None:
     """422 for anything the step code can't work with: a campaign the gate didn't let through, ids
     outside the catalog, category words outside the vocabulary, an impossible price or age."""
     catalog = svc.catalog
-    if isinstance(body, StageIn):
-        if body.gate is None or body.gate.outcome != "proceed":
+    if result is not None:
+        if result.gate is None or result.gate.outcome != "proceed":
             raise HTTPException(422, MSG_NOT_PROCEEDING)
-        ids = ([(p.publisher_id, catalog.publisher_by_id) for p in body.publishers]
-               + [(p.persona_id, catalog.persona_by_id) for p in body.personas]
-               + [(ad.publisher_id, catalog.publisher_by_id) for ad in getattr(body, "creatives", [])]
-               + [(ad.persona_id, catalog.persona_by_id) for ad in getattr(body, "creatives", [])])
+        ids = ([(p.publisher_id, catalog.publisher_by_id) for p in result.publishers]
+               + [(p.persona_id, catalog.persona_by_id) for p in result.personas]
+               + [(ad.publisher_id, catalog.publisher_by_id) for ad in creatives]
+               + [(ad.persona_id, catalog.persona_by_id) for ad in creatives])
         if any(key not in known for key, known in ids):
             raise HTTPException(422, MSG_UNKNOWN_ID)
-        if not any(p.recommended for p in body.publishers):
+        if not any(p.recommended for p in result.publishers):
             raise HTTPException(422, MSG_NO_PUBLISHERS)
-    brief = body.brief
     if brief is None:
         return
     for field, words in (("categories", catalog.vocab), ("adjacent_categories", catalog.vocab),
@@ -131,7 +123,7 @@ def campaign(body: CampaignIn, request: Request, svc: Services = Depends(service
     if not text:
         raise HTTPException(422, MSG_EMPTY)
     check_budget(body.budget_usd, svc.tuning)
-    check_stage(body, svc)
+    check_stage(svc, body.brief)
     if body.answers:
         text += ANSWERS_HEADER + "\n".join(f"- {question}: {answer}" for question, answer in body.answers.items())
     charge(request, svc, svc.tuning.ratelimit.cost_campaign)
@@ -139,11 +131,12 @@ def campaign(body: CampaignIn, request: Request, svc: Services = Depends(service
 
 
 @router.post("/creatives")
-def ads(body: StageIn, request: Request, svc: Services = Depends(services)) -> dict:
-    """Step 3: one ad per persona; the note is guidance for the writers."""
-    check_stage(body, svc)
+def ads(request: Request, result: CampaignResult, note: Note = Body(None),
+        svc: Services = Depends(services)) -> dict:
+    """Step 3: one ad per persona for step 1's result; the note is guidance for the writers."""
+    check_stage(svc, result.brief, result)
     charge(request, svc, svc.tuning.ratelimit.cost_ads)
-    creatives = write_ads(body.input_text, body.brief, body.publishers, body.personas, body.note, svc.llm,
+    creatives = write_ads(result.input_text, result.brief, result.publishers, result.personas, note, svc.llm,
                           svc.catalog, svc.tuning)
     if not creatives:
         raise HTTPException(502, MSG_NO_ADS)
@@ -151,16 +144,18 @@ def ads(body: StageIn, request: Request, svc: Services = Depends(services)) -> d
 
 
 @router.post("/config")
-def config(body: ConfigIn, request: Request, svc: Services = Depends(services)) -> dict:
-    """Step 4, code only and free; a note is read by one LLM call first (charged)."""
-    check_stage(body, svc)
-    check_budget(body.budget_usd, svc.tuning)
-    budget, dropped, pacing, notes = body.budget_usd, set(), None, []
-    if body.note:
+def config(request: Request, result: CampaignResult, creatives: list[Creative], budget_usd: float | None = Body(None),
+           note: Note = Body(None), svc: Services = Depends(services)) -> dict:
+    """Step 4, code only and free; a note is read by one LLM call first (charged). No budget means
+    the recommended one."""
+    check_stage(svc, result.brief, result, creatives)
+    check_budget(budget_usd, svc.tuning)
+    budget, dropped, pacing, notes = budget_usd, set(), None, []
+    if note:
         charge(request, svc, svc.tuning.ratelimit.cost_config_note)
-        from_note, dropped, pacing, notes = plan.apply_note(body.note, body.publishers, svc.llm, svc.tuning)
+        from_note, dropped, pacing, notes = plan.apply_note(note, result.publishers, svc.llm, svc.tuning)
         budget = budget if from_note is None else from_note
-    built = plan.build_config(body.brief, body.publishers, body.personas, body.creatives, budget, svc.catalog,
+    built = plan.build_config(result.brief, result.publishers, result.personas, creatives, budget, svc.catalog,
                               svc.tuning, dropped, pacing)
     return {"config": built, "notes": notes}
 
@@ -173,8 +168,17 @@ def _handle_error(request: Request, error: Exception) -> JSONResponse:
 
 
 def create_app(svc: Services | None = None) -> FastAPI:
+    """The app; tests pass their own services, otherwise the real ones are loaded."""
+    if svc is None:
+        tuning = load_tuning()
+        llm = OpenAIProvider(tuning.llm_timeout_s)
+        cache = os.getenv("LLM_CACHE_DIR")  # evals and local runs reuse earlier answers
+        limits = tuning.ratelimit
+        svc = Services(tuning=tuning, catalog=load_catalog(), llm=CachedProvider(llm, Path(cache)) if cache else llm,
+                       limiter=RateLimiter(limits.per_client_runs, limits.per_client_window_s,
+                                           global_limit=limits.global_runs_per_hour))
     app = FastAPI(title="Placement Studio")
-    app.state.services = svc or Services.load()
+    app.state.services = svc
     app.include_router(router)
     for kind in ERRORS:
         app.add_exception_handler(kind, _handle_error)

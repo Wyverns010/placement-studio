@@ -100,7 +100,7 @@ PAW, RUFF, TAIL = by_name("Pawline"), by_name("Ruffco"), by_name("Tailcrate")
 def test_conversion_goal_and_rounding_are_tunables():
     b = T.budget
     assert b.learning_conversions_per_week == 50 and b.weeks_per_month == 4
-    assert b.conversions_per_month == 200 and b.round_to_usd == 500
+    assert b.learning_conversions_per_week * b.weeks_per_month == 200 and b.round_to_usd == 500
 
 
 def test_cpm_and_reach_follow_the_publishers_audience():

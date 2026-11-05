@@ -9,15 +9,13 @@ import yaml
 
 from app.constants.catalog import SAMPLE_LABELS
 from app.constants.paths import DATA_DIR, EXAMPLES, TUNING_PATH
-from app.models.catalog import Catalog, Persona, Publisher
+from app.models.catalog import Catalog
 from app.models.tuning import Tuning
 
 
 def load_catalog(data_dir: Path = DATA_DIR) -> Catalog:
-    publishers = json.loads((data_dir / "publishers.json").read_text())
-    personas = json.loads((data_dir / "shopper_personas.json").read_text())
-    return Catalog.build([Publisher.from_raw(raw) for raw in publishers],
-                         [Persona.from_raw(raw) for raw in personas])
+    return Catalog.model_validate({"publishers": json.loads((data_dir / "publishers.json").read_text()),
+                                   "personas": json.loads((data_dir / "shopper_personas.json").read_text())})
 
 
 def load_samples(path: Path = EXAMPLES) -> list[dict]:
@@ -32,4 +30,4 @@ def load_samples(path: Path = EXAMPLES) -> list[dict]:
 
 
 def load_tuning(path: Path = TUNING_PATH) -> Tuning:
-    return Tuning(**yaml.safe_load(path.read_text()))
+    return Tuning.model_validate(yaml.safe_load(path.read_text()))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.constants.catalog import INCOME_RANK, PRICE_RANK
 
@@ -25,12 +25,14 @@ class Publisher(BaseModel):
     income_rank: int
     tags: set[str]
 
+    @model_validator(mode="before")
     @classmethod
-    def from_raw(cls, raw: dict) -> Publisher:
+    def derive(cls, raw: dict) -> dict:
+        """From the data pack's fields: "25-44" -> ages, income tier -> rank, category words -> tags."""
         low, high = raw["audience"]["age_skew"].split("-")
-        return cls(**raw, age_min=int(low), age_max=int(high),
-                   income_rank=INCOME_RANK[raw["audience"]["income_tier"]],
-                   tags={raw["category"], *raw["subcategories"]})
+        return {**raw, "age_min": int(low), "age_max": int(high),
+                "income_rank": INCOME_RANK[raw["audience"]["income_tier"]],
+                "tags": {raw["category"], *raw["subcategories"]}}
 
 
 class Persona(BaseModel):
@@ -45,11 +47,12 @@ class Persona(BaseModel):
     age_max: int
     price_rank: float
 
+    @model_validator(mode="before")
     @classmethod
-    def from_raw(cls, raw: dict) -> Persona:
+    def derive(cls, raw: dict) -> dict:
+        """From the data pack's fields: "25-44" -> ages, price sensitivity -> rank."""
         low, high = raw["age_range"].split("-")
-        return cls(**raw, age_min=int(low), age_max=int(high),
-                   price_rank=PRICE_RANK[raw["price_sensitivity"]])
+        return {**raw, "age_min": int(low), "age_max": int(high), "price_rank": PRICE_RANK[raw["price_sensitivity"]]}
 
 
 class Catalog(BaseModel):
@@ -62,14 +65,18 @@ class Catalog(BaseModel):
     interest_terms: list[str]  # persona affinity words that are no publisher category or subcategory
     conflict_vocab: list[str]  # what personas are disinterested in
 
+    @model_validator(mode="before")
     @classmethod
-    def build(cls, publishers: list[Publisher], personas: list[Persona]) -> Catalog:
+    def index(cls, raw: dict) -> dict:
+        """The lookups and word lists the steps use, built once from the raw publishers and personas."""
+        publishers = [Publisher.model_validate(publisher) for publisher in raw["publishers"]]
+        personas = [Persona.model_validate(persona) for persona in raw["personas"]]
         groups: dict[str, set[str]] = {}
         for publisher in publishers:
             groups.setdefault(publisher.category, set()).update(publisher.subcategories)
         affinities = {word for persona in personas for word in persona.category_affinities}
         publisher_words = set(groups) | {word for words in groups.values() for word in words}
-        return cls(
+        return dict(
             publishers=publishers, personas=personas,
             publisher_by_id={publisher.id: publisher for publisher in publishers},
             persona_by_id={persona.id: persona for persona in personas},

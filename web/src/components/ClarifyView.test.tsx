@@ -10,7 +10,7 @@ const base: CampaignResult = {
   outcome: 'clarify',
   message: null,
   brief: null,
-  gate: { outcome: 'clarify', confidence: 0.31, threshold: 0.7, impl: 'llm', signals: {} },
+  gate: { outcome: 'clarify', confidence: 0.31, threshold: 0.7 },
   publishers: [
     { publisher_id: 'a', name: 'Kitchenly', fit: 0.42, factors: [{ name: 'category', score: 0.7, note: '' }], recommended: false, stretch: false, reason: '' },
     { publisher_id: 'b', name: 'Swiftcart', fit: 0.36, factors: [], recommended: false, stretch: false, reason: '' },
@@ -18,12 +18,11 @@ const base: CampaignResult = {
     { publisher_id: 'd', name: 'Lowfit', fit: 0.1, factors: [{ name: 'category', score: 0, note: '' }], recommended: false, stretch: false, reason: '' },
   ],
   personas: [{ persona_id: 'p', name: 'Busy Parent', fit: 0.5, factors: [], stretch: false }],
-  creatives: [],
   clarify: [
     { question: 'What is the product?', options: ['Physical product', 'App / service'] },
     { question: 'Roughly what does it cost?', options: ['Under $30', '$30–100'] },
   ],
-  config: null,
+  notes: [],
 }
 
 function setup(over: Partial<CampaignResult> = {}, props: { rebuilding?: boolean } = {}) {

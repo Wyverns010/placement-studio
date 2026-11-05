@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { formatBudget, humanise, parseBudgetInput, usd } from '../format'
 import type { CampaignConfig, Creative, PersonaScore, PublisherScore } from '../types'
 import ConfigTab from './ConfigTab'
-import { Busy, StageError, type StageErr } from './ui'
+import { Busy, StageError } from './ui'
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
@@ -25,7 +25,6 @@ export default function ConfigStep({
   creatives,
   busy,
   error,
-  onRerun,
   onBudget,
 }: {
   config: CampaignConfig
@@ -33,8 +32,7 @@ export default function ConfigStep({
   personas: PersonaScore[]
   creatives: Creative[]
   busy: boolean
-  error: StageErr | null
-  onRerun?: () => void
+  error: string | null
   onBudget: (usd: number | null) => void
 }) {
   const b = config.budget
@@ -120,7 +118,7 @@ export default function ConfigStep({
         </p>
         {error && (
           <div className="mt-3">
-            <StageError err={error} onRerun={onRerun} compact />
+            <StageError message={error} compact />
           </div>
         )}
       </form>

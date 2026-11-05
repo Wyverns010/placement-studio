@@ -1,4 +1,4 @@
-// TypeScript mirror of app/models.py. Keep field names and unions identical.
+// TypeScript mirror of app/models/. Keep field names and unions identical.
 
 export type Outcome = 'proceed' | 'clarify' | 'out_of_scope' | 'no_signal' | 'weak_fit'
 export type PriceTier = 'value' | 'mid' | 'premium' | 'luxury' | 'unknown'
@@ -25,8 +25,6 @@ export interface GateResult {
   outcome: Outcome
   confidence: number
   threshold: number
-  impl: 'llm'
-  signals: Record<string, number | string>
 }
 
 export interface Factor {
@@ -54,7 +52,7 @@ export interface PersonaScore {
 }
 
 export interface Creative {
-  creative_id: string
+  /** One ad per persona, so the persona id is the ad's id. */
   persona_id: string
   publisher_id: string
   headline: string
@@ -73,12 +71,11 @@ export interface LineItem {
   publisher_id: string
   share: number
   budget_usd: number
-  creative_id: string | null
-  /** More ads rotating on this line item (when personas outnumber publishers); may be absent. */
-  extra_creative_ids?: string[]
   /** What 1,000 impressions cost on this publisher (by audience income). */
-  cpm_usd?: number
-  est_impressions?: number
+  cpm_usd: number
+  est_impressions: number
+  /** Persona ids of the ads served here: the first is primary, the rest rotate. */
+  ads: string[]
 }
 
 export type Pacing = 'front_loaded' | 'even' | 'accelerated'
@@ -90,8 +87,6 @@ export interface ConfigBudget {
   pacing: Pacing
   unallocated_usd: number
   test_budget: boolean
-  /** Conversions per line item per month (learning conversions per week x weeks). */
-  conversions_goal?: number
   est_impressions?: number
   est_conversions?: number
   est_revenue_usd?: number
@@ -105,8 +100,7 @@ export interface CampaignConfig {
   campaign_id: string
   objective: 'conversions'
   conversion_event: 'purchase' | 'subscription_start'
-  /** Typed loosely (the backend model is a dict); read fields defensively. */
-  budget: Partial<ConfigBudget> & Record<string, unknown>
+  budget: ConfigBudget
   bid_strategy: Record<string, unknown>
   targeting: Record<string, unknown>
   line_items: LineItem[]
@@ -114,12 +108,12 @@ export interface CampaignConfig {
   guardrails: Record<string, unknown>
   /** One line per field: objective, bid_strategy, budget, pacing, frequency_cap, ... */
   rationales: Record<string, string>
-  decision_trace: Record<string, unknown>
 }
 
 export interface CampaignResult {
+  /** The advertiser's text, with any clarify answers appended. */
   input_text: string
-  /** The user's budget, if they gave one; echoed so it can be passed to stage 3. */
+  /** The user's budget, if they gave one; kept for step 4. */
   budget_usd: number | null
   outcome: Outcome
   message: string | null
@@ -127,50 +121,9 @@ export interface CampaignResult {
   gate: GateResult | null
   publishers: PublisherScore[]
   personas: PersonaScore[]
-  creatives: Creative[]
   clarify: ClarifyQuestion[]
-  config: CampaignConfig | null
-  /** Signs the stage-1 result; sent back with every stage-2/3 request (403 if it changed or expired). */
-  stage_token?: string | null
-  /** Step-agent extras (outside the signed token): how this result was produced. */
-  mode?: AgentMode
-  agent_trace?: AgentTraceEntry[]
-  agent_notes?: string[]
-}
-
-export type AgentMode = 'agent' | 'fallback' | 'code'
-
-/** One tool call by a step agent. */
-export interface AgentTraceEntry {
-  agent: string
-  tool: string
-  args_summary?: string
-  result_summary?: string
-  ms?: number
-}
-
-/** What a step agent did (stage 1 result, /api/creatives, /api/config responses). */
-export interface StepMeta {
-  mode?: AgentMode
-  agent_trace?: AgentTraceEntry[]
-  agent_notes?: string[]
-}
-
-/** Longest steer the backend accepts (`agents.steer_max_chars`). */
-export const STEER_MAX = 300
-
-export type StageName =
-  | 'agent'
-  | 'understood'
-  | 'gate'
-  | 'publishers'
-  | 'personas'
-  | 'done'
-  | 'error'
-
-export interface StageEvent {
-  stage: StageName
-  data: Record<string, unknown>
+  /** What a note changed, and what it couldn't apply. */
+  notes: string[]
 }
 
 export interface Sample {
@@ -184,37 +137,9 @@ export interface CampaignRequest {
   /** Omit (or null) to use the recommended budget. */
   budget_usd?: number | null
   answers?: Record<string, string>
-  /** Optional free-text note for the strategist agent (≤ 300 chars). */
-  steer?: string
+  /** Free text that updates step 1; sent with the brief to reuse, so the text isn't read again. */
+  note?: string
+  brief?: Brief
 }
 
-/** Stage payloads received so far while a live run streams in. */
-export interface StreamPartial {
-  understood?: Brief
-  gate?: GateResult
-  publishers?: { recommended: string[]; top: { id: string; name: string; fit: number }[] }
-  personas?: { selected: { id: string; name: string; fit: number; stretch: boolean }[] }
-  /** Agent tool calls received so far (SSE `agent` events). */
-  agent?: AgentTraceEntry[]
-  done?: true
-}
-
-/** What stage 1 returned, sent back unchanged (with its stage_token) to stages 2 and 3. */
-export interface StagePayload {
-  stage_token?: string | null
-  input_text: string
-  brief: Brief
-  gate: GateResult
-  publishers: PublisherScore[]
-  personas: PersonaScore[]
-  /** Optional free-text note for the step's agent (≤ 300 chars); sent only when set. */
-  steer?: string
-}
-
-export interface RegeneratePayload extends StagePayload {
-  creatives: Creative[]
-}
-
-export interface ConfigPayload extends StagePayload {
-  creatives: Creative[]
-}
+/** Step 1's result sent back to steps 3 and 4, with an optional note for that step. */

@@ -67,14 +67,8 @@ export function ExcludedCard({ pub }: { pub: PublisherScore }) {
   )
 }
 
-export interface StageErr {
-  message: string
-  /** 403: the stage-1 result changed or expired, so the fix is to run stage 1 again. */
-  expired: boolean
-}
-
-/** Inline error for a stage-2/3 request; offers "Run it again" when the campaign expired. */
-export function StageError({ err, onRerun, compact }: { err: StageErr; onRerun?: () => void; compact?: boolean }) {
+/** Inline error for a step request (ads or config). */
+export function StageError({ message, compact }: { message: string; compact?: boolean }) {
   return (
     <div
       role="alert"
@@ -82,12 +76,7 @@ export function StageError({ err, onRerun, compact }: { err: StageErr; onRerun?:
         compact ? 'px-3 py-2 text-[12.5px]' : 'px-4 py-3 text-[13.5px]'
       } leading-snug`}
     >
-      {err.message}
-      {err.expired && onRerun && (
-        <button type="button" className="pill pill-sm ml-2 align-middle" onClick={onRerun}>
-          Run it again
-        </button>
-      )}
+      {message}
     </div>
   )
 }

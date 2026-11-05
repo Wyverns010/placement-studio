@@ -1,78 +1,65 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, buildConfig, createCreatives, regenerateCreative } from '../api'
+import { buildConfig, createCreatives } from '../api'
 import { usd } from '../format'
-import { STEER_MAX, type CampaignConfig, type CampaignResult, type Creative, type StagePayload, type StepMeta } from '../types'
-import { AgentNotes, AgentSteer, AgentWorking } from './AgentUi'
+import type { CampaignConfig, CampaignResult, Creative } from '../types'
 import ConfigStep from './ConfigStep'
+import { NoteBox, NoteList } from './NoteBox'
 import OutcomeBanner from './OutcomeBanner'
 import PersonasTab from './PersonasTab'
 import PublishersTab from './PublishersTab'
-import RegenerateControls from './RegenerateControls'
 import Stepper, { type StepDef } from './Stepper'
-import { Busy, StageError, type StageErr } from './ui'
+import { Busy, StageError } from './ui'
 
 type Step = 'publishers' | 'personas' | 'creatives' | 'config'
-/** The steps with a stage-1 steer box: a steer re-runs stage 1 and the result opens there. */
-export type SteerStep = 'publishers' | 'personas'
+/** The steps with a step-1 note box: a note re-runs step 1 and the result opens there. */
+export type NoteStep = 'publishers' | 'personas'
 
 const FALLBACK = 'Something went wrong. Please try again.'
 
-/** ApiError → inline error; a 403 means the stage-1 result changed or expired (re-run it). */
-function toStageErr(err: unknown): StageErr {
-  const message = err instanceof Error && err.message ? err.message : FALLBACK
-  return { message, expired: err instanceof ApiError && err.status === 403 }
-}
+const messageOf = (err: unknown): string => (err instanceof Error && err.message ? err.message : FALLBACK)
 
 const isAbort = (err: unknown) => err instanceof Error && err.name === 'AbortError'
 
 /**
- * Proceed / weak_fit results as three steps: ① publishers & personas → ② creatives (per-ad
- * Regenerate) → ③ campaign config (budget editable). Stages 2 and 3 are requested from here,
- * sending stage 1's result back unchanged. Mounted fresh per stage-1 result (keyed by App).
+ * Proceed / weak_fit results as steps: publishers → personas → ads → campaign config (budget
+ * editable). Ads and config are requested from here, sending step 1's result back as it is, with
+ * the step's note. Mounted fresh per step-1 result (keyed by App).
  */
 export default function StagedResults({
   result,
-  onRerun,
-  onSteer,
-  initialSteer = '',
+  onNote,
+  initialNote = '',
   initialStep = 'publishers',
   running = false,
 }: {
   result: CampaignResult
-  onRerun?: () => void
-  /** Re-runs stage 1 with a steer (App owns it; omit to hide the step-1 box). */
-  onSteer?: (steer: string, from?: SteerStep) => void
-  /** The steer this stage-1 result was produced with. */
-  initialSteer?: string
-  /** The step that steer was written on: the result opens there. */
-  initialStep?: SteerStep
+  /** Re-runs step 1 with a note (App owns it; omit to hide the step-1 box). */
+  onNote?: (note: string, from?: NoteStep) => void
+  /** The note this step-1 result was produced with. */
+  initialNote?: string
+  /** The step that note was written on: the result opens there. */
+  initialStep?: NoteStep
   running?: boolean
 }) {
   const [step, setStep] = useState<Step>(initialStep)
   // Personas come after publishers: the step opens once the publishers are accepted.
   const [personasOpen, setPersonasOpen] = useState(initialStep === 'personas')
-  const [steerP, setSteerP] = useState('')
+  const [noteP, setNoteP] = useState('')
   const [creatives, setCreatives] = useState<Creative[] | null>(null)
   const [config, setConfig] = useState<CampaignConfig | null>(null)
   const [pending, setPending] = useState<'creatives' | 'config' | null>(null)
-  const [stepError, setStepError] = useState<StageErr | null>(null)
-  const [cardBusy, setCardBusy] = useState<Record<string, boolean>>({})
-  const [cardError, setCardError] = useState<Record<string, StageErr | undefined>>({})
+  const [stepError, setStepError] = useState<string | null>(null)
   const [configBusy, setConfigBusy] = useState(false)
-  const [configError, setConfigError] = useState<StageErr | null>(null)
+  const [configError, setConfigError] = useState<string | null>(null)
   // Set on Approve when some ads still carry check flags: approval goes ahead, but says so.
   const [approveWarning, setApproveWarning] = useState<string | null>(null)
-  // The budget stage 3 is built at: the landing value at first, then whatever the user last
-  // applied on step 3 (kept when the config is rebuilt after a regenerate).
-  // Steer boxes (text) and what each step's agent did. Mounted fresh per stage-1 result, so a new
-  // campaign (or a step-1 re-run) starts with empty ones for steps 2 and 3.
-  const [steer1, setSteer1] = useState(initialSteer)
-  const [steer2, setSteer2] = useState('')
-  // The step-2 steer the current ads were written with: per-ad Regenerate sends it too.
-  const [applied2, setApplied2] = useState('')
-  const [steer3, setSteer3] = useState('')
-  const [meta2, setMeta2] = useState<StepMeta | undefined>()
-  const [meta3, setMeta3] = useState<StepMeta | undefined>()
+  // Note boxes, and what the config note changed. Mounted fresh per step-1 result, so a new
+  // campaign (or a step-1 re-run) starts with empty ones for the later steps.
+  const [note1, setNote1] = useState(initialNote)
+  const [note3, setNote3] = useState('')
+  const [note4, setNote4] = useState('')
+  const [configNotes, setConfigNotes] = useState<string[]>([])
+  // The budget the config is built at: the landing value at first, then whatever the user last applied.
   const [budgetChoice, setBudgetChoice] = useState<number | null>(result.budget_usd ?? null)
 
   // Abort whatever is in flight when this result goes away (new run, back home, unmount).
@@ -98,16 +85,6 @@ export default function StagedResults({
     heading.current?.focus()
   }, [step])
 
-  const gate = result.gate!
-  const stage: StagePayload = {
-    ...(result.stage_token != null ? { stage_token: result.stage_token } : {}),
-    input_text: result.input_text,
-    brief: result.brief!,
-    gate,
-    publishers: result.publishers,
-    personas: result.personas,
-  }
-  const anyCardBusy = Object.values(cardBusy).some(Boolean)
 
   /**
    * One config request at a time. Starting a new one, regenerating, or leaving step 3 aborts the
@@ -135,59 +112,28 @@ export default function StagedResults({
     setStep(s)
   }
 
-  const withSteer = (text: string): StagePayload => (text ? { ...stage, steer: text } : stage)
-
-  /** Requests the ads (step 2); with a steer it re-writes them and drops any config built from the old ones. */
-  async function writeAds(steer = '') {
-    if (creatives && !steer) return goTo('creatives')
+  /** Requests the ads; with a note it re-writes them and drops any config built from the old ones. */
+  async function writeAds(note = '') {
+    if (creatives && !note) return goTo('creatives')
     const t = track()
     setPending('creatives')
     setStepError(null)
-    setMeta2(undefined)
     try {
-      const out = await createCreatives(withSteer(steer), t.signal, steer ? setMeta2 : undefined)
-      if (steer) {
+      const out = await createCreatives(result, note, t.signal)
+      if (note) {
         cancelConfig()
         setConfig(null)
         setConfigError(null)
         setApproveWarning(null)
-        setMeta3(undefined)
+        setConfigNotes([])
       }
       setCreatives(out)
-      setApplied2(steer)
       setStep('creatives')
     } catch (err) {
-      if (!isAbort(err)) setStepError(toStageErr(err))
+      if (!isAbort(err)) setStepError(messageOf(err))
     } finally {
       t.done()
       if (!t.signal.aborted) setPending(null)
-    }
-  }
-
-  async function regenerate(personaId: string, note: string): Promise<boolean> {
-    if (!creatives) return false
-    const t = track()
-    cancelConfig() // a config built now would describe the old ad
-    setCardBusy((b) => ({ ...b, [personaId]: true }))
-    setCardError((e) => ({ ...e, [personaId]: undefined }))
-    try {
-      const fresh = await regenerateCreative({ ...withSteer(applied2), creatives }, personaId, note, t.signal)
-      setCreatives((cs) => (cs ?? []).map((c) => (c.persona_id === personaId ? fresh : c)))
-      // The approved set changed: the config no longer matches it.
-      cancelConfig()
-      setConfig(null)
-      setMeta3(undefined)
-      setConfigError(null)
-      setApproveWarning(null)
-      // Step 3 is locked while a card is busy, so the user is on step 1 or 2: stay there.
-      setStep((s) => (s === 'config' ? 'creatives' : s))
-      return true
-    } catch (err) {
-      if (!isAbort(err)) setCardError((e) => ({ ...e, [personaId]: toStageErr(err) }))
-      return false
-    } finally {
-      t.done()
-      if (!t.signal.aborted) setCardBusy((b) => ({ ...b, [personaId]: false }))
     }
   }
 
@@ -198,36 +144,36 @@ export default function StagedResults({
     setPending('config')
     setStepError(null)
     try {
-      setMeta3(undefined)
-      const out = await buildConfig({ ...stage, creatives }, budgetChoice, t.signal, setMeta3)
+      setConfigNotes([])
+      const out = await buildConfig(result, creatives, budgetChoice, '', t.signal)
       if (!t.current()) return
-      setConfig(out)
+      setConfig(out.config)
       setApproveWarning(flagWarning(creatives, result.personas))
       setConfigError(null)
       setStep('config')
     } catch (err) {
-      if (t.current() && !isAbort(err)) setStepError(toStageErr(err))
+      if (t.current() && !isAbort(err)) setStepError(messageOf(err))
     } finally {
       t.done()
       if (t.current()) setPending(null)
     }
   }
 
-  /** Re-requests stage 3 at `budget` (null = the recommendation). Keeps the old config on failure. */
-  async function updateBudget(budget: number | null, steer = '') {
+  /** Re-requests the config at `budget` (null = the recommendation). Keeps the old config on failure. */
+  async function updateBudget(budget: number | null, note = '') {
     if (!creatives) return
     const t = startConfig()
     setConfigBusy(true)
     setConfigError(null)
     try {
-      const out = await buildConfig({ ...withSteer(steer), creatives }, budget, t.signal, steer ? setMeta3 : undefined)
+      const out = await buildConfig(result, creatives, budget, note, t.signal)
       if (!t.current()) return
-      setConfig(out)
-      // an amount in the steer replaces the field (it's the newer instruction): keep it for later updates
-      const steered = steer && out.budget.source === 'user' ? Number(out.budget.monthly_usd) : NaN
-      setBudgetChoice(Number.isFinite(steered) ? steered : budget)
+      setConfig(out.config)
+      setConfigNotes(note ? out.notes : [])
+      // an amount in the note replaces the field (it's the newer instruction): keep it for later updates
+      setBudgetChoice(note && out.config.budget.source === 'user' ? out.config.budget.monthly_usd : budget)
     } catch (err) {
-      if (t.current() && !isAbort(err)) setConfigError(toStageErr(err))
+      if (t.current() && !isAbort(err)) setConfigError(messageOf(err))
     } finally {
       t.done()
       if (t.current()) setConfigBusy(false)
@@ -235,32 +181,20 @@ export default function StagedResults({
   }
 
   const recCount = result.publishers.filter((p) => p.recommended).length
-  const workingNames = {
-    personas: result.personas.map((p) => p.name),
-    publishers: result.publishers.filter((p) => p.recommended).map((p) => p.name),
-  }
   const steps: StepDef<Step>[] = [
     { id: 'publishers', label: 'Publishers', enabled: true },
     { id: 'personas', label: 'Personas', enabled: personasOpen, hint: 'Accept the publishers first.' },
     { id: 'creatives', label: 'Creatives', enabled: !!creatives, hint: 'Write the ads first.' },
-    {
-      id: 'config',
-      label: 'Campaign config',
-      enabled: !!config && !anyCardBusy,
-      hint: anyCardBusy ? 'Wait for the ad to finish rewriting.' : 'Approve creatives first.',
-    },
+    { id: 'config', label: 'Campaign config', enabled: !!config, hint: 'Approve creatives first.' },
   ]
-  /** A personas steer keeps the publishers steer it was built on (the step-1 box). */
-  const personasSteer = (text: string) => {
-    const joined = [initialSteer.trim(), text.trim()].filter(Boolean).join('. ')
-    return joined.length <= STEER_MAX ? joined : text.trim()
-  }
+  /** A personas note keeps the publishers note it was built on (both are step-1 notes). */
+  const personasNote = (text: string) => [initialNote.trim(), text.trim()].filter(Boolean).join('. ')
   const testBudget = config?.budget.test_budget === true ? config.budget.monthly_usd : undefined
 
   const headingCls = 'm-0 text-lg font-semibold tracking-[-0.01em] outline-none sm:text-xl'
   const errorBlock = stepError && (
     <div className="mt-4">
-      <StageError err={stepError} onRerun={onRerun} />
+      <StageError message={stepError} />
     </div>
   )
 
@@ -306,20 +240,17 @@ export default function StagedResults({
               </>
             }
           />
-          {onSteer && (
-            <AgentSteer
-              placeholder="Skip pet stores"
-              value={steer1}
-              onChange={setSteer1}
-              onApply={(t) => onSteer(t, 'publishers')}
+          {onNote && (
+            <NoteBox
+              placeholder="Skip Pawline"
+              value={note1}
+              onChange={setNote1}
+              onApply={(t) => onNote(t, 'publishers')}
               busy={running}
-              allowBlank={!!initialSteer}
+              allowBlank={!!initialNote}
             />
           )}
-          <AgentNotes
-            className="mb-5"
-            notes={initialSteer && initialStep === 'publishers' ? result.agent_notes : undefined}
-          />
+          <NoteList className="mb-5" notes={initialNote && initialStep === 'publishers' ? result.notes : undefined} />
           <PublishersTab publishers={result.publishers} config={config} />
         </section>
       )}
@@ -348,20 +279,16 @@ export default function StagedResults({
               </>
             }
           />
-          {pending === 'creatives' && <AgentWorking {...workingNames} className="-mt-2 mb-4 justify-end" />}
-          {onSteer && (
-            <AgentSteer
+          {onNote && (
+            <NoteBox
               placeholder="Drop the Gifter"
-              value={steerP}
-              onChange={setSteerP}
-              onApply={(t) => onSteer(personasSteer(t), 'personas')}
+              value={noteP}
+              onChange={setNoteP}
+              onApply={(t) => onNote(personasNote(t), 'personas')}
               busy={running}
             />
           )}
-          <AgentNotes
-            className="mb-5"
-            notes={initialSteer && initialStep === 'personas' ? result.agent_notes : undefined}
-          />
+          <NoteList className="mb-5" notes={initialNote && initialStep === 'personas' ? result.notes : undefined} />
           <PersonasTab personas={result.personas} publishers={result.publishers} />
           {errorBlock}
         </section>
@@ -374,7 +301,7 @@ export default function StagedResults({
             headingRef={heading}
             className={headingCls}
             title="Review the ads"
-            sub="One ad per persona, each written for one publisher; publishers without their own ad reuse one (the config says which). Regenerate any you'd change — add a note to steer it."
+            sub="One ad per persona, each written for one publisher; publishers without their own ad reuse one (the config says which). Add a note to rewrite them."
             actions={
               <>
                 <button type="button" className="pill" onClick={() => goTo('personas')}>
@@ -383,7 +310,7 @@ export default function StagedResults({
                 <button
                   type="button"
                   className="pill pill-primary"
-                  disabled={pending === 'config' || anyCardBusy}
+                  disabled={pending === 'config'}
                   onClick={approve}
                 >
                   {pending === 'config' ? <Busy label="Building config…" /> : 'Approve creatives & build config →'}
@@ -391,33 +318,16 @@ export default function StagedResults({
               </>
             }
           />
-          <AgentSteer
+          <NoteBox
             placeholder="Make them more playful"
-            value={steer2}
-            onChange={setSteer2}
+            value={note3}
+            onChange={setNote3}
             onApply={(t) => writeAds(t)}
             busy={pending === 'creatives'}
-            disabled={pending === 'config' || anyCardBusy}
+            disabled={pending === 'config'}
           />
-          {pending === 'creatives' && <AgentWorking {...workingNames} className="-mt-2 mb-4" />}
           {errorBlock}
-          <AgentNotes className="mb-5" notes={meta2?.agent_notes} />
-          <PersonasTab
-            personas={result.personas}
-            creatives={creatives}
-            publishers={result.publishers}
-            busy={cardBusy}
-            actions={(p) => (
-              <RegenerateControls
-                personaName={p.name}
-                busy={!!cardBusy[p.persona_id]}
-                disabled={pending === 'config' || (anyCardBusy && !cardBusy[p.persona_id])}
-                error={cardError[p.persona_id]}
-                onRerun={onRerun}
-                onRegenerate={(note) => regenerate(p.persona_id, note)}
-              />
-            )}
-          />
+          <PersonasTab personas={result.personas} creatives={creatives} publishers={result.publishers} />
         </section>
       )}
 
@@ -442,14 +352,14 @@ export default function StagedResults({
               {approveWarning}
             </p>
           )}
-          <AgentSteer
+          <NoteBox
             placeholder="Keep it under $5,000"
-            value={steer3}
-            onChange={setSteer3}
+            value={note4}
+            onChange={setNote4}
             onApply={(t) => updateBudget(budgetChoice, t)}
             busy={configBusy}
           />
-          <AgentNotes className="mb-5" notes={meta3?.agent_notes} />
+          <NoteList className="mb-5" notes={configNotes} />
           <ConfigStep
             config={config}
             publishers={result.publishers}
@@ -457,7 +367,6 @@ export default function StagedResults({
             creatives={creatives ?? []}
             busy={configBusy}
             error={configError}
-            onRerun={onRerun}
             onBudget={updateBudget}
           />
         </section>

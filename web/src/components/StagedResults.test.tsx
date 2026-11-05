@@ -5,9 +5,9 @@ import type { CampaignConfig, CampaignResult, Creative } from '../types'
 
 vi.mock('../api', async () => {
   const actual = await vi.importActual<typeof import('../api')>('../api')
-  return { ...actual, createCreatives: vi.fn(), regenerateCreative: vi.fn(), buildConfig: vi.fn() }
+  return { ...actual, createCreatives: vi.fn(), buildConfig: vi.fn() }
 })
-import { ApiError, buildConfig, createCreatives, regenerateCreative } from '../api'
+import { ApiError, buildConfig, createCreatives } from '../api'
 import Results from './Results'
 
 const pub = (id: string, name: string, fit: number, recommended: boolean) => ({
@@ -42,20 +42,17 @@ const result: CampaignResult = {
     unknowns: [],
     self_confidence: 0.9,
   },
-  gate: { outcome: 'proceed', confidence: 0.91, threshold: 0.7, impl: 'llm', signals: {} },
+  gate: { outcome: 'proceed', confidence: 0.91, threshold: 0.7 },
   publishers: [pub('p1', 'Pawline', 0.88, true), pub('p2', 'Ruffco', 0.8, true), pub('p3', 'Skipped', 0.1, false)],
   personas: [
     { persona_id: 'a', name: 'Pet Parent', fit: 0.9, factors: [], stretch: false },
     { persona_id: 'b', name: 'Wellness Optimizer', fit: 0.7, factors: [], stretch: false },
   ],
-  creatives: [],
   clarify: [],
-  config: null,
-  stage_token: 'tok_abc',
+  notes: [],
 }
 
 const cr = (persona: string, pubId: string, headline: string): Creative => ({
-  creative_id: `cr_${persona}`,
   persona_id: persona,
   publisher_id: pubId,
   headline,
@@ -74,8 +71,8 @@ const cfg = (monthly: number, source: 'recommended' | 'user', extra: Partial<Cam
   bid_strategy: { type: 'target_cpa', target_usd: 41 },
   targeting: {},
   line_items: [
-    { publisher_id: 'p1', share: 0.6, budget_usd: monthly * 0.6, creative_id: 'cr_a' },
-    { publisher_id: 'p2', share: 0.4, budget_usd: monthly * 0.4, creative_id: 'cr_b' },
+    { publisher_id: 'p1', share: 0.6, budget_usd: monthly * 0.6, cpm_usd: 13, est_impressions: 0, ads: ['a'] },
+    { publisher_id: 'p2', share: 0.4, budget_usd: monthly * 0.4, cpm_usd: 13, est_impressions: 0, ads: ['b'] },
   ],
   frequency_cap: { impressions: 4, per_days: 14 },
   guardrails: {},
@@ -85,25 +82,16 @@ const cfg = (monthly: number, source: 'recommended' | 'user', extra: Partial<Cam
     pacing: 'Even: a premium-tier purchase is considered, so reminders are spread out',
     frequency_cap: 'At most 4 impressions per person every 14 days (premium tier, +1 for a subscription)',
   },
-  decision_trace: {},
   ...extra,
 })
 
-const stage1 = {
-  stage_token: 'tok_abc',
-  input_text: result.input_text,
-  brief: result.brief,
-  gate: result.gate,
-  publishers: result.publishers,
-  personas: result.personas,
-}
+const out = (config: CampaignConfig, notes: string[] = []) => ({ config, notes })
 
 beforeEach(() => {
   vi.mocked(createCreatives).mockReset().mockResolvedValue(creatives)
-  vi.mocked(regenerateCreative).mockReset()
   vi.mocked(buildConfig)
     .mockReset()
-    .mockImplementation(async (_p, b) => (b != null ? cfg(b, 'user') : cfg(6000, 'recommended')))
+    .mockImplementation(async (_r, _c, b) => out(b != null ? cfg(b, 'user') : cfg(6000, 'recommended')))
 })
 
 const steps = () => within(screen.getByRole('navigation', { name: 'Campaign steps' }))
@@ -145,11 +133,11 @@ describe('Staged results', () => {
     expect(screen.getByText('“premium dog food for senior dogs”')).toBeInTheDocument()
   })
 
-  it('requests creatives with the unchanged stage-1 payload and shows the ad cards', async () => {
+  it('requests creatives with step 1\'s result as it is and shows the ad cards', async () => {
     const user = userEvent.setup()
     await toStep2(user)
     expect(createCreatives).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(createCreatives).mock.calls[0][0]).toEqual(stage1)
+    expect(vi.mocked(createCreatives).mock.calls[0][0]).toEqual(result)
     expect(stepBtn(/creatives/i)).toHaveAttribute('aria-current', 'step')
     expect(screen.getByText('Food for old friends')).toBeInTheDocument()
     expect(screen.getByText('Sponsored · on Ruffco')).toBeInTheDocument()
@@ -196,53 +184,25 @@ describe('Staged results', () => {
     expect(stepBtn(/step 2:\s*personas/i)).toHaveAttribute('aria-current', 'step')
   })
 
-  it('regenerate sends the note and replaces only that card', async () => {
+  it('a note on the ads rewrites them all with the note sent along', async () => {
     const user = userEvent.setup()
-    vi.mocked(regenerateCreative).mockResolvedValueOnce(cr('a', 'p1', 'Warmer words'))
     await toStep2(user)
-    const card = screen.getByRole('article', { name: 'Pet Parent' })
-    await user.type(within(card).getByRole('textbox', { name: /note/i }), 'warmer, mention the refill')
-    await user.click(within(card).getByRole('button', { name: /regenerate/i }))
-    expect(regenerateCreative).toHaveBeenCalledWith(
-      { ...stage1, creatives },
-      'a',
-      'warmer, mention the refill',
-      expect.any(AbortSignal),
-    )
-    expect(await within(card).findByText('Warmer words')).toBeInTheDocument()
-    expect(within(card).queryByText('Food for old friends')).not.toBeInTheDocument()
-    expect(screen.getByText('Joints that keep up')).toBeInTheDocument()
-    expect(within(card).getByRole('textbox', { name: /note/i })).toHaveValue('')
+    vi.mocked(createCreatives).mockResolvedValueOnce([cr('a', 'p1', 'Warmer words'), creatives[1]])
+    await user.type(screen.getByRole('textbox', { name: 'Note' }), 'warmer, mention the refill')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(vi.mocked(createCreatives).mock.calls[1].slice(0, 2)).toEqual([result, 'warmer, mention the refill'])
+    expect(await screen.findByText('Warmer words')).toBeInTheDocument()
+    expect(screen.queryByText('Food for old friends')).not.toBeInTheDocument()
   })
 
-  it('caps the note at 200 characters', async () => {
+  it('a failed rewrite keeps the old ads and shows the error', async () => {
     const user = userEvent.setup()
     await toStep2(user)
-    const card = screen.getByRole('article', { name: 'Pet Parent' })
-    expect(within(card).getByRole('textbox', { name: /note/i })).toHaveAttribute('maxLength', '200')
-  })
-
-  it('a regenerating card is busy on its own; its error is inline and the spinner goes away', async () => {
-    const user = userEvent.setup()
-    let reject!: (e: Error) => void
-    vi.mocked(regenerateCreative).mockReturnValueOnce(new Promise((_, r) => (reject = r)))
-    await toStep2(user)
-    const a = screen.getByRole('article', { name: 'Pet Parent' })
-    const b = screen.getByRole('article', { name: 'Wellness Optimizer' })
-    await user.click(within(a).getByRole('button', { name: /regenerate/i }))
-    expect(a).toHaveAttribute('aria-busy', 'true')
-    expect(within(a).getByRole('button', { name: /rewriting/i })).toBeDisabled()
-    expect(b).not.toHaveAttribute('aria-busy', 'true')
-    // one rewrite at a time, so the snapshot of the other ads it sends stays consistent
-    expect(within(b).getByRole('button', { name: /regenerate/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /approve creatives/i })).toBeDisabled()
-    reject(new ApiError(502, "The AI service didn't respond"))
-    expect(await within(a).findByRole('alert')).toHaveTextContent("didn't respond")
-    expect(within(a).queryByText(/rewriting/i)).not.toBeInTheDocument()
-    expect(a).not.toHaveAttribute('aria-busy', 'true')
-    expect(within(a).getByText('Food for old friends')).toBeInTheDocument()
-    expect(within(b).queryByRole('alert')).not.toBeInTheDocument()
-    expect(within(b).getByRole('button', { name: /regenerate/i })).toBeEnabled()
+    vi.mocked(createCreatives).mockRejectedValueOnce(new ApiError(502, "The AI service didn't respond"))
+    await user.type(screen.getByRole('textbox', { name: 'Note' }), 'shorter')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent("didn't respond")
+    expect(screen.getByText('Food for old friends')).toBeInTheDocument()
   })
 
   it('approving with flagged ads still builds the config and lists the flags in one line', async () => {
@@ -273,12 +233,7 @@ describe('Staged results', () => {
   it('approve builds the config with the current creatives at the recommended budget', async () => {
     const user = userEvent.setup()
     await toStep3(user)
-    expect(buildConfig).toHaveBeenCalledWith(
-      { ...stage1, gate: result.gate, creatives },
-      null,
-      expect.any(AbortSignal),
-      expect.any(Function),
-    )
+    expect(buildConfig).toHaveBeenCalledWith(result, creatives, null, '', expect.any(AbortSignal))
     expect(stepBtn(/campaign config/i)).toHaveAttribute('aria-current', 'step')
     expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('6,000')
     expect(screen.getByText(/Recommended \$6,000\. Goal: 200 conversions/)).toBeInTheDocument()
@@ -291,7 +246,7 @@ describe('Staged results', () => {
   it('passes the budget the user gave on the landing page to the first config', async () => {
     const user = userEvent.setup()
     await toStep3(user, { ...result, budget_usd: 9000 })
-    expect(vi.mocked(buildConfig).mock.calls[0][1]).toBe(9000)
+    expect(vi.mocked(buildConfig).mock.calls[0][2]).toBe(9000)
     expect(screen.getByTestId('budget-source')).toHaveTextContent(/yours/i)
   })
 
@@ -302,12 +257,12 @@ describe('Staged results', () => {
     await user.clear(input)
     await user.type(input, '12000')
     await user.click(screen.getByRole('button', { name: 'Update' }))
-    expect(vi.mocked(buildConfig).mock.calls.at(-1)![1]).toBe(12000)
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![2]).toBe(12000)
     await waitFor(() => expect(screen.getByTestId('budget-source')).toHaveTextContent(/yours/i))
     expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('12,000')
     expect(screen.getByText(/\$12,000 \/ month/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /use recommended/i }))
-    expect(vi.mocked(buildConfig).mock.calls.at(-1)![1]).toBeNull()
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![2]).toBeNull()
     await waitFor(() => expect(screen.getByTestId('budget-source')).toHaveTextContent(/recommended/i))
   })
 
@@ -346,61 +301,30 @@ describe('Staged results', () => {
     expect(stepBtn(/campaign config/i)).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('regenerating after approval clears the config and stays on step 2', async () => {
+  it('rewriting the ads after approval clears the config and stays on the ads', async () => {
     const user = userEvent.setup()
     await toStep3(user)
     await user.click(stepBtn(/creatives/i))
-    vi.mocked(regenerateCreative).mockResolvedValueOnce(cr('b', 'p2', 'New joints line'))
-    const card = screen.getByRole('article', { name: 'Wellness Optimizer' })
-    await user.click(within(card).getByRole('button', { name: /regenerate/i }))
-    expect(await within(card).findByText('New joints line')).toBeInTheDocument()
+    vi.mocked(createCreatives).mockResolvedValueOnce([creatives[0], cr('b', 'p2', 'New joints line')])
+    await user.type(screen.getByRole('textbox', { name: 'Note' }), 'punchier')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByText('New joints line')).toBeInTheDocument()
     expect(stepBtn(/creatives/i)).toHaveAttribute('aria-current', 'step')
     expect(stepBtn(/campaign config/i)).toHaveAttribute('aria-disabled', 'true')
     await user.click(screen.getByRole('button', { name: /approve creatives & build config/i }))
     await screen.findByLabelText('Monthly budget in USD')
-    expect(vi.mocked(buildConfig).mock.calls.at(-1)![0].creatives[1].headline).toBe('New joints line')
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![1][1].headline).toBe('New joints line')
   })
 
-  it('a 403 (campaign changed or expired) offers Run it again, which re-runs stage 1', async () => {
+  it('a note on the config is sent with the budget and its notes are listed', async () => {
     const user = userEvent.setup()
-    const onRerun = vi.fn()
-    vi.mocked(createCreatives).mockRejectedValueOnce(
-      new ApiError(403, 'This campaign changed or expired — run it again.'),
-    )
-    render(<Results result={result} onBack={() => {}} onRerun={onRerun} />)
-    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
-    if (pick) await user.click(pick)
-    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/changed or expired/)
-    await user.click(screen.getByRole('button', { name: /run it again/i }))
-    expect(onRerun).toHaveBeenCalledTimes(1)
-  })
-
-  it('a 403 on regenerate shows Run it again inside that card', async () => {
-    const user = userEvent.setup()
-    const onRerun = vi.fn()
-    vi.mocked(regenerateCreative).mockRejectedValueOnce(
-      new ApiError(403, 'This campaign changed or expired — run it again.'),
-    )
-    render(<Results result={result} onBack={() => {}} onRerun={onRerun} />)
-    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
-    if (pick) await user.click(pick)
-    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
-    const card = await screen.findByRole('article', { name: 'Pet Parent' })
-    await user.click(within(card).getByRole('button', { name: /regenerate/i }))
-    await user.click(await within(card).findByRole('button', { name: /run it again/i }))
-    expect(onRerun).toHaveBeenCalled()
-  })
-
-  it('a non-403 error offers no Run it again', async () => {
-    const user = userEvent.setup()
-    vi.mocked(createCreatives).mockRejectedValueOnce(new ApiError(502, 'AI down'))
-    render(<Results result={result} onBack={() => {}} onRerun={() => {}} />)
-    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
-    if (pick) await user.click(pick)
-    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
-    await screen.findByRole('alert')
-    expect(screen.queryByRole('button', { name: /run it again/i })).not.toBeInTheDocument()
+    await toStep3(user)
+    vi.mocked(buildConfig).mockResolvedValueOnce(out(cfg(5000, 'user'), ['Budget set to $5,000 from your note.']))
+    await user.type(screen.getByRole('textbox', { name: 'Note' }), 'under $5k')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![3]).toBe('under $5k')
+    expect(await screen.findByText('Budget set to $5,000 from your note.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('5,000')
   })
 
   it('a locked step stays focusable, says why, and does not open', async () => {
@@ -414,22 +338,22 @@ describe('Staged results', () => {
     expect(stepBtn(/step 1:\s*publishers/i)).toHaveAttribute('aria-current', 'step')
   })
 
-  it('a stale config response (after leaving step 3 and regenerating) is ignored', async () => {
+  it('a stale config response (after leaving step 3 and rewriting the ads) is ignored', async () => {
     const user = userEvent.setup()
     await toStep3(user)
-    let resolve!: (c: CampaignConfig) => void
+    let resolve!: (c: ReturnType<typeof out>) => void
     vi.mocked(buildConfig).mockReturnValueOnce(new Promise((r) => (resolve = r)))
     const input = screen.getByLabelText('Monthly budget in USD')
     await user.clear(input)
     await user.type(input, '12000')
     await user.click(screen.getByRole('button', { name: 'Update' }))
-    // leave step 3 while the update is in flight, then regenerate (clears the config)
+    // leave step 3 while the update is in flight, then rewrite the ads (clears the config)
     await user.click(stepBtn(/creatives/i))
-    vi.mocked(regenerateCreative).mockResolvedValueOnce(cr('a', 'p1', 'Fresh line'))
-    const card = screen.getByRole('article', { name: 'Pet Parent' })
-    await user.click(within(card).getByRole('button', { name: /regenerate/i }))
-    await within(card).findByText('Fresh line')
-    resolve(cfg(12000, 'user'))
+    vi.mocked(createCreatives).mockResolvedValueOnce([cr('a', 'p1', 'Fresh line'), creatives[1]])
+    await user.type(screen.getByRole('textbox', { name: 'Note' }), 'fresh')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    await screen.findByText('Fresh line')
+    resolve(out(cfg(12000, 'user')))
     await new Promise((r) => setTimeout(r, 20))
     expect(stepBtn(/campaign config/i)).toHaveAttribute('aria-disabled', 'true')
   })
@@ -437,14 +361,14 @@ describe('Staged results', () => {
   it('a stale config response after leaving step 3 does not replace the shown config', async () => {
     const user = userEvent.setup()
     await toStep3(user)
-    let resolve!: (c: CampaignConfig) => void
+    let resolve!: (c: ReturnType<typeof out>) => void
     vi.mocked(buildConfig).mockReturnValueOnce(new Promise((r) => (resolve = r)))
     const input = screen.getByLabelText('Monthly budget in USD')
     await user.clear(input)
     await user.type(input, '12000')
     await user.click(screen.getByRole('button', { name: 'Update' }))
     await user.click(stepBtn(/creatives/i))
-    resolve(cfg(12000, 'user'))
+    resolve(out(cfg(12000, 'user')))
     await new Promise((r) => setTimeout(r, 20))
     await user.click(stepBtn(/campaign config/i))
     expect(screen.getByText(/\$6,000 \/ month/)).toBeInTheDocument()
@@ -457,7 +381,7 @@ describe('Staged results', () => {
     await toStep3(user, { ...result, budget_usd: 9000 })
     await user.clear(screen.getByLabelText('Monthly budget in USD'))
     await user.click(screen.getByRole('button', { name: 'Update' }))
-    expect(vi.mocked(buildConfig).mock.calls.at(-1)![1]).toBeNull()
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![2]).toBeNull()
   })
 
   it('accepts "$12,000.00" on step 3 and rejects "1e3"', async () => {
@@ -470,10 +394,10 @@ describe('Staged results', () => {
     await user.clear(input)
     await user.type(input, '$12,000.00')
     await user.click(screen.getByRole('button', { name: 'Update' }))
-    expect(vi.mocked(buildConfig).mock.calls.at(-1)![1]).toBe(12000)
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![2]).toBe(12000)
   })
 
-  it('rebuilding after a regenerate keeps the budget last chosen on step 3', async () => {
+  it('rebuilding after a rewrite keeps the budget last chosen on step 3', async () => {
     const user = userEvent.setup()
     await toStep3(user, { ...result, budget_usd: 9000 })
     const input = screen.getByLabelText('Monthly budget in USD')
@@ -482,35 +406,22 @@ describe('Staged results', () => {
     await user.click(screen.getByRole('button', { name: 'Update' }))
     await waitFor(() => expect(screen.getByLabelText('Monthly budget in USD')).toHaveValue('15,000'))
     await user.click(stepBtn(/creatives/i))
-    vi.mocked(regenerateCreative).mockResolvedValueOnce(cr('a', 'p1', 'Fresh line'))
-    const card = screen.getByRole('article', { name: 'Pet Parent' })
-    await user.click(within(card).getByRole('button', { name: /regenerate/i }))
-    await within(card).findByText('Fresh line')
+    vi.mocked(createCreatives).mockResolvedValueOnce([cr('a', 'p1', 'Fresh line'), creatives[1]])
+    await user.type(screen.getByRole('textbox', { name: 'Note' }), 'fresh')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    await screen.findByText('Fresh line')
     await user.click(screen.getByRole('button', { name: /approve creatives & build config/i }))
-    expect(vi.mocked(buildConfig).mock.calls.at(-1)![1]).toBe(15000)
-  })
-
-  it('a regenerate that finishes after the user went back to step 1 leaves them there', async () => {
-    const user = userEvent.setup()
-    let resolve!: (c: Creative) => void
-    vi.mocked(regenerateCreative).mockReturnValueOnce(new Promise((r) => (resolve = r)))
-    await toStep2(user)
-    const card = screen.getByRole('article', { name: 'Pet Parent' })
-    await user.click(within(card).getByRole('button', { name: /regenerate/i }))
-    await user.click(stepBtn(/step 1:\s*publishers/i))
-    resolve(cr('a', 'p1', 'Fresh line'))
-    await new Promise((r) => setTimeout(r, 20))
-    expect(stepBtn(/step 1:\s*publishers/i)).toHaveAttribute('aria-current', 'step')
-    await user.click(stepBtn(/creatives/i))
-    expect(screen.getByText('Fresh line')).toBeInTheDocument()
+    expect(vi.mocked(buildConfig).mock.calls.at(-1)![2]).toBe(15000)
   })
 
   it('weak_fit keeps its banner on every step and shows the test budget on step 3', async () => {
     const user = userEvent.setup()
     vi.mocked(buildConfig).mockResolvedValue(
-      cfg(1200, 'recommended', {
-        budget: { monthly_usd: 1200, recommended_usd: 1200, source: 'recommended', pacing: 'front_loaded', unallocated_usd: 0, test_budget: true },
-      }),
+      out(
+        cfg(1200, 'recommended', {
+          budget: { monthly_usd: 1200, recommended_usd: 1200, source: 'recommended', pacing: 'front_loaded', unallocated_usd: 0, test_budget: true },
+        }),
+      ),
     )
     const weak = { ...result, outcome: 'weak_fit' as const, message: 'Few publishers match this closely.' }
     render(<Results result={weak} onBack={() => {}} />)

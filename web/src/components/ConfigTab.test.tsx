@@ -11,7 +11,7 @@ const config: CampaignConfig = {
   campaign_id: 'cmp_1',
   objective: 'conversions',
   conversion_event: 'subscription_start',
-  budget: { monthly_usd: 25000, pacing: 'even', unallocated_usd: 1500, test_budget: true },
+  budget: { monthly_usd: 25000, recommended_usd: 25000, source: 'recommended', pacing: 'even', unallocated_usd: 1500, test_budget: true },
   bid_strategy: { type: 'target_cpa', target_usd: 42 },
   targeting: {
     age_range: [30, 60],
@@ -21,13 +21,12 @@ const config: CampaignConfig = {
     personas: ['persona_001'],
   },
   line_items: [
-    { publisher_id: 'pub_a', share: 0.41, budget_usd: 10250, creative_id: 'cr1' },
-    { publisher_id: 'pub_b', share: 0.59, budget_usd: 14750, creative_id: null },
+    { publisher_id: 'pub_a', share: 0.41, budget_usd: 10250, cpm_usd: 12, est_impressions: 854166, ads: ['p1'] },
+    { publisher_id: 'pub_b', share: 0.59, budget_usd: 14750, cpm_usd: 12, est_impressions: 1229166, ads: [] },
   ],
   frequency_cap: { impressions: 3, per_days: 7 },
   guardrails: { pause_if_cpa_over_x: 1.5, cpa_limit_usd: 63, min_impressions: 2000 },
   rationales: { bid_strategy: '65% of $64 order value' },
-  decision_trace: { gate_impl: 'llm' },
 }
 
 const fac = (name: string, score: number) => ({ name, score, note: `${name} note text` })
@@ -46,7 +45,7 @@ describe('ConfigTab', () => {
   it('shows Formatted by default with $25,000, JSON on click, from the same object', async () => {
     const user = userEvent.setup()
     render(<ConfigTab config={config} />)
-    expect(screen.getByText(/\$25,000/)).toBeInTheDocument()
+    expect(screen.getAllByText(/\$25,000/).length).toBeGreaterThan(0)
     expect(screen.getByText(/Target CPA · \$42/)).toBeInTheDocument()
     expect(screen.getByText('Test budget')).toBeInTheDocument()
     expect(screen.getByText(/Unallocated \$1,500/)).toBeInTheDocument()
@@ -54,9 +53,9 @@ describe('ConfigTab', () => {
     expect(screen.queryByText(/"bid_strategy"/)).toBeNull()
     await user.click(screen.getByRole('tab', { name: 'JSON' }))
     expect(screen.getAllByText(/"bid_strategy"/).length).toBeGreaterThan(0)
-    expect(screen.getByText('25000')).toBeInTheDocument()
+    expect(screen.getAllByText('25000').length).toBeGreaterThan(0)
     await user.click(screen.getByRole('tab', { name: 'Formatted' }))
-    expect(screen.getByText(/\$25,000/)).toBeInTheDocument()
+    expect(screen.getAllByText(/\$25,000/).length).toBeGreaterThan(0)
   })
 
   it('shows a Pacing row with its rationale and marks a user-set budget', () => {
@@ -72,16 +71,13 @@ describe('ConfigTab', () => {
     expect(screen.getByText('Your budget')).toBeInTheDocument()
   })
 
-  it('lists extra rotating creatives on a line item, tolerating their absence', () => {
+  it('lists the ads rotating on each line item, and says when a publisher has none', () => {
     const c = {
       ...config,
-      line_items: [
-        { ...config.line_items[0], extra_creative_ids: ['cr2'] },
-        config.line_items[1],
-      ],
+      line_items: [{ ...config.line_items[0], ads: ['p1', 'p2'] }, config.line_items[1]],
     }
-    const mk = (id: string, persona: string): Creative => ({
-      creative_id: id, persona_id: persona, publisher_id: 'pub_a', headline: 'h', body: 'b', cta: 'c', why: 'w', fact_violations: [],
+    const mk = (persona: string): Creative => ({
+      persona_id: persona, publisher_id: 'pub_a', headline: 'h', body: 'b', cta: 'c', why: 'w', fact_violations: [],
     })
     render(
       <ConfigTab
@@ -91,7 +87,7 @@ describe('ConfigTab', () => {
           { persona_id: 'p1', name: 'Pet Parent', fit: 0.9, factors: [], stretch: false },
           { persona_id: 'p2', name: 'Busy Parent', fit: 0.8, factors: [], stretch: false },
         ]}
-        creatives={[mk('cr1', 'p1'), mk('cr2', 'p2')]}
+        creatives={[mk('p1'), mk('p2')]}
       />,
     )
     expect(screen.getByText('→ Pet Parent, Busy Parent', { exact: false })).toBeInTheDocument()
@@ -208,7 +204,6 @@ describe('PersonasTab', () => {
   it('renders ad, stretch prefix and a fact-violation chip', () => {
     const creatives: Creative[] = [
       {
-        creative_id: 'cr1',
         persona_id: 'persona_001',
         publisher_id: 'pub_a',
         headline: 'Read the label',
@@ -244,9 +239,8 @@ describe('Results', () => {
     gate: null,
     publishers: [],
     personas: [],
-    creatives: [],
     clarify: [],
-    config: null,
+    notes: [],
   }
   it('renders the clarify view with Back for non-proceed outcomes', async () => {
     const onBack = vi.fn()
@@ -260,7 +254,7 @@ describe('Results', () => {
     const r = {
       ...base,
       outcome: 'proceed',
-      gate: { outcome: 'proceed', confidence: 0.9, threshold: 0.7, impl: 'llm', signals: {} },
+      gate: { outcome: 'proceed', confidence: 0.9, threshold: 0.7 },
       publishers: [pub('pub_a', 'Pawline', 0.88, true)],
     } as CampaignResult
     render(<Results result={r} onBack={() => {}} />)

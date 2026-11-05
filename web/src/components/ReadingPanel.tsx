@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Brief, CampaignResult, Outcome, StreamPartial } from '../types'
+import type { Brief, CampaignResult, Outcome } from '../types'
 import { clamp01, tierLabel, titleCase, pct } from '../format'
-import { AgentTicker } from './AgentUi'
 import { Chips, ThresholdBar } from './ui'
 
 export const VIOLET = 'linear-gradient(90deg,#c4b5fd,#7c3aed)'
@@ -91,13 +90,12 @@ function PubBars({ rows }: { rows: PubRow[] }) {
 
 interface Props {
   result: CampaignResult | null
-  partial?: StreamPartial
   running?: boolean
 }
 
-export default function ReadingPanel({ result: last, partial = {}, running = false }: Props) {
+export default function ReadingPanel({ result: last, running = false }: Props) {
   const ref = useRef<HTMLElement>(null)
-  // While a run streams in, the lanes show the stages received so far, not the last result.
+  // While a run is in flight, the lanes wait for it instead of showing the last result.
   const live = running
   const result = live ? null : last
 
@@ -109,40 +107,22 @@ export default function ReadingPanel({ result: last, partial = {}, running = fal
   }, [running])
 
   // Normalise both sources into one view-model.
-  const gate = live ? (partial.gate ?? null) : (result?.gate ?? null)
+  const gate = result?.gate ?? null
   const verdict = gate ? gateVerdict(gate.outcome) : result ? gateVerdict(result.outcome) : null
-  const chips = briefChips(live ? partial.understood : result?.brief)
+  const chips = briefChips(result?.brief)
   const top4 = (rows: PubRow[]) => rows.sort((a, b) => b.fit - a.fit).slice(0, 4)
   let pubRows: PubRow[] = []
   let recommended: number | null = null
   let excluded: number | null = null
-  if (live) {
-    const rec = new Set(partial.publishers?.recommended ?? [])
-    pubRows = top4((partial.publishers?.top ?? []).filter((p) => rec.has(p.id)).map((p) => ({ key: p.id, name: p.name, fit: p.fit })))
-    recommended = partial.publishers ? rec.size : null
-  } else if (result) {
+  if (result) {
     const rec = result.publishers.filter((p) => p.recommended)
     pubRows = top4(rec.map((p) => ({ key: p.publisher_id, name: p.name, fit: p.fit })))
     recommended = rec.length
     excluded = result.publishers.length - recommended
   }
-  const personaNames = live
-    ? (partial.personas?.selected ?? []).slice(0, 4).map((p) => p.name)
-    : result
-      ? result.personas.slice(0, 4).map((p) => p.name)
-      : []
-  const personaCount = live
-    ? (partial.personas?.selected.length ?? null)
-    : result
-      ? result.personas.length
-      : null
-
-  const has = {
-    understood: live ? !!partial.understood : !!result,
-    gate: live ? !!partial.gate : !!result,
-    publishers: live ? !!partial.publishers : !!result,
-    personas: live ? !!partial.personas : !!result,
-  }
+  const personaNames = result ? result.personas.slice(0, 4).map((p) => p.name) : []
+  const personaCount = result ? result.personas.length : null
+  const has = { understood: !!result, gate: !!result, publishers: !!result, personas: !!result }
   // Placeholders (idle) vs pulsing dots (running, stage not reached yet).
   const wait = (idle: React.ReactNode) => (live ? <Pending /> : idle)
 
@@ -156,11 +136,9 @@ export default function ReadingPanel({ result: last, partial = {}, running = fal
       <div className="mb-3.5 flex items-baseline justify-between gap-3">
         <h3 className="m-0 text-[19px] font-semibold">How we read your brand</h3>
         <small className="text-muted">
-          {live ? (partial.done ? 'done' : 'reading…') : result ? 'last campaign' : 'updates as it runs'}
+          {live ? 'reading…' : result ? 'last campaign' : 'fills in when it runs'}
         </small>
       </div>
-
-      {live && <AgentTicker trace={partial.agent} />}
 
       <div className="rounded-[14px] bg-[#f3effa] p-3.5">
         <Lane label="Understood">

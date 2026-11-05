@@ -5,10 +5,9 @@ import type { CampaignResult, Sample } from './types'
 
 vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
-  return { ...actual, getSamples: vi.fn(), runCampaign: vi.fn(), streamCampaign: vi.fn(), createCreatives: vi.fn() }
+  return { ...actual, getSamples: vi.fn(), runCampaign: vi.fn(), createCreatives: vi.fn() }
 })
-import { ApiError, createCreatives, getSamples, runCampaign, streamCampaign } from './api'
-import type { StageEvent } from './types'
+import { ApiError, createCreatives, getSamples, runCampaign } from './api'
 import App from './App'
 
 const samples: Sample[] = [
@@ -38,33 +37,19 @@ const result: CampaignResult = {
     unknowns: [],
     self_confidence: 0.9,
   },
-  gate: { outcome: 'proceed', confidence: 0.91, threshold: 0.7, impl: 'llm', signals: {} },
+  gate: { outcome: 'proceed', confidence: 0.91, threshold: 0.7 },
   publishers: [
     { publisher_id: 'p1', name: 'Pawline', fit: 0.88, factors: [], recommended: true, stretch: false, reason: '' },
     { publisher_id: 'p2', name: 'Skipped', fit: 0.1, factors: [], recommended: false, stretch: false, reason: '' },
   ],
   personas: [{ persona_id: 'a', name: 'Pet Parent', fit: 0.9, factors: [], stretch: false }],
-  creatives: [],
   clarify: [],
-  config: null,
+  notes: [],
 }
 
 beforeEach(() => {
   vi.mocked(getSamples).mockReset().mockResolvedValue(samples)
   vi.mocked(runCampaign).mockReset().mockResolvedValue(result)
-  // Default stream: behaves like the POST fallback (one `done` or `error`), so tests that
-  // mock runCampaign keep working. Streaming-specific tests override this.
-  vi.mocked(streamCampaign)
-    .mockReset()
-    .mockImplementation((req, onEvent) => {
-      let off = false
-      runCampaign(req)
-        .then((r) => !off && onEvent({ stage: 'done', data: r as unknown as Record<string, unknown> }))
-        .catch((e) => !off && onEvent({ stage: 'error', data: { message: e.message } }))
-      return () => {
-        off = true
-      }
-    })
   setReducedMotion(true)
 })
 
@@ -92,7 +77,7 @@ describe('Landing', () => {
     await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
     await user.type(screen.getByLabelText('Monthly budget in USD'), '$12,000.00')
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
-    expect(runCampaign).toHaveBeenCalledWith({ text: samples[0].text, budget_usd: 12000 })
+    expect(runCampaign).toHaveBeenCalledWith({ text: samples[0].text, budget_usd: 12000 }, expect.any(AbortSignal))
   })
 
   it('shows placeholders in the reading panel before the first run', async () => {
@@ -104,7 +89,7 @@ describe('Landing', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'Vermont candles' }))
-    expect(runCampaign).toHaveBeenCalledWith({ text: samples[1].text })
+    expect(runCampaign).toHaveBeenCalledWith({ text: samples[1].text }, expect.any(AbortSignal))
     expect(await screen.findByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
   })
 
@@ -198,7 +183,7 @@ describe('Outcome states', () => {
   const clarify: CampaignResult = {
     ...result,
     outcome: 'clarify',
-    gate: { outcome: 'clarify', confidence: 0.31, threshold: 0.7, impl: 'llm', signals: {} },
+    gate: { outcome: 'clarify', confidence: 0.31, threshold: 0.7 },
     clarify: [{ question: 'What is the product?', options: ['Physical product'] }],
     publishers: [{ ...result.publishers[0], recommended: false }],
   }
@@ -220,7 +205,7 @@ describe('Outcome states', () => {
     expect(runCampaign).toHaveBeenLastCalledWith({
       text: samples[0].text,
       answers: { 'What is the product?': 'Physical product' },
-    })
+    }, expect.any(AbortSignal))
     expect(await screen.findByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
   })
 
@@ -240,7 +225,7 @@ describe('Outcome states', () => {
     expect(runCampaign).toHaveBeenLastCalledWith({
       text: samples[0].text,
       answers: { 'What is the product?': 'Physical product', 'Which category?': 'Home' },
-    })
+    }, expect.any(AbortSignal))
   })
 
   it('a failed rebuild shows a red alert, no spinner, and Try a sample returns to landing', async () => {
@@ -281,7 +266,7 @@ describe('Outcome states', () => {
     await user.click(screen.getByRole('button', { name: /show 2 more/i }))
     expect(screen.getAllByTestId('excluded')).toHaveLength(8)
     await user.click(screen.getByRole('button', { name: 'Vermont candles' }))
-    expect(runCampaign).toHaveBeenLastCalledWith({ text: samples[1].text })
+    expect(runCampaign).toHaveBeenLastCalledWith({ text: samples[1].text }, expect.any(AbortSignal))
   })
 
   it('a failing sample run from out_of_scope shows the red alert, no spinner; chips disabled while running', async () => {
@@ -316,32 +301,6 @@ describe('Outcome states', () => {
     expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).not.toBeInTheDocument()
   })
 
-  it('a re-answered key at the cap counts as newest', async () => {
-    const user = userEvent.setup()
-    await toClarify(user)
-    const qs = ['q1', 'q2', 'q3', 'q4', 'q5']
-    for (let i = 0; i < 5; i++) {
-      vi.mocked(runCampaign).mockResolvedValueOnce({
-        ...clarify,
-        clarify: [{ question: qs[i], options: ['a'] }, ...(i === 4 ? [{ question: 'What is the product?', options: ['Physical product'] }] : [])],
-      })
-    }
-    // first rebuild answers the original question, then q1..q4 in turn
-    await user.click(screen.getByRole('button', { name: 'Physical product' }))
-    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
-    for (let i = 0; i < 4; i++) {
-      await user.click(await screen.findByRole('button', { name: 'a' }))
-      await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
-    }
-    // now asked q5 and the original question again: answer both
-    await user.click(await screen.findByRole('button', { name: 'Physical product' }))
-    await user.click(screen.getByRole('button', { name: 'a' }))
-    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
-    const last = vi.mocked(runCampaign).mock.calls.at(-1)![0].answers!
-    // oldest untouched answer (q1) is dropped; the re-answered key is kept as newest
-    expect(Object.keys(last)).toEqual(['q2', 'q3', 'q4', 'What is the product?', 'q5'])
-  })
-
   it('weak_fit keeps the stepper and adds the weak-fit banner', async () => {
     const user = userEvent.setup()
     vi.mocked(runCampaign).mockResolvedValueOnce({
@@ -361,120 +320,36 @@ describe('Outcome states', () => {
     expect(screen.getByText(/% — needs \d+%/)).toBeInTheDocument()
   })
 
-  it('stage 2 gets the API input_text (answers appended); a 403 Run it again re-runs stage 1', async () => {
-    const user = userEvent.setup()
-    await toClarify(user)
-    const echoed = `${samples[0].text}\n\nAdditional details:\n- What is the product?: Physical product`
-    vi.mocked(runCampaign).mockResolvedValueOnce({ ...result, input_text: echoed, stage_token: 't1' })
-    await user.click(screen.getByRole('button', { name: 'Physical product' }))
-    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
-    expect(await screen.findByText(`“${samples[0].text}”`)).toBeInTheDocument()
-    vi.mocked(createCreatives).mockRejectedValueOnce(new ApiError(403, 'This campaign changed or expired — run it again.'))
-    const pick = screen.queryByRole('button', { name: /pick personas for these publishers/i })
-    if (pick) await user.click(pick)
-    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
-    expect(vi.mocked(createCreatives).mock.calls[0][0]).toMatchObject({ input_text: echoed, stage_token: 't1' })
-    await user.click(await screen.findByRole('button', { name: /run it again/i }))
-    expect(runCampaign).toHaveBeenLastCalledWith({
-      text: samples[0].text,
-      answers: { 'What is the product?': 'Physical product' },
-    })
-    // the fresh result starts again at step 1 with no stale error
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
-    expect(screen.getByRole('button', { name: /pick personas for these publishers/i })).toBeEnabled()
-  })
 })
 
-describe('Live streaming', () => {
-  let emit!: (e: StageEvent) => void
-  const cancel = vi.fn()
-  beforeEach(() => {
-    cancel.mockReset()
-    setReducedMotion(false)
-    vi.mocked(streamCampaign).mockReset().mockImplementation((_req, onEvent) => {
-      emit = onEvent
-      return cancel
-    })
-  })
-
-  async function start(user: ReturnType<typeof userEvent.setup>) {
+describe('Running step 1', () => {
+  it('shows the reading state while step 1 runs, then the results', async () => {
+    const user = userEvent.setup()
+    let resolve!: (r: CampaignResult) => void
+    vi.mocked(runCampaign).mockReturnValueOnce(new Promise((r) => (resolve = r)))
     render(<App />)
     await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
-  }
-  const panel = () => within(screen.getByRole('complementary', { name: /how we read your brand/i }))
-
-  it('fills lanes as stages arrive, then shows results after the 600 ms hold', async () => {
-    const user = userEvent.setup()
-    await start(user)
-    expect(panel().getAllByLabelText('working')).toHaveLength(4)
-
-    act(() => emit({ stage: 'understood', data: result.brief as unknown as Record<string, unknown> }))
-    expect(panel().getByText('Pet')).toBeInTheDocument()
-    expect(panel().getAllByLabelText('working')).toHaveLength(3)
-
-    act(() => emit({ stage: 'gate', data: result.gate as unknown as Record<string, unknown> }))
-    expect(panel().getByText(/91% vs\. needed 70%/)).toBeInTheDocument()
-    expect(panel().getByText('enough to proceed')).toBeInTheDocument()
-
-    act(() =>
-      emit({
-        stage: 'publishers',
-        data: {
-          recommended: ['p1'],
-          top: [
-            { id: 'p1', name: 'Pawline', fit: 0.88 },
-            { id: 'p2', name: 'Skipped', fit: 0.1 },
-          ],
-        },
-      }),
-    )
-    expect(panel().getByText('Pawline')).toBeInTheDocument()
-    expect(panel().queryByText('Skipped')).not.toBeInTheDocument()
-
-    act(() => emit({ stage: 'personas', data: { selected: [{ id: 'a', name: 'Pet Parent', fit: 0.9, stretch: false }] } }))
-    expect(panel().getByText('Pet Parent')).toBeInTheDocument()
-    expect(panel().queryAllByLabelText('working')).toHaveLength(0)
-
-    act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
-    // Panel stays filled during the hold...
-    expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).not.toBeInTheDocument()
-    expect(panel().getByText('Pawline')).toBeInTheDocument()
-    // ...then switches to results.
-    expect(await screen.findByRole('navigation', { name: 'Campaign steps' }, { timeout: 2000 })).toBeInTheDocument()
+    expect(screen.getByText('reading…')).toBeInTheDocument()
+    await act(async () => resolve(result))
+    expect(await screen.findByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
   })
 
-  it('switches to results immediately under prefers-reduced-motion', async () => {
-    setReducedMotion(true)
+  it('step 3 gets step 1\'s result as the API returned it (answers appended)', async () => {
     const user = userEvent.setup()
-    await start(user)
-    act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
-    expect(screen.getByRole('navigation', { name: 'Campaign steps' })).toBeInTheDocument()
-  })
-
-  it('an error event shows the error banner and stops running', async () => {
-    const user = userEvent.setup()
-    await start(user)
-    act(() => emit({ stage: 'error', data: { message: 'The AI service is taking too long — try again or pick a sample.' } }))
-    expect(screen.getByRole('alert')).toHaveTextContent('taking too long')
-    expect(screen.getByRole('button', { name: /build campaign/i })).toBeEnabled()
-  })
-
-  it('goHome cancels the stream and ignores late events', async () => {
-    const user = userEvent.setup()
-    await start(user)
-    await user.click(screen.getByRole('button', { name: /placement studio home/i }))
-    expect(cancel).toHaveBeenCalled()
-    act(() => emit({ stage: 'done', data: result as unknown as Record<string, unknown> }))
-    expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).not.toBeInTheDocument()
-  })
-
-  it('unmount cancels the stream', async () => {
-    const user = userEvent.setup()
-    const { unmount } = render(<App />)
+    const echoed = `${samples[0].text}\n\nAdditional details:\n- What is the product?: Physical product`
+    vi.mocked(runCampaign)
+      .mockResolvedValueOnce({ ...result, outcome: 'clarify', gate: { outcome: 'clarify', confidence: 0.3, threshold: 0.7 },
+        clarify: [{ question: 'What is the product?', options: ['Physical product'] }] })
+      .mockResolvedValueOnce({ ...result, input_text: echoed })
+    vi.mocked(createCreatives).mockResolvedValueOnce([])
+    render(<App />)
     await waitFor(() => expect(screen.getByLabelText('Describe your brand')).toHaveValue(samples[0].text))
     await user.click(screen.getByRole('button', { name: /build campaign/i }))
-    unmount()
-    expect(cancel).toHaveBeenCalled()
+    await user.click(await screen.findByRole('button', { name: 'Physical product' }))
+    await user.click(screen.getByRole('button', { name: /rebuild campaign/i }))
+    await user.click(await screen.findByRole('button', { name: /pick personas for these publishers/i }))
+    await user.click(screen.getByRole('button', { name: /write ads for these personas/i }))
+    expect(vi.mocked(createCreatives).mock.calls[0][0]).toMatchObject({ input_text: echoed })
   })
 })

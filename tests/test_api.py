@@ -37,8 +37,9 @@ def s1(client):
 
 
 def with_ads(client, s1, **extra) -> dict:
-    ads = client.post("/api/creatives", json=s1).json()["creatives"]
-    return {**s1, "creatives": ads, **extra}
+    """A /config body: step 1's result and its ads."""
+    ads = client.post("/api/creatives", json={"result": s1}).json()["creatives"]
+    return {"result": s1, "creatives": ads, **extra}
 
 
 # ---- step 1 ----
@@ -78,7 +79,7 @@ def test_campaign_note_reuses_the_brief(client, llm, s1):
 
 def test_llm_failure_is_a_safe_502(client, llm, s1):
     llm.responses["Draft"] = LLMError("sk-secret")
-    r = client.post("/api/creatives", json=s1)
+    r = client.post("/api/creatives", json={"result": s1})
     assert r.status_code == 502 and r.json()["detail"] == LLM_DOWN and "sk-secret" not in r.text
     llm.responses["BriefSchema"] = RuntimeError("sk-boom")
     r = client.post("/api/campaign", json={"text": "dog food"})
@@ -111,9 +112,9 @@ def test_ads_cost_two_config_is_free_and_errors_cost_nothing(client, s1):
     body = with_ads(client, s1)  # 1 (step 1) + 2 (ads) used
     used = 3
     while used + T.ratelimit.cost_ads <= N:
-        assert client.post("/api/creatives", json=s1).status_code == 200
+        assert client.post("/api/creatives", json={"result": s1}).status_code == 200
         used += T.ratelimit.cost_ads
-    assert client.post("/api/creatives", json=s1).status_code == 429
+    assert client.post("/api/creatives", json={"result": s1}).status_code == 429
     for _ in range(20):
         assert client.post("/api/config", json=body).status_code == 200
 
@@ -151,12 +152,12 @@ def test_unknown_ids_are_422(client, s1):
     body = with_ads(client, s1)
     unknown_publisher = [{**s1["publishers"][0], "publisher_id": "pub_999"}, *s1["publishers"][1:]]
     unknown_persona = [{**s1["personas"][0], "persona_id": "persona_999"}, *s1["personas"][1:]]
-    for path, payload in (("/api/creatives", s1), ("/api/config", body)):
+    for path, payload in (("/api/creatives", {"result": s1}), ("/api/config", body)):
         for change, detail in (({"publishers": unknown_publisher}, "Unknown publisher or persona in the request."),
                                ({"personas": unknown_persona}, "Unknown publisher or persona in the request."),
                                ({"brief": {**s1["brief"], "categories": ["spaceships"]}},
                                 "brief.categories has an unknown term.")):
-            r = client.post(path, json={**payload, **change})
+            r = client.post(path, json={**payload, "result": {**s1, **change}})
             assert r.status_code == 422 and r.json()["detail"] == detail, (path, change)
 
 
@@ -173,5 +174,5 @@ def test_stage_checks(client, s1, change, detail):
     for key in ("brief", "gate"):
         if key in change:
             body[key] = {**s1[key], **change[key]}
-    r = client.post("/api/creatives", json=body)
+    r = client.post("/api/creatives", json={"result": body})
     assert r.status_code == 422 and r.json()["detail"] == detail

@@ -203,11 +203,7 @@ export default function ConfigFormatted({
       <Row label="Creative rotation" rkey="line_items" config={config}>
         <div className="space-y-1">
           {config.line_items.map((li) => {
-            const ids = [li.creative_id, ...(Array.isArray(li.extra_creative_ids) ? li.extra_creative_ids : [])]
-            const names = ids
-              .map((id) => creatives.find((c) => c.creative_id === id))
-              .filter((c): c is Creative => !!c)
-              .map((c) => personaName(c.persona_id))
+            const names = li.ads.filter((id) => creatives.some((c) => c.persona_id === id)).map(personaName)
             return (
               <div key={li.publisher_id}>
                 <b className="font-semibold">{pubName(li.publisher_id)}</b>

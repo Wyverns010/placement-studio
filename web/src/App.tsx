@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getSamples, streamCampaign } from './api'
+import { getSamples, runCampaign } from './api'
 import { parseBudgetInput } from './format'
 import Landing from './components/Landing'
 import Nav from './components/Nav'
 import Results from './components/Results'
-import type { SteerStep } from './components/StagedResults'
-import type { AgentTraceEntry, CampaignRequest, CampaignResult, Sample, StageEvent, StreamPartial } from './types'
+import type { NoteStep } from './components/StagedResults'
+import type { Brief, CampaignRequest, CampaignResult, Sample } from './types'
 
 export interface AppState {
   view: 'landing' | 'results'
@@ -15,21 +15,6 @@ export interface AppState {
   /** Bumped per shown result so the staged results start fresh at step 1. */
   runId: number
   running: boolean
-  partial: StreamPartial
-}
-
-const HOLD_MS = 600
-const reducedMotion = () =>
-  typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-/** Sends budget_usd only when the user typed one; otherwise the backend recommends it. */
-function withBudget(req: CampaignRequest, b: number | null): CampaignRequest {
-  return b != null ? { ...req, budget_usd: b } : req
-}
-
-/** Sends steer only when there is one. */
-function withSteer(req: CampaignRequest, steer: string): CampaignRequest {
-  return steer ? { ...req, steer } : req
 }
 
 /** The typed budget, or null when blank or invalid (Landing blocks running with an invalid one). */
@@ -38,27 +23,29 @@ function budgetValue(raw: string): number | null {
   return p.ok ? p.value : null
 }
 
+/** What step 1 was last run with. `brief` is the reading without a note, sent back with a note. */
+interface LastInput {
+  text: string
+  budget: number | null
+  answers: Record<string, string>
+  note: string
+  brief: Brief | null
+}
+
 export default function App() {
-  const [state, setState] = useState<AppState>({ view: 'landing', runId: 0, running: false, partial: {} })
+  const [state, setState] = useState<AppState>({ view: 'landing', runId: 0, running: false })
   const [samples, setSamples] = useState<Sample[]>([])
   const [text, setText] = useState('')
   const [budget, setBudget] = useState('') // raw text; blank = use the recommendation
   const [error, setError] = useState<string | null>(null)
+  const [rebuildError, setRebuildError] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<CampaignResult | null>(null)
+  const [note, setNote] = useState('')
+  const [noteFrom, setNoteFrom] = useState<NoteStep>('publishers') // the step the shown result's note was written on
   const edited = useRef(false)
   const token = useRef(0)
-  const cancelStream = useRef<(() => void) | null>(null)
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const viewRef = useRef<AppState['view']>('landing')
-  const [rebuildError, setRebuildError] = useState<string | null>(null)
-  const [steer, setSteer] = useState('')
-  const [steerFrom, setSteerFrom] = useState<SteerStep>('publishers') // the strategist steer the shown result was built with
-  const lastInput = useRef<{ text: string; budget: number | null; answers: Record<string, string>; steer: string }>({
-    text: '',
-    budget: null,
-    answers: {},
-    steer: '',
-  })
+  const inflight = useRef<AbortController | null>(null)
+  const lastInput = useRef<LastInput>({ text: '', budget: null, answers: {}, note: '', brief: null })
 
   useEffect(() => {
     let alive = true
@@ -69,7 +56,7 @@ export default function App() {
         if (s.length && !edited.current) setText(s[0].text)
       })
       .catch(() => {
-        /* chips are optional; the textarea still works */
+        /* the sample buttons are optional; the text box still works */
       })
     return () => {
       alive = false
@@ -77,102 +64,86 @@ export default function App() {
   }, [])
 
   const stop = useCallback(() => {
-    cancelStream.current?.()
-    cancelStream.current = null
-    clearTimeout(holdTimer.current)
+    inflight.current?.abort()
+    inflight.current = null
   }, [])
 
   useEffect(() => stop, [stop])
 
-  /**
-   * Streams one run and marks the app as running. `onDone` receives the full result and this
-   * run's token; `onFail` the message (running is already cleared). Starting a new stream (or
-   * going home) cancels the previous one.
-   */
-  const startStream = useCallback(
-    (req: CampaignRequest, onDone: (r: CampaignResult, my: number) => void, onFail: (msg: string) => void) => {
+  /** Runs step 1 once; a newer run (or going home) cancels this one. */
+  const runStep1 = useCallback(
+    (req: CampaignRequest, onDone: (r: CampaignResult) => void, onFail: (msg: string) => void) => {
       stop()
       const my = ++token.current
+      const ctl = (inflight.current = new AbortController())
       setRebuildError(null)
-      setState((s) => ({ ...s, running: true, partial: {} }))
-      cancelStream.current = streamCampaign(req, (e: StageEvent) => {
-        if (my !== token.current) return
-        if (e.stage === 'error') {
-          cancelStream.current = null
-          const d = e.data as { message?: string; detail?: string }
-          setState((s) => ({ ...s, running: false, partial: {} }))
-          onFail(d.message ?? d.detail ?? 'Something went wrong. Please try again.')
-        } else if (e.stage === 'done') {
-          cancelStream.current = null
-          onDone(e.data as unknown as CampaignResult, my)
-        } else if (e.stage === 'agent') {
-          setState((s) => ({
-            ...s,
-            partial: { ...s.partial, agent: [...(s.partial.agent ?? []), e.data as unknown as AgentTraceEntry] },
-          }))
-        } else {
-          setState((s) => ({ ...s, partial: { ...s.partial, [e.stage]: e.data } as StreamPartial }))
-        }
-      })
+      setState((s) => ({ ...s, running: true }))
+      runCampaign(req, ctl.signal)
+        .then((result) => {
+          if (my === token.current) onDone(result)
+        })
+        .catch((err: unknown) => {
+          if (my !== token.current || ctl.signal.aborted) return
+          setState((s) => ({ ...s, running: false }))
+          onFail(err instanceof Error && err.message ? err.message : 'Something went wrong. Please try again.')
+        })
     },
     [stop],
   )
 
+  const show = (result: CampaignResult, displayText: string) =>
+    setState((s) => ({ view: 'results', result, displayText, runId: s.runId + 1, running: false }))
+
   const run = useCallback(
     (t: string, b: number | null) => {
-      const fromResults = viewRef.current === 'results'
+      const fromResults = state.view === 'results'
       setError(null)
-      startStream(
-        withBudget({ text: t }, b),
-        (result, my) => {
-          // A new campaign starts without the previous campaign's steer.
-          lastInput.current = { text: t, budget: b, answers: {}, steer: '' }
-          setSteer('')
+      runStep1(
+        b != null ? { text: t, budget_usd: b } : { text: t },
+        (result) => {
+          // A new campaign starts without the previous campaign's note.
+          lastInput.current = { text: t, budget: b, answers: {}, note: '', brief: result.brief }
+          setNote('')
           setLastResult(result)
-          const show = () =>
-            setState((s) => ({ view: 'results', result, displayText: t, runId: s.runId + 1, running: false, partial: {} }))
-          if (fromResults || reducedMotion()) return show()
-          // Keep the filled panel on screen briefly so the last lane is seen.
-          setState((s) => ({ ...s, partial: { ...s.partial, done: true } }))
-          holdTimer.current = setTimeout(() => {
-            if (my === token.current) show()
-          }, HOLD_MS)
+          show(result, t)
         },
-        (msg) => {
-          // On the results view, failures show in the red results banner, not the hidden landing form.
-          if (fromResults) setRebuildError(msg)
-          else setError(msg)
-        },
+        // On the results view, failures show in the results banner, not the hidden landing form.
+        (msg) => (fromResults ? setRebuildError(msg) : setError(msg)),
       )
     },
-    [startStream],
+    [runStep1, state.view],
   )
 
+  /** Re-runs step 1 with clarify answers (the text is read again) or a note (the brief is reused). */
   const rebuild = useCallback(
-    (answers: Record<string, string>, newSteer?: string) => {
-      const { text: t, budget: b, answers: prior } = lastInput.current
-      const st = newSteer ?? lastInput.current.steer
-      // Keep earlier answers (the backend caps at 5; drop the oldest first).
-      const next = { ...prior }
-      for (const [q, a] of Object.entries(answers)) {
-        delete next[q] // re-add so a re-answered question counts as newest
-        next[q] = a
+    (answers: Record<string, string>, newNote?: string) => {
+      const { text: t, budget: b, answers: prior, brief } = lastInput.current
+      const nextNote = newNote ?? lastInput.current.note
+      const merged = { ...prior, ...answers }
+      const reuse = Object.keys(answers).length === 0 && nextNote && brief
+      const req: CampaignRequest = {
+        text: t,
+        answers: merged,
+        ...(b != null ? { budget_usd: b } : {}),
+        ...(nextNote ? { note: nextNote } : {}),
+        ...(reuse ? { brief } : {}),
       }
-      const merged = Object.fromEntries(Object.entries(next).slice(-5))
-      startStream(
-        withSteer(withBudget({ text: t, answers: merged }, b), st),
+      runStep1(
+        req,
         (result) => {
-          lastInput.current = { text: t, budget: b, answers: merged, steer: st }
-          setSteer(st)
-          // The API echoes the text with answers appended: keep it (stages 2 and 3 need it
-          // unchanged) and show what the user typed.
+          // Answers change the reading, so its brief becomes the one a later note reuses.
+          const base = reuse ? brief : result.brief
+          lastInput.current = { text: t, budget: b, answers: merged, note: nextNote, brief: base }
+          setNote(nextNote)
+          // The API echoes the text with answers appended: keep it (steps 3 and 4 need it unchanged)
+          // and show what the user typed.
           setLastResult({ ...result, input_text: t })
-          setState((s) => ({ view: 'results', result, displayText: t, runId: s.runId + 1, running: false, partial: {} }))
+          show(result, t)
         },
         setRebuildError,
       )
     },
-    [startStream],
+    [runStep1],
   )
 
   const pickSample = (s: Sample) => {
@@ -181,13 +152,11 @@ export default function App() {
     run(s.text, budgetValue(budget))
   }
 
-  viewRef.current = state.view
-
   const goHome = () => {
     token.current++ // ignore any in-flight request
     stop()
     setRebuildError(null)
-    setState((s) => ({ ...s, view: 'landing', running: false, partial: {} }))
+    setState((s) => ({ ...s, view: 'landing', running: false }))
   }
 
   return (
@@ -202,14 +171,12 @@ export default function App() {
           samples={samples}
           onPickSample={pickSample}
           onRebuild={rebuild}
-          onRerun={() => rebuild({})}
-          onSteer={(st, from = 'publishers') => {
-            setSteerFrom(from)
-            rebuild({}, st)
+          onNote={(n, from = 'publishers') => {
+            setNoteFrom(from)
+            rebuild({}, n)
           }}
-          steer={steer}
-          steerFrom={steerFrom}
-          partial={state.partial}
+          note={note}
+          noteFrom={noteFrom}
           running={state.running}
           rebuildError={rebuildError}
         />
@@ -221,7 +188,6 @@ export default function App() {
           running={state.running}
           error={error}
           lastResult={lastResult}
-          partial={state.partial}
           onTextChange={(t) => {
             edited.current = true
             setText(t)

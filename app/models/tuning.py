@@ -13,8 +13,8 @@ class PublisherTuning(BaseModel):
     aov_log2_scale: float
     aov_below_log2_scale: float
     no_category_penalty: float
-    affinity_parents: dict[str, str] = {}
-    scoped_terms: dict[str, str] = {}
+    affinity_parents: dict[str, str]
+    scoped_terms: dict[str, str]
     aov_gate_floor: float
     unknown_factor: float
     cutoff: float
@@ -32,17 +32,17 @@ class PersonaTuning(BaseModel):
     cutoff: float
     min: int
     max: int
-    age_mismatch_penalty: float = 0.0  # the brief states ages and this persona's range misses them
-    niche_penalty: float = 0.0  # a one-category shopper (pet owners) with no affinity to this brief
-    attribute_affinities: dict[str, list[str]] = {}  # persona id -> brief attribute tags it shops by
-    mode_bonus: float = 0.15  # added to affinity (at least family) when the brief names the mode
+    age_mismatch_penalty: float  # the brief states ages and this persona's range misses them
+    niche_penalty: float  # a one-category shopper (pet owners) with no affinity to this brief
+    attribute_affinities: dict[str, list[str]]  # persona id -> brief attribute tags it shops by
+    mode_bonus: float  # added to affinity (at least family) when the brief names the mode
 
 
 class BudgetTuning(BaseModel):
     min_usd: float
     max_usd: float
     assumed_cpm_usd: float  # CPM for an income tier missing from cpm_by_income_usd
-    cpm_by_income_usd: dict[str, float] = {}  # publisher audience income tier -> CPM
+    cpm_by_income_usd: dict[str, float]  # publisher audience income tier -> CPM
     max_share_of_impressions: float = Field(gt=0, le=1)  # most of a publisher one campaign can buy
     min_share: float
     weak_fit_test_fraction: float
@@ -51,10 +51,6 @@ class BudgetTuning(BaseModel):
     weeks_per_month: int
     max_conversions_per_1k_impressions: float  # above this the target CPA is flagged as a stretch
     round_to_usd: float = Field(gt=0)
-
-    @property
-    def conversions_per_month(self) -> int:
-        return self.learning_conversions_per_week * self.weeks_per_month
 
 
 class FrequencyCap(BaseModel):
