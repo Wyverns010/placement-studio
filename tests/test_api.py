@@ -1,191 +1,34 @@
 from __future__ import annotations
 
-import json
-
 import pytest
 from fastapi.testclient import TestClient
 
-from app import api
+from app.api import create_app
 from app.constants.paths import EXAMPLES
 from app.llm import FakeProvider, LLMError
 from app.loaders import load_samples
+from app.models.plan import PlanChanges
 from app.ratelimit import RateLimiter
-from tests.conftest import CAT, T
+from tests.conftest import T, services
+from tests.test_note import changes
 from tests.test_pipeline import ACCEPT, CLARIFY, _creatives, brief_obj
+
+N = T.ratelimit.per_client_runs
+LLM_DOWN = "The AI service didn't respond — try again or pick a sample."
 
 
 @pytest.fixture
 def llm():
-    return FakeProvider({"BriefSchema": brief_obj(), "Draft": _creatives, "Review": ACCEPT,
-                         "ClarifyBatch": CLARIFY})
+    return FakeProvider({"BriefSchema": brief_obj(), "Draft": _creatives, "Review": ACCEPT, "ClarifyBatch": CLARIFY})
+
+
+def client_for(llm, limiter=None) -> TestClient:
+    return TestClient(create_app(services(llm, limiter)), raise_server_exceptions=False)
 
 
 @pytest.fixture
 def client(llm):
-    limiter = RateLimiter(limit=T.ratelimit.per_client_runs, window_s=T.ratelimit.per_client_window_s)
-    api.app.dependency_overrides[api.get_llm] = lambda: llm
-    api.app.dependency_overrides[api.get_catalog] = lambda: CAT
-    api.app.dependency_overrides[api.get_tuning] = lambda: T
-    api.app.dependency_overrides[api.get_limiter] = lambda: limiter
-    yield TestClient(api.app)
-    api.app.dependency_overrides.clear()
-
-
-def sse(resp) -> list[tuple[str, dict]]:
-    out, ev = [], None
-    for line in resp.text.splitlines():
-        if line.startswith("event:"):
-            ev = line.split(":", 1)[1].strip()
-        elif line.startswith("data:") and ev:
-            out.append((ev, json.loads(line.split(":", 1)[1].strip())))
-            ev = None
-    return out
-
-
-def test_health(client):
-    assert client.get("/api/health").json() == {"ok": True}
-
-
-def test_samples_endpoint_returns_15(client):
-    r = client.get("/api/samples").json()
-    assert len(r) == 15 and [s["id"] for s in r] == list(range(1, 16))
-    assert r[0]["label"] == "Senior dog food" and r[0]["text"].startswith("We sell premium dog food")
-
-
-def test_post_campaign_and_answers_appended(client, llm):
-    r = client.post("/api/campaign", json={"text": "  dog food ", "answers": {"Price?": "High"}})
-    assert r.status_code == 200 and r.json()["outcome"] == "proceed"
-    assert r.json()["input_text"] == "dog food\n\nAdditional details:\n- Price?: High"
-    assert r.json()["budget_usd"] is None
-    assert r.json()["creatives"] == [] and r.json()["config"] is None
-    assert "Draft" not in [c["schema"] for c in llm.calls]
-
-
-def test_post_campaign_echoes_budget(client):
-    assert client.post("/api/campaign", json={"text": "dog food", "budget_usd": 3000}).json()["budget_usd"] == 3000
-
-
-STAGE1_EVENTS = ["done"]  # one event until the stream is removed (Task 4)
-
-
-def test_stream_events(client):
-    r = client.get("/api/campaign/stream", params={"text": "dog food", "answers": '{"Q": "A"}'})
-    ev = sse(r)
-    assert [e for e, _ in ev] == STAGE1_EVENTS
-    assert "- Q: A" in ev[-1][1]["input_text"]
-
-
-def test_stream_llm_failure_last_event_error(client, llm):
-    llm.responses["BriefSchema"] = LLMError("x")
-    ev = sse(client.get("/api/campaign/stream", params={"text": "dog food"}))
-    assert ev[-1][0] == "error" and "message" in ev[-1][1]
-
-
-def test_stream_bad_answers(client):
-    assert client.get("/api/campaign/stream", params={"text": "x", "answers": "nope"}).status_code == 422
-
-
-@pytest.mark.parametrize("text", ["", "   \n "])
-def test_rejects_empty_text(client, text):
-    r = client.post("/api/campaign", json={"text": text})
-    assert r.status_code == 422 and r.json()["detail"] == "Please describe your business."
-    assert client.get("/api/campaign/stream", params={"text": text}).status_code == 422
-
-
-def test_truncates_long_text(client):
-    r = client.post("/api/campaign", json={"text": "a" * 5000})
-    assert r.status_code == 200
-    assert len(r.json()["input_text"]) == T.input.max_chars
-
-
-@pytest.mark.parametrize("budget", [499, 5_000_001])
-def test_budget_bounds(client, budget):
-    r = client.post("/api/campaign", json={"text": "dog food", "budget_usd": budget})
-    assert r.status_code == 422
-    assert r.json()["detail"] == "Budget must be between $500 and $5,000,000."
-    assert client.get("/api/campaign/stream",
-                      params={"text": "x", "budget_usd": budget}).status_code == 422
-
-
-def test_budget_edges_ok(client):
-    for b in (500, 5_000_000):
-        assert client.post("/api/campaign", json={"text": "dog food", "budget_usd": b}).status_code == 200
-
-
-N = T.ratelimit.per_client_runs
-
-
-def test_rate_limit_429_after_per_client_runs(client):
-    for _ in range(N):
-        assert client.post("/api/campaign", json={"text": "dog food"}).status_code == 200
-    r = client.post("/api/campaign", json={"text": "dog food"})
-    assert r.status_code == 429
-    assert r.json() == {"detail": "Demo limit reached — try a sample or wait a few minutes."}
-    # a different client IP is unaffected
-    ok = client.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "1.1.1.1, 9.9.9.9"})
-    assert ok.status_code == 200
-
-
-def test_rate_limit_keys_on_rightmost_forwarded_hop(client):
-    # the proxy appends the real client IP; a client-chosen leading value must not open a new bucket
-    for i in range(N):
-        r = client.post("/api/campaign", json={"text": "dog food"},
-                        headers={"X-Forwarded-For": f"10.0.0.{i}, 5.5.5.5"})
-        assert r.status_code == 200
-    r = client.post("/api/campaign", json={"text": "dog food"},
-                    headers={"X-Forwarded-For": "10.9.9.9, 5.5.5.5"})
-    assert r.status_code == 429
-
-
-def test_global_cap_returns_busy(client):
-    busy = RateLimiter(limit=N, window_s=600, global_limit=2)
-    api.app.dependency_overrides[api.get_limiter] = lambda: busy
-    for ip in ("1.0.0.1", "1.0.0.2"):
-        assert client.post("/api/campaign", json={"text": "dog food"},
-                           headers={"X-Forwarded-For": ip}).status_code == 200
-    r = client.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "1.0.0.3"})
-    assert r.status_code == 429
-    assert r.json() == {"detail": "The demo is busy — try a sample or come back in a bit."}
-
-
-def test_validation_errors_do_not_consume_limit(client):
-    for _ in range(20):
-        client.post("/api/campaign", json={"text": ""})
-    assert client.post("/api/campaign", json={"text": "dog food"}).status_code == 200
-
-
-def test_answers_capped(client):
-    ans = {f"q{i}": "x" * 500 for i in range(9)}
-    r = client.post("/api/campaign", json={"text": "dog food", "answers": ans}).json()
-    lines = r["input_text"].split("Additional details:\n")[1].splitlines()
-    assert len(lines) == 5 and all(len(l) <= len("- q0: ") + 200 for l in lines)
-
-
-def test_sample_text_runs_live(client, llm):
-    """The example advertisers go through the pipeline like any other input."""
-    text = load_samples()[0]["text"]
-    calls = len(llm.calls)
-    r = client.post("/api/campaign", json={"text": text})
-    assert r.status_code == 200 and r.json()["mode"] != "cached"
-    assert len(llm.calls) > calls
-
-
-def test_examples_path_anchored_to_repo_root(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    assert EXAMPLES.is_absolute()
-    assert len(load_samples()) == 15
-
-
-# ---- stages 2 and 3 ----
-
-def _stage2(s1: dict) -> dict:
-    return {k: s1[k] for k in ("input_text", "brief", "gate", "publishers", "personas")}
-
-
-def _stage3(s1: dict, creatives: list, **extra) -> dict:
-    return {**_stage2(s1), "creatives": creatives, **extra}
-
-
+    return client_for(llm)
 
 
 @pytest.fixture
@@ -193,125 +36,142 @@ def s1(client):
     return client.post("/api/campaign", json={"text": "We sell dog food"}).json()
 
 
-def test_staged_flow_end_to_end(client, llm, s1):
-    assert s1["outcome"] == "proceed"
-    r = client.post("/api/creatives", json=_stage2(s1))
-    assert r.status_code == 200
-    cr = r.json()["creatives"]
-    assert len(cr) == len(s1["personas"])
-    rec = {p["publisher_id"] for p in s1["publishers"] if p["recommended"]}
-    assert {c["publisher_id"] for c in cr} <= rec
-    cfg = client.post("/api/config", json=_stage3(s1, cr)).json()["config"]
-    assert cfg["budget"]["source"] == "recommended"
-    assert cfg["budget"]["monthly_usd"] == cfg["budget"]["recommended_usd"]
-    user = client.post("/api/config", json=_stage3(s1, cr, budget_usd=12000)).json()["config"]
+def with_ads(client, s1, **extra) -> dict:
+    ads = client.post("/api/creatives", json=s1).json()["creatives"]
+    return {**s1, "creatives": ads, **extra}
+
+
+# ---- step 1 ----
+
+def test_health_and_samples(client):
+    assert client.get("/api/health").json() == {"ok": True}
+    samples = client.get("/api/samples").json()
+    assert len(samples) == 15 and samples[0]["label"] == "Senior dog food"
+    assert EXAMPLES.is_absolute() and len(load_samples()) == 15
+
+
+def test_campaign_appends_answers_and_keeps_long_text_whole(client, llm):
+    r = client.post("/api/campaign", json={"text": "  dog food ", "answers": {"Price?": "High"}, "budget_usd": 3000})
+    assert r.status_code == 200 and r.json()["outcome"] == "proceed" and r.json()["budget_usd"] == 3000
+    assert r.json()["input_text"] == "dog food\n\nAdditional details:\n- Price?: High"
+    assert "Draft" not in [call["schema"] for call in llm.calls]
+    long = client.post("/api/campaign", json={"text": "a" * 5000})
+    assert long.status_code == 200 and len(long.json()["input_text"]) == 5000  # no input length limits
+
+
+@pytest.mark.parametrize("body,detail", [
+    ({"text": "   \n "}, "Please describe your business."),
+    ({"text": "dog food", "budget_usd": 499}, "Budget must be between $500 and $5,000,000."),
+    ({"text": "dog food", "budget_usd": 5_000_001}, "Budget must be between $500 and $5,000,000."),
+])
+def test_campaign_rejects_bad_input(client, body, detail):
+    r = client.post("/api/campaign", json=body)
+    assert r.status_code == 422 and r.json()["detail"] == detail
+
+
+def test_campaign_note_reuses_the_brief(client, llm, s1):
+    llm.responses["BriefChanges"] = changes()
+    before = [call["schema"] for call in llm.calls].count("BriefSchema")
+    r = client.post("/api/campaign", json={"text": s1["input_text"], "note": "keep it", "brief": s1["brief"]})
+    assert r.status_code == 200 and [call["schema"] for call in llm.calls].count("BriefSchema") == before
+
+
+def test_llm_failure_is_a_safe_502(client, llm, s1):
+    llm.responses["Draft"] = LLMError("sk-secret")
+    r = client.post("/api/creatives", json=s1)
+    assert r.status_code == 502 and r.json()["detail"] == LLM_DOWN and "sk-secret" not in r.text
+    llm.responses["BriefSchema"] = RuntimeError("sk-boom")
+    r = client.post("/api/campaign", json={"text": "dog food"})
+    assert r.status_code == 502 and "sk-boom" not in r.text
+
+
+# ---- rate limits ----
+
+def test_rate_limit_per_client_keyed_on_rightmost_hop(client):
+    for i in range(N):
+        assert client.post("/api/campaign", json={"text": "dog food"},
+                           headers={"X-Forwarded-For": f"10.0.0.{i}, 5.5.5.5"}).status_code == 200
+    r = client.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "10.9.9.9, 5.5.5.5"})
+    assert r.status_code == 429 and r.json() == {"detail": "Demo limit reached — try a sample or wait a few minutes."}
+    other = client.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "1.1.1.1, 9.9.9.9"})
+    assert other.status_code == 200
+
+
+def test_global_cap_returns_busy(llm):
+    busy = client_for(llm, RateLimiter(N, 600, global_limit=2))
+    for ip in ("1.0.0.1", "1.0.0.2"):
+        assert busy.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": ip}).status_code == 200
+    r = busy.post("/api/campaign", json={"text": "dog food"}, headers={"X-Forwarded-For": "1.0.0.3"})
+    assert r.status_code == 429 and r.json() == {"detail": "The demo is busy — try a sample or come back in a bit."}
+
+
+def test_ads_cost_two_config_is_free_and_errors_cost_nothing(client, s1):
+    for _ in range(20):
+        client.post("/api/campaign", json={"text": ""})
+    body = with_ads(client, s1)  # 1 (step 1) + 2 (ads) used
+    used = 3
+    while used + T.ratelimit.cost_ads <= N:
+        assert client.post("/api/creatives", json=s1).status_code == 200
+        used += T.ratelimit.cost_ads
+    assert client.post("/api/creatives", json=s1).status_code == 429
+    for _ in range(20):
+        assert client.post("/api/config", json=body).status_code == 200
+
+
+# ---- steps 3 and 4 ----
+
+def test_steps_end_to_end(client, s1):
+    body = with_ads(client, s1)
+    assert len(body["creatives"]) == len(s1["personas"])
+    assert {ad["publisher_id"] for ad in body["creatives"]} <= {p["publisher_id"] for p in s1["publishers"] if p["recommended"]}
+    config = client.post("/api/config", json=body).json()["config"]
+    assert config["budget"]["source"] == "recommended" and config["budget"]["monthly_usd"] == config["budget"]["recommended_usd"]
+    user = client.post("/api/config", json={**body, "budget_usd": 12000}).json()["config"]
     assert user["budget"]["monthly_usd"] == 12000 and user["budget"]["source"] == "user"
-    assert user["budget"]["recommended_usd"] == cfg["budget"]["recommended_usd"]
+    for budget in (499, 5_000_001):
+        assert client.post("/api/config", json={**body, "budget_usd": budget}).status_code == 422
 
 
 def test_weak_fit_config_is_a_test(client, llm):
     llm.responses["BriefSchema"] = brief_obj(categories=[], adjacent_categories=["subscription"], product="widgets")
     s1 = client.post("/api/campaign", json={"text": "widgets"}).json()
     assert s1["outcome"] == "weak_fit"
-    cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
-    cfg = client.post("/api/config", json=_stage3(s1, cr)).json()["config"]
-    assert cfg["budget"]["test_budget"] is True and cfg["budget"]["pacing"] == "front_loaded"
+    config = client.post("/api/config", json=with_ads(client, s1)).json()["config"]
+    assert config["budget"]["test_budget"] is True and config["budget"]["pacing"] == "front_loaded"
 
 
-def test_stage2_validation(client, s1):
-    no_rec = [{**p, "recommended": False} for p in s1["publishers"]]
-    cases = [
-        ({"publishers": no_rec}, "No recommended publishers to place ads on."),
-        ({"personas": []}, "Send between 1 and 5 personas."),
-        ({"personas": [{**s1["personas"][0], "persona_id": "persona_999"}]}, "Unknown persona in the request."),
-        ({"publishers": [{**s1["publishers"][0], "publisher_id": "pub_999"}]}, "Unknown publisher in the request."),
-        ({"input_text": "  "}, "Please describe your business."),
-        ({"input_text": "a" * 10_000}, "input_text is longer than stage 1 produces."),
-    ]
-    for over, detail in cases:
-        r = client.post("/api/creatives", json={**_stage2(s1), **over})
-        assert r.status_code == 422 and r.json()["detail"] == detail, over
-    assert client.post("/api/creatives", json={"input_text": "x"}).status_code == 422  # pydantic
+def test_config_note_is_read_and_its_notes_returned(client, llm, s1):
+    llm.responses["PlanChanges"] = PlanChanges(budget_usd=5000, drop_publishers=[], pacing="even", not_applied=[])
+    r = client.post("/api/config", json=with_ads(client, s1, note="under $5k please"))
+    assert r.status_code == 200 and r.json()["config"]["budget"]["monthly_usd"] == 5000
+    assert any("5,000" in note for note in r.json()["notes"])
 
 
-def test_config_validation(client, s1):
-    cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
-    for b in (499, 5_000_001):
-        r = client.post("/api/config", json=_stage3(s1, cr, budget_usd=b))
-        assert r.status_code == 422 and r.json()["detail"] == "Budget must be between $500 and $5,000,000."
-    r = client.post("/api/config", json=_stage3(s1, cr) | {"gate": {**s1["gate"], "outcome": "clarify"}})
-    assert r.status_code == 422
+def test_unknown_ids_are_422(client, s1):
+    body = with_ads(client, s1)
+    unknown_publisher = [{**s1["publishers"][0], "publisher_id": "pub_999"}, *s1["publishers"][1:]]
+    unknown_persona = [{**s1["personas"][0], "persona_id": "persona_999"}, *s1["personas"][1:]]
+    for path, payload in (("/api/creatives", s1), ("/api/config", body)):
+        for change, detail in (({"publishers": unknown_publisher}, "Unknown publisher or persona in the request."),
+                               ({"personas": unknown_persona}, "Unknown publisher or persona in the request."),
+                               ({"brief": {**s1["brief"], "categories": ["spaceships"]}},
+                                "brief.categories has an unknown term.")):
+            r = client.post(path, json={**payload, **change})
+            assert r.status_code == 422 and r.json()["detail"] == detail, (path, change)
 
 
-def test_stage2_costs_and_stage3_is_free(client, s1):
-    # stage 1 costs 1, creatives 2
-    r = T.ratelimit
-    assert (r.cost_stage1, r.cost_creatives) == (1, 2)
-    cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
-    used = 3
-    while used + 2 <= N:
-        assert client.post("/api/creatives", json=_stage2(s1)).status_code == 200
-        used += 2
-    assert client.post("/api/creatives", json=_stage2(s1)).status_code == 429
-    for _ in range(20):
-        assert client.post("/api/config", json=_stage3(s1, cr)).status_code == 200
-
-
-def test_stage2_llm_failure_is_502(client, llm, s1):
-    llm.responses["Draft"] = LLMError("sk-secret")
-    r = client.post("/api/creatives", json=_stage2(s1))
-    assert r.status_code == 502 and "sk-secret" not in r.text
-    assert r.json()["detail"] == "The AI service didn't respond — try again or pick a sample."
-
-
-# ---- request hardening ----
-
-def test_clarify_result_cannot_reach_stage2_or_3(client, llm):
-    llm.responses["BriefSchema"] = brief_obj(self_confidence=0.3)
-    s1 = client.post("/api/campaign", json={"text": "dog stuff"}).json()
-    assert s1["outcome"] == "clarify"
-    detail = "Ads and a config are only built for a campaign the gate let through."
-    for path, body in [("/api/creatives", _stage2(s1)), ("/api/config", _stage3(s1, []))]:
-        r = client.post(path, json=body)
-        assert r.status_code == 422 and r.json()["detail"] == detail, path
-
-
-@pytest.mark.parametrize("brief_over,detail", [
-    ({"categories": ["not_a_category"]}, "brief.categories has an unknown term."),
-    ({"price_usd": -1}, "brief.price_usd must be a finite amount of at least 0."),
-    ({"age_min": 130}, "brief ages must be between 0 and 120."),
+@pytest.mark.parametrize("change,detail", [
+    ({"publishers_recommended": False}, "No recommended publishers to place ads on."),
+    ({"brief": {"price_usd": -1}}, "brief.price_usd must be a finite amount of at least 0."),
+    ({"brief": {"age_min": 130}}, "brief ages must be between 0 and 120."),
+    ({"gate": {"outcome": "clarify"}}, "Ads and a config are only built for a campaign the gate let through."),
 ])
-def test_brief_checks(client, s1, brief_over, detail):
-    body = {**_stage2(s1), "brief": {**s1["brief"], **brief_over}}
+def test_stage_checks(client, s1, change, detail):
+    body = dict(s1)
+    if "publishers_recommended" in change:
+        body["publishers"] = [{**p, "recommended": False} for p in s1["publishers"]]
+    for key in ("brief", "gate"):
+        if key in change:
+            body[key] = {**s1[key], **change[key]}
     r = client.post("/api/creatives", json=body)
     assert r.status_code == 422 and r.json()["detail"] == detail
-
-
-def test_duplicate_ids_rejected(client, s1):
-    cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
-    dup_p = {**_stage2(s1), "personas": s1["personas"][:1] * 2}
-    assert client.post("/api/creatives", json=dup_p).json()["detail"] == "Duplicate persona ids."
-    dup_pub = {**_stage2(s1), "publishers": s1["publishers"] + s1["publishers"][:1]}
-    assert client.post("/api/creatives", json=dup_pub).json()["detail"] == "Duplicate publisher ids."
-    r = client.post("/api/config", json=_stage3(s1, cr + cr[:1]))
-    assert r.status_code == 422 and r.json()["detail"] == "Duplicate creative ids."
-
-
-def test_request_body_size_limit(client):
-    r = client.post("/api/creatives", content=b"x" * (T.input.max_body_bytes + 1),
-                    headers={"content-type": "application/json"})
-    assert r.status_code == 413
-
-
-def test_lone_surrogates_are_422_not_500(client, s1):
-    bad = b'{"text": "dog \\ud800 food"}'
-    r = client.post("/api/campaign", content=bad, headers={"content-type": "application/json"})
-    assert r.status_code == 422
-    assert client.get("/api/campaign/stream", params={"text": "dog \udc00 food".encode("utf-8", "surrogatepass")}).status_code in (200, 422)
-    cr = client.post("/api/creatives", json=_stage2(s1)).json()["creatives"]
-    c3 = json.dumps(_stage3(s1, cr)).replace(cr[0]["headline"], "x \\ud83d")
-    r = client.post("/api/config", content=c3.encode(), headers={"content-type": "application/json"})
-    assert r.status_code == 422
-    tampered = json.dumps(_stage2(s1)).replace(s1["input_text"], "dog \\ud800")
-    r = client.post("/api/creatives", content=tampered.encode(), headers={"content-type": "application/json"})
-    assert r.status_code in (403, 422)

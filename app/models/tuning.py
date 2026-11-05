@@ -87,29 +87,16 @@ class CreativeTuning(BaseModel):
     headline_max_chars: int
     body_max_chars: int
     cta_max_chars: int
-    claim_words: list[str]
-    banned_phrases: list[str]
-    note_max_chars: int
-    parrot_ngram: int
-    parrot_sentence_min_words: int
-    age_range_bounds: tuple[int, int]
-    audience_words: list[str]
-    headline_similarity: float
+    claim_words: list[str]  # never in an ad unless the advertiser wrote them
+    banned_phrases: list[str]  # filler the playbook tells the writer and Critic to avoid
+    headline_similarity: float  # word overlap at or above this counts as a duplicate headline
 
 
 class InputTuning(BaseModel):
     age_floor: int  # fills a missing lower age bound ("under 35" -> 18-35)
     age_ceiling: int  # fills a missing upper age bound ("over 50" -> 50-80)
-    max_chars: int
-    max_answers: int
-    max_answer_chars: int
-    max_body_bytes: int
-    brief_product_max_chars: int
-    brief_list_max_items: int
-    brief_item_max_chars: int
-    brief_categories_max: int
-    brief_age_max: int
-    buyer_age_min: int = 18
+    brief_age_max: int  # ages above this in a brief are clamped
+    buyer_age_min: int  # ages below this are the product's user, not the buyer
 
 
 class ClarifyTuning(BaseModel):
@@ -118,53 +105,17 @@ class ClarifyTuning(BaseModel):
     min_options: int
 
 
-class Stage1Tuning(BaseModel):
-    top_publishers_shown: int
-    clarify_publishers_shown: int
-
-
-class LLMTuning(BaseModel):
-    timeout_s: float
-
-
 class RateLimitTuning(BaseModel):
-    per_client_runs: int
+    per_client_runs: int  # paid runs per client per window
     per_client_window_s: float
-    global_runs_per_hour: int
-    cost_stage1: int
-    cost_creatives: int
-    cost_regenerate: int
-
-
-class AgentPrice(BaseModel):
-    input: float
-    cached_input: float
-    output: float
-
-
-class AgentsTuning(BaseModel):
-    enabled: bool
-    run_without_steer: dict[str, bool]  # strategist | creative | media_planner
-    steer_max_chars: int
-    max_turns: dict[str, int]  # strategist | copywriter | critic | media_planner
-    min_recommended_after_steer: int  # a steer never shrinks the recommended set below min(this, n)
-    max_share_after_steer: float  # most budget one publisher may get after a planner exclusion
-    critic_max_rounds: int
-    critic_stop_fraction: float  # share of the step's cap after which critic reviews are refused
-    creative_est_usd_per_ad: float  # projected agent cost per ad (checked before spending)
-    max_cost_usd: dict[str, float]  # strategist | creative | media_planner
-    timeout_s: float  # per model call
-    max_retries: int  # per model call
-    step_timeout_s: float  # whole step run
-    max_notes: int
-    note_max_chars: int
-    trace_args_chars: int
-    trace_result_chars: int
-    ratelimit_cost_config: int
-    prices_per_1m_usd: dict[str, AgentPrice]  # model name -> price; "default" for any other
+    global_runs_per_hour: int  # process-wide cap on paid runs
+    cost_campaign: int  # step 1
+    cost_ads: int  # step 3: up to 3 calls per persona
+    cost_config_note: int  # step 4 with a note (without one it's free)
 
 
 class Tuning(BaseModel):
+    llm_timeout_s: float  # OpenAI client timeout per request (no SDK retries)
     publisher: PublisherTuning
     persona: PersonaTuning
     budget: BudgetTuning
@@ -175,7 +126,4 @@ class Tuning(BaseModel):
     input: InputTuning
     ratelimit: RateLimitTuning
     clarify: ClarifyTuning
-    stage1: Stage1Tuning
-    llm: LLMTuning
-    agents: AgentsTuning
 

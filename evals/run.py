@@ -1,214 +1,106 @@
-"""Run the labelled eval set through the pipeline and report accuracy.
+"""Run the labelled cases through the app and report how often it gets them right.
 
-    uv run python -m evals.run [--split train|test|all] [--concurrency 8] [--stage1]
+    uv run python -m evals.run [--split train|test|all] [--stage1] [--no-cache]
+
+LLM answers are cached in .cache/llm, so a re-run is free; --no-cache calls the model live.
 """
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import sys
-import time
-from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from app.llm import CachedProvider, OpenAIProvider
+from app.constants.brief import BUSINESS_PROB
+from app.constants.paths import ROOT
+from app.llm import CachedProvider, LLMProvider, OpenAIProvider
 from app.loaders import load_catalog, load_tuning
 from app.match import pick_publishers
+from app.models.catalog import Catalog
+from app.models.tuning import Tuning
 from app.pipeline import run_full, stage1
 from evals.invariants import check
 
-ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "evals" / "cases.jsonl"
 LAST_RUN = ROOT / "evals" / "last_run.json"
-OUTCOMES = ["proceed", "weak_fit", "clarify", "out_of_scope", "no_signal"]
-COLS = OUTCOMES + ["error"]
+MUST = ("must_publishers", "must_not_publishers", "must_personas", "must_not_personas")
 
 
-def split_for(group: str) -> str:
-    return "train" if int(hashlib.sha1(group.encode()).hexdigest(), 16) % 10 < 7 else "test"
+def load_cases(split: str, path: Path = CASES) -> list[dict]:
+    cases = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    return [case for case in cases if split == "all" or case["split"] == split]
 
 
-def load_cases(path: Path = CASES, *, split: str = "train", only: set[str] | None = None) -> list[dict]:
-    cases = [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
-    for c in cases:
-        if c["split"] != split_for(c["group"]):
-            raise ValueError(f"case {c['id']}: split {c['split']!r} != split_for(group) "
-                             f"{split_for(c['group'])!r}")
-    if split != "all":
-        cases = [c for c in cases if c["split"] == split]
-    if only:
-        cases = [c for c in cases if c["id"] in only]
-    return cases
-
-
-class _CallCounter:
-    """Per-case LLM wrapper that counts calls by schema name (creative retries = extra calls)."""
-
-    def __init__(self, inner):
-        self.inner = inner
-        self.calls: Counter = Counter()
-
-    def parse(self, *, system, user, schema, model):
-        self.calls[schema.__name__] += 1
-        return self.inner.parse(system=system, user=user, schema=schema, model=model)
-
-
-def _run_one(case: dict, llm, catalog, t, stage1_only: bool = False) -> dict:
-    rec = {"id": case["id"], "split": case["split"], "expected": case["expected"],
-           "must_publishers": case.get("must_publishers", []),
-           "must_not_publishers": case.get("must_not_publishers", []),
-           "must_personas": case.get("must_personas", []),
-           "must_not_personas": case.get("must_not_personas", []),
-           "outcome": "error", "signals": {}, "weak_fit_if_proceed": False,
-           "recommended_ids": [], "persona_ids": [], "invariant_failures": [],
-           "latency_s": 0.0, "creative_calls": 0, "creative_retries": 0, "residual_violations": 0}
-    text = case["text"].strip()[: t.input.max_chars]  # same truncation as the API
-    counter = _CallCounter(llm)
-    start = time.perf_counter()
+def run_case(case: dict, llm: LLMProvider, catalog: Catalog, tuning: Tuning, stage1_only: bool) -> dict:
+    """One case: its outcome, ids, the gate's three signals (for calibrate.py) and any invariant
+    failures. An error is recorded; it never stops the run."""
+    record = {"id": case["id"], "split": case["split"], "expected": case["expected"],
+              **{key: case.get(key, []) for key in MUST}, "outcome": "error", "signals": None,
+              "weak_fit_if_proceed": False, "recommended_ids": [], "persona_ids": [], "invariant_failures": [],
+              "flagged_ads": 0}
     try:
-        # all three stages at the recommended budget (cases' legacy budget_usd is ignored)
-        r = (stage1(text, None, None, None, llm=counter, catalog=catalog, tuning=t) if stage1_only
-             else run_full(text, None, llm=counter, catalog=catalog, tuning=t))
-        rec["outcome"] = r.outcome
-        if r.gate:
-            rec["gate_impl"] = r.gate.impl
-            rec["signals"] = {k: v for k, v in r.gate.signals.items()
-                              if k in ("has_content", "business_prob", "clarity")}
-            rec["gate_signals"] = r.gate.signals
-        if r.brief and r.outcome != "no_signal":
-            rec["weak_fit_if_proceed"] = pick_publishers(r.brief, catalog, t)[1]
-        rec["recommended_ids"] = [p.publisher_id for p in r.publishers if p.recommended]
-        rec["persona_ids"] = [p.persona_id for p in r.personas]
-        rec["invariant_failures"] = [] if stage1_only else check(r, t)
-        rec["creative_calls"] = counter.calls["Draft"]
-        # first pass makes one call per persona; every call beyond that is a retry
-        rec["creative_retries"] = max(0, rec["creative_calls"] - len(r.personas)) if rec["creative_calls"] else 0
-        rec["residual_violations"] = sum(1 for c in r.creatives if c.fact_violations)
-    except Exception as e:  # noqa: BLE001 - one bad case must never abort the run
-        rec["error"] = f"{type(e).__name__}: {e}"[:200]
-    rec["latency_s"] = round(time.perf_counter() - start, 2)
-    return rec
+        text = case["text"].strip()
+        if stage1_only:
+            result, ads, config = stage1(text, None, None, None, llm=llm, catalog=catalog, tuning=tuning), [], None
+        else:
+            result, ads, config = run_full(text, None, llm=llm, catalog=catalog, tuning=tuning)
+        record.update(outcome=result.outcome, flagged_ads=sum(bool(ad.fact_violations) for ad in ads),
+                      recommended_ids=[p.publisher_id for p in result.publishers if p.recommended],
+                      persona_ids=[p.persona_id for p in result.personas])
+        if result.brief:
+            brief = result.brief
+            record["signals"] = {"has_content": 1.0 if brief.describes_business else 0.0,
+                                 "business_prob": BUSINESS_PROB[brief.audience_type], "clarity": result.gate.confidence}
+            record["weak_fit_if_proceed"] = result.outcome != "no_signal" and pick_publishers(brief, catalog, tuning)[1]
+        if not stage1_only:
+            record["invariant_failures"] = check(result, ads, config, tuning)
+    except Exception as error:  # noqa: BLE001 - one bad case must never stop the run
+        record["error"] = f"{type(error).__name__}: {error}"[:200]
+    return record
 
 
-def run_cases(cases: list[dict], *, llm, catalog, t, concurrency: int = 8,
-              stage1_only: bool = False) -> list[dict]:
-    with ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
-        return list(ex.map(lambda c: _run_one(c, llm, catalog, t, stage1_only), cases))
+def _rate(records: list[dict], key: str, got: str, present: bool) -> float | None:
+    """Share of the labelled ids found (present) or avoided (not present) on built campaigns."""
+    rows = [(set(r[key]), set(r[got])) for r in records if r["outcome"] in ("proceed", "weak_fit") and r[key]]
+    total = sum(len(wanted) for wanted, _ in rows)
+    found = sum(len(wanted & ids) if present else len(wanted - ids) for wanted, ids in rows)
+    return found / total if total else None
 
 
-def summarize(recs: list[dict]) -> dict:
-    n = len(recs)
-    correct = sum(1 for r in recs if r["outcome"] in r["expected"])
-    conf = {e: Counter() for e in OUTCOMES}
-    for r in recs:
-        row = r["outcome"] if r["outcome"] in r["expected"] else r["expected"][0]
-        conf[row][r["outcome"]] += 1
-    per = {}
-    for o in OUTCOMES:
-        tp = sum(1 for r in recs if r["outcome"] == o and o in r["expected"])
-        pred = sum(1 for r in recs if r["outcome"] == o)
-        actual = sum(1 for r in recs if o in r["expected"])
-        per[o] = {"precision": tp / pred if pred else None, "recall": tp / actual if actual else None,
-                  "n": actual}
-    built = [r for r in recs if r["outcome"] in ("proceed", "weak_fit")]
-
-    def hit(key, want_present, got="recommended_ids"):
-        rows = [(set(r[key]), set(r[got])) for r in built if r.get(key)]
-        total = sum(len(m) for m, _ in rows)
-        ok = sum(len(m & rec) if want_present else len(m - rec) for m, rec in rows)
-        return ok / total if total else None
-
-    first = sum(r.get("creative_calls", 0) - r.get("creative_retries", 0) for r in recs)
-    lat = sorted(r["latency_s"] for r in recs if "latency_s" in r)
-
-    def pct(q):
-        return lat[min(len(lat) - 1, int(q * len(lat)))] if lat else None
-
-    return {"n": n, "correct": correct,
-            "retry_rate": sum(r.get("creative_retries", 0) for r in recs) / first if first else None,
-            "residual_violations": sum(r.get("residual_violations", 0) for r in recs),
-            "latency_p50": pct(0.5), "latency_p90": pct(0.9),
-            "accuracy": correct / n if n else 0.0, "per": per,
-            "confusion": {e: dict(c) for e, c in conf.items()},
-            "must_hit": hit("must_publishers", True),
-            "must_not_clear": hit("must_not_publishers", False),
-            "persona_hit": hit("must_personas", True, "persona_ids"),
-            "persona_not_clear": hit("must_not_personas", False, "persona_ids"),
-            "invariant_failures": {r["id"]: r["invariant_failures"] for r in recs
-                                   if r["invariant_failures"]},
-            "errors": [r["id"] for r in recs if r["outcome"] == "error"]}
-
-
-def _pct(x) -> str:
-    return "  -  " if x is None else f"{x:5.0%}"
-
-
-def render(s: dict) -> str:
-    L = [f"{'outcome':<13}{'prec':>6}{'recall':>8}{'n':>5}"]
-    for o in OUTCOMES:
-        p = s["per"][o]
-        L.append(f"{o:<13}{_pct(p['precision']):>6}{_pct(p['recall']):>8}{p['n']:>5}")
-    L += ["", "confusion (rows expected, cols got)", f"{'':<13}" + "".join(f"{c[:7]:>8}" for c in COLS)]
-    for e in OUTCOMES:
-        row = s["confusion"].get(e, {})
-        L.append(f"{e:<13}" + "".join(f"{row.get(c, 0):>8}" for c in COLS))
-    L += ["", f"must publishers hit (proceed/weak_fit cases):     {_pct(s['must_hit'])}",
-          f"must-not publishers avoided (same cases):           {_pct(s['must_not_clear'])}",
-          f"must personas chosen (same cases):                  {_pct(s['persona_hit'])}",
-          f"must-not personas avoided (same cases):             {_pct(s['persona_not_clear'])}", ""]
-    L.append(f"creative retry rate (personas re-asked after a facts/length miss): {_pct(s['retry_rate'])}; "
-             f"residual violations: {s['residual_violations']}")
-    if s["latency_p50"] is not None:
-        L.append(f"latency p50 {s['latency_p50']:.1f}s, p90 {s['latency_p90']:.1f}s (near 0 when cached)")
-    if s["invariant_failures"]:
-        L.append("invariant failures:")
-        for cid, fs in s["invariant_failures"].items():
-            L += [f"  {cid}: {f}" for f in fs]
-    else:
-        L.append("invariant failures: none")
-    if s["errors"]:
-        L.append("errors: " + ", ".join(s["errors"]))
-    L.append(f"total: {s['correct']}/{s['n']} correct, accuracy {s['accuracy']:.1%}")
-    return "\n".join(L)
-
-
-
-def make_llm():
-    """OpenAI, through the disk cache when LLM_CACHE_DIR is set."""
-    cache = os.getenv("LLM_CACHE_DIR", "")
-    return CachedProvider(OpenAIProvider(), Path(cache)) if cache else OpenAIProvider()
+def summarize(records: list[dict]) -> dict:
+    correct = sum(record["outcome"] in record["expected"] for record in records)
+    return {"n": len(records), "correct": correct, "accuracy": correct / len(records) if records else 0.0,
+            "misses": [(r["id"], r["expected"], r["outcome"]) for r in records if r["outcome"] not in r["expected"]],
+            "must_hit": _rate(records, "must_publishers", "recommended_ids", True),
+            "must_not_avoided": _rate(records, "must_not_publishers", "recommended_ids", False),
+            "persona_hit": _rate(records, "must_personas", "persona_ids", True),
+            "persona_not_avoided": _rate(records, "must_not_personas", "persona_ids", False),
+            "invariant_failures": {r["id"]: r["invariant_failures"] for r in records if r["invariant_failures"]},
+            "errors": [r["id"] for r in records if "error" in r],
+            "flagged_ads": sum(r["flagged_ads"] for r in records)}
 
 
 def main(argv: list[str] | None = None) -> int:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-    ap = argparse.ArgumentParser(prog="evals.run")
-    ap.add_argument("--split", choices=["train", "test", "all"], default="train")
-    ap.add_argument("--concurrency", type=int, default=8)
-    ap.add_argument("--only", default="", help="comma-separated case ids")
-    ap.add_argument("--no-cache", action="store_true")
-    ap.add_argument("--cases", type=Path, default=CASES)
-    ap.add_argument("--stage1", action="store_true",
-                    help="understand, gate and match only (outcomes, publishers, personas; no ads)")
-    a = ap.parse_args(argv)
-
-    if a.no_cache:
-        os.environ.pop("LLM_CACHE_DIR", None)
-    else:
-        os.environ.setdefault("LLM_CACHE_DIR", str(ROOT / ".cache" / "llm"))
-    t = load_tuning(ROOT / "config" / "tuning.yaml")
-
-    only = {x for x in a.only.split(",") if x} or None
-    cases = load_cases(a.cases, split=a.split, only=only)
-    recs = run_cases(cases, llm=make_llm(), catalog=load_catalog(ROOT / "data"), t=t,
-                     concurrency=a.concurrency, stage1_only=a.stage1)
-    LAST_RUN.write_text(json.dumps(recs, indent=1))
-    LAST_RUN.with_name(f"last_run_llm_{a.split}.json").write_text(json.dumps(recs, indent=1))
-    print(render(summarize(recs)))
+    parser = argparse.ArgumentParser(prog="evals.run")
+    parser.add_argument("--split", choices=["train", "test", "all"], default="train")
+    parser.add_argument("--stage1", action="store_true", help="step 1 only: outcomes, publishers, personas")
+    parser.add_argument("--no-cache", action="store_true")
+    args = parser.parse_args(argv)
+    tuning, catalog = load_tuning(), load_catalog()
+    llm = OpenAIProvider(tuning.llm_timeout_s)
+    if not args.no_cache:
+        llm = CachedProvider(llm, Path(os.getenv("LLM_CACHE_DIR") or ROOT / ".cache" / "llm"))
+    cases = load_cases(args.split)
+    with ThreadPoolExecutor(max_workers=8) as pool:  # live calls: 8 cases at a time
+        records = list(pool.map(lambda case: run_case(case, llm, catalog, tuning, args.stage1), cases))
+    LAST_RUN.write_text(json.dumps(records, indent=1))
+    summary = summarize(records)
+    print(json.dumps({key: value for key, value in summary.items() if key != "misses"}, indent=1))
+    for case_id, expected, got in summary["misses"]:
+        print(f"miss {case_id}: expected {'/'.join(expected)}, got {got}")
+    print(f"total: {summary['correct']}/{summary['n']} correct, accuracy {summary['accuracy']:.1%}")
     return 0
 
 

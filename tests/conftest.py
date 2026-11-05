@@ -28,3 +28,12 @@ def brief(**overrides) -> Brief:
     )
     base.update(overrides)
     return Brief(**base)
+
+
+def services(llm, limiter=None):
+    """The app's shared objects with a fake LLM and a fresh rate limiter."""
+    from app.api import Services
+    from app.ratelimit import RateLimiter
+    limits = T.ratelimit
+    return Services(tuning=T, catalog=CAT, llm=llm,
+                    limiter=limiter or RateLimiter(limits.per_client_runs, limits.per_client_window_s))

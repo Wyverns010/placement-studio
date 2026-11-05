@@ -106,8 +106,7 @@ clarify:
 stage1:
   top_publishers_shown: 5       # publishers streamed in the stage-1 "publishers" event
   clarify_publishers_shown: 3   # clarify outcome: faded best guess, top N only
-llm:
-  timeout_s: 25                 # OpenAI client timeout per request (no SDK retries)
+llm_timeout_s: 25               # OpenAI client timeout per request (no SDK retries)
 input:
   age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
   age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)
@@ -125,9 +124,9 @@ ratelimit:
   per_client_runs: 20           # live (paid) runs per client per window
   per_client_window_s: 600
   global_runs_per_hour: 200     # process-wide cap on live (paid) runs
-  cost_stage1: 1                # runs charged per call: stage 1 (understand + gate + match)
-  cost_creatives: 2             # stage 2: one creative call per persona (3-5 calls)
-  cost_regenerate: 1            # stage 2: rewrite one ad
+  cost_campaign: 1              # runs charged per call: step 1
+  cost_ads: 2                   # step 3: up to 3 calls per persona
+  cost_config_note: 1           # step 4 with a note (without one it's free)
 agents:                         # step agents (app/stepagents)
   enabled: true
   run_without_steer:            # live runs with no steer: use the agent, or plain code ("code" mode)

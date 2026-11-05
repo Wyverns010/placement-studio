@@ -128,10 +128,9 @@ def test_decide_branches(has_content, business_prob, clarity, expected):
     assert r.threshold == GATE.proceed_threshold
 
 
-def test_decide_clamps_clarity_and_records_signals():
+def test_decide_clamps_clarity():
     r = decide(1.0, 0.0, 1.2, GATE)
     assert r.confidence == 1.0 and r.outcome == "proceed"
-    assert r.signals == {"has_content": 1.0, "business_prob": 0.0, "clarity": 1.0}
 
 
 @pytest.mark.parametrize("brief_kw,expected", [

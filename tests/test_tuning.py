@@ -15,9 +15,8 @@ def test_tuning_new_knobs():
 
 def test_former_constants_are_tunables():
     t = load_tuning()
-    assert t.llm.timeout_s == 25
+    assert t.llm_timeout_s == 25
     assert (t.clarify.max_questions, t.clarify.max_options, t.clarify.min_options) == (3, 5, 2)
-    assert (t.stage1.top_publishers_shown, t.stage1.clarify_publishers_shown) == (5, 3)
 
 
 def test_load_tuning_independent_of_cwd(tmp_path, monkeypatch):

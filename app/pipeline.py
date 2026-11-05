@@ -18,8 +18,10 @@ from app.constants.pipeline import (
 )
 from app.llm import LLMProvider
 from app.match import pick_publishers, score_personas, score_publishers, select_personas
+from app.models.ads import Creative
 from app.models.brief import Brief
 from app.models.catalog import Catalog
+from app.models.plan import CampaignConfig
 from app.models.result import CampaignResult
 from app.models.tuning import Tuning
 from app.plan import build_config
@@ -37,8 +39,7 @@ def stage1(text: str, budget_usd: float | None, note: str | None, brief: Brief |
         current, dropped_publishers, dropped_personas, notes = apply_note(note, base, llm, catalog, tuning)
     elif note:
         notes = [NOTE_GATE.format(outcome=gate.outcome)]
-    shared = dict(input_text=text, budget_usd=budget_usd, brief=current, gate=gate, creatives=[],
-                  config=None, mode="agent" if note else "code", agent_notes=notes)
+    shared = dict(input_text=text, budget_usd=budget_usd, brief=current, gate=gate, notes=notes)
     if gate.outcome == "no_signal":
         return CampaignResult(**shared, outcome="no_signal", message=MSG_NO_SIGNAL, publishers=[],
                               personas=[], clarify=NO_SIGNAL_QUESTIONS)
@@ -72,11 +73,10 @@ def stage1(text: str, budget_usd: float | None, note: str | None, brief: Brief |
 
 
 def run_full(text: str, budget_usd: float | None = None, *, llm: LLMProvider, catalog: Catalog,
-             tuning: Tuning) -> CampaignResult:
+             tuning: Tuning) -> tuple[CampaignResult, list[Creative], CampaignConfig | None]:
     """All steps in one call, for the evals: step 1, then ads and config when a campaign is built."""
     result = stage1(text, budget_usd, None, None, llm=llm, catalog=catalog, tuning=tuning)
     if result.outcome not in ("proceed", "weak_fit"):
-        return result
+        return result, [], None
     ads = write_ads(text, result.brief, result.publishers, result.personas, None, llm, catalog, tuning)
-    config = build_config(result.brief, result.publishers, result.personas, ads, budget_usd, catalog, tuning)
-    return result.model_copy(update={"creatives": ads, "config": config})
+    return result, ads, build_config(result.brief, result.publishers, result.personas, ads, budget_usd, catalog, tuning)

@@ -90,8 +90,7 @@ def decide(has_content: float, business_prob: float, clarity: float, tuning: Gat
         outcome = "clarify"
     else:
         outcome = "proceed"
-    return GateResult(outcome=outcome, confidence=clarity, threshold=tuning.proceed_threshold, impl="llm",
-                      signals={"has_content": has_content, "business_prob": business_prob, "clarity": clarity})
+    return GateResult(outcome=outcome, confidence=clarity, threshold=tuning.proceed_threshold)
 
 
 def answered_questions(text: str) -> dict[str, str]:

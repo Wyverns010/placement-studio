@@ -29,7 +29,7 @@ def test_brief_note_cannot_drop_every_publisher():
     result = stage1("We sell dog food", None, "skip Pawline, Ruffco and Tailcrate", brief(**DOG),
                     llm=llm, catalog=CAT, tuning=T)
     assert {p.publisher_id for p in result.publishers if p.recommended} >= {PAWLINE, RUFFCO, TAILCRATE}
-    assert any("can't remove every publisher" in note for note in result.agent_notes)
+    assert any("can't remove every publisher" in note for note in result.notes)
 
 
 def test_note_naming_nothing_in_the_catalog_changes_nothing():

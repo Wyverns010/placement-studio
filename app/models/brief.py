@@ -29,10 +29,8 @@ class Brief(BaseModel):
 
 class GateResult(BaseModel):
     outcome: Outcome  # never "weak_fit" (decided after match)
-    confidence: float
+    confidence: float  # the brief's clarity, shown against the threshold
     threshold: float
-    impl: Literal["llm"]
-    signals: dict[str, float | str]
 
 
 class ClarifyQuestion(BaseModel):
