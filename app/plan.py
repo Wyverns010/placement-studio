@@ -100,7 +100,8 @@ def _fit_shares(fits: list[float], min_share: float) -> list[float]:
 
 
 def _whole_dollars(amounts: list[float]) -> list[float]:
-    """Each amount in whole dollars, keeping the total (the largest remainders get the extra dollar)."""
+    """Each amount in whole dollars, keeping the total (the largest remainders get the extra dollar).
+    Pattern: largest-remainder rounding."""
     floors = [math.floor(amount) for amount in amounts]
     short = round(sum(amounts)) - sum(floors)
     by_remainder = sorted(range(len(amounts)), key=lambda i: amounts[i] - floors[i], reverse=True)
@@ -112,7 +113,10 @@ def _whole_dollars(amounts: list[float]) -> list[float]:
 def allocate(recommended: list[PublisherScore], monthly_usd: float, prices: dict[str, tuple[float, float]],
              tuning: Tuning) -> tuple[list[LineItem], float]:
     """Water-fill the budget by fit, capping each publisher at its reach; returns the line items and
-    what's left over."""
+    what's left over.
+
+    Pattern: water-filling allocation. Split by share; any publisher over its cap is fixed at the
+    cap and the rest is re-split among the others until nobody overflows."""
     if not recommended:
         return [], monthly_usd
     caps = [prices[score.publisher_id][1] for score in recommended]

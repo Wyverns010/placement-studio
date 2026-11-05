@@ -1,5 +1,8 @@
 """Every weight and threshold the steps use, with why. `Tuning()` is the whole set; evals and tests
-try other values on a copy (`model_copy(update=...)`)."""
+try other values on a copy (`model_copy(update=...)`).
+
+Pattern: typed settings object. Defaults live in code next to their reason; a variant is an
+immutable copy, never a global edit."""
 from __future__ import annotations
 
 from pydantic import BaseModel

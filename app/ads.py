@@ -121,7 +121,9 @@ def _playbook(tuning: Tuning) -> str:
 
 def write_ad(persona: Persona, publisher: Publisher, others: list[Persona], text: str, brief: Brief,
              note: str | None, llm: LLMProvider, tuning: Tuning) -> Creative | None:
-    """Write -> code checks -> Critic (only if code found it clean) -> one revision if anything needs
+    """Pattern: generator-critic (reflection) loop, bounded to one revision.
+
+    Write -> code checks -> Critic (only if code found it clean) -> one revision if anything needs
     fixing -> final code check. A failed Critic call counts as accepted, a failed revision ships the
     first draft flagged, and a failed first draft means no ad for this persona (None)."""
     playbook = _playbook(tuning)
@@ -163,7 +165,10 @@ def write_ad(persona: Persona, publisher: Publisher, others: list[Persona], text
 def write_ads(text: str, brief: Brief, publisher_scores: list[PublisherScore], persona_scores: list[PersonaScore],
               note: str | None, llm: LLMProvider, catalog: Catalog, tuning: Tuning) -> list[Creative]:
     """Every persona's ad at the same time (each is an independent ~4-8 s call), then the duplicate
-    headline check across them. A persona whose ad couldn't be written is left out."""
+    headline check across them. A persona whose ad couldn't be written is left out.
+
+    Pattern: fan-out / fan-in. Independent LLM calls run on a thread pool, results are gathered,
+    then one cross-ad check runs on the whole set."""
     slots = ad_slots(persona_scores, publisher_scores, catalog)
     personas = [persona for persona, _ in slots]
     with ThreadPoolExecutor(max_workers=max(1, len(slots))) as pool:

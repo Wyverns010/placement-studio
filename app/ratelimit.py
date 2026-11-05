@@ -9,7 +9,10 @@ from typing import Literal
 
 class RateLimiter:
     """Per-client sliding window (``limit`` hits per ``window_s``) plus an optional process-wide
-    cap (``global_limit`` hits per ``global_window_s``) on everything that gets through."""
+    cap (``global_limit`` hits per ``global_window_s``) on everything that gets through.
+
+    Pattern: sliding-window log, one deque of timestamps per key, guarded by a lock. The clock is
+    injected so tests can move time."""
 
     def __init__(self, limit: int = 12, window_s: float = 600.0, *,
                  global_limit: int | None = None, global_window_s: float = 3600.0,

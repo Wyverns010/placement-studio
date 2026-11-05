@@ -21,6 +21,8 @@ class LLMError(Exception):
     pass
 
 
+# Pattern: strategy via a Protocol (structural interface). Every step depends on this one method;
+# OpenAIProvider, FakeProvider and CachedProvider are interchangeable implementations.
 class LLMProvider(Protocol):
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T: ...
 
@@ -28,7 +30,7 @@ class LLMProvider(Protocol):
 class OpenAIProvider:
     def __init__(self, timeout_s: float = 25.0, client=None):
         self.timeout_s = timeout_s
-        self.client = client  # tests pass a fake; live, it's created on the first call
+        self.client = client  # tests pass a fake; live, it's created on the first call (lazy init)
 
     def parse(self, *, system: str, user: str, schema: type[T], model: str) -> T:
         import openai
@@ -60,7 +62,9 @@ class OpenAIProvider:
 
 
 class FakeProvider:
-    """Test double. responses: schema name -> instance | callable(system, user) | Exception."""
+    """Test double. responses: schema name -> instance | callable(system, user) | Exception.
+
+    Pattern: fake (test double). Records every call so tests can assert on prompts and models."""
 
     def __init__(self, responses: dict[str, "BaseModel | Callable[[str, str], BaseModel] | Exception"]):
         self.responses = responses
@@ -82,6 +86,10 @@ class FakeProvider:
 
 
 class CachedProvider:
+    """Pattern: decorator. Wraps any provider behind the same interface and adds a disk cache keyed
+    by a hash of (model, prompts, schema), so callers can't tell it's there. Writes are atomic
+    (temp file + os.replace)."""
+
     def __init__(self, inner: LLMProvider, cache_dir: Path):
         self.inner = inner
         self.cache_dir = Path(cache_dir)

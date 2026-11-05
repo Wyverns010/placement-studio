@@ -11,6 +11,7 @@ from app.models.catalog import Catalog
 
 
 def load_catalog(data_dir: Path = DATA_DIR) -> Catalog:
+    """Pattern: factory function. Files in, one validated Catalog out."""
     return Catalog.model_validate({"publishers": json.loads((data_dir / "publishers.json").read_text()),
                                    "personas": json.loads((data_dir / "shopper_personas.json").read_text())})
 

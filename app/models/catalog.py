@@ -68,7 +68,10 @@ class Catalog(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def index(cls, raw: dict) -> dict:
-        """The lookups and word lists the steps use, built once from the raw publishers and personas."""
+        """The lookups and word lists the steps use, built once from the raw publishers and personas.
+
+        Pattern: derived data at load time. Indexes and vocabularies are computed once when the
+        catalog is validated, so the steps only do dict lookups."""
         publishers = [Publisher.model_validate(publisher) for publisher in raw["publishers"]]
         personas = [Persona.model_validate(persona) for persona in raw["personas"]]
         groups: dict[str, set[str]] = {}

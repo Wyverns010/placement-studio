@@ -1,5 +1,5 @@
 """Golden snapshot of step 1 and the no-note config for every eval case: the refactor must not
-change a single number.
+change a single number. Pattern: golden master (characterisation) testing.
 
     uv run python -m scripts.golden --write   # record (cached LLM; live only on a cache miss)
     uv run python -m scripts.golden --check   # compare (cache only; a miss is a failure)

@@ -37,7 +37,10 @@ _SCHEMAS: dict[tuple[str, ...], type[BaseModel]] = {}
 
 def brief_schema(catalog: Catalog) -> type[BaseModel]:
     """Brief with its category fields limited to the catalog's words, every field required (strict
-    structured output); built once per vocabulary."""
+    structured output); built once per vocabulary.
+
+    Pattern: factory (dynamic class factory) with memoization. Builds a new Pydantic model class at
+    runtime with pydantic.create_model and caches it in _SCHEMAS."""
     key = (*catalog.vocab, "|", *catalog.conflict_vocab)
     if key not in _SCHEMAS:
         fields = {name: (field.annotation, ...) for name, field in Brief.model_fields.items()}
@@ -141,7 +144,10 @@ def apply_note(note: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
                tuning: Tuning) -> tuple[Brief, set[str], set[str], list[str]]:
     """One LLM call reads the note into changes; code keeps only what it can check: publishers and
     personas the note names, catalog category words, ages within the floor and ceiling. Returns the
-    changed brief, dropped publisher ids, dropped persona ids and one note per change or refusal."""
+    changed brief, dropped publisher ids, dropped persona ids and one note per change or refusal.
+
+    Pattern: LLM proposes, code verifies. The model only fills a typed BriefChanges; nothing is
+    applied unless code can check it against the note's own words and the catalog."""
     system = render(
         "note_brief",
         publishers=", ".join(publisher.name for publisher in catalog.publishers),

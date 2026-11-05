@@ -1,5 +1,8 @@
 """The web layer: one route per step, plus health and the example buttons. The only file that knows
-about FastAPI; the steps themselves are plain functions."""
+about FastAPI; the steps themselves are plain functions.
+
+Pattern: layered architecture. This module is the thin HTTP shell; pipeline/brief/match/ads/plan are
+the domain, llm/loaders/prompts the infrastructure. Routes validate, charge, then call one function."""
 from __future__ import annotations
 
 import logging
@@ -43,12 +46,17 @@ from app.pipeline import stage1
 from app.ratelimit import RateLimiter
 
 log = logging.getLogger(__name__)
+# Pattern: table-driven error mapping. One dict decides every error's status and safe message.
 ERRORS = {LLMError: (502, MSG_LLM), Exception: (502, MSG_OTHER)}
 
 
 @dataclass(frozen=True)
 class Deps:
-    """What every request uses, built once when the app starts."""
+    """What every request uses, built once when the app starts.
+
+    Pattern: dependency injection. Routes receive this through FastAPI's Depends(get_deps) rather
+    than importing globals, so tests swap in a fake LLM by passing their own Deps to create_app.
+    Frozen: the bundle is never reassigned (the limiter inside it keeps its own state)."""
     tuning: Tuning
     catalog: Catalog
     llm: LLMProvider
@@ -77,7 +85,10 @@ def check_budget(budget_usd: float | None, tuning: Tuning) -> None:
 def check_stage(deps: Deps, brief: Brief | None, result: CampaignResult | None = None,
                 creatives: list[Creative] = ()) -> None:
     """422 for anything the step code can't work with: a campaign the gate didn't let through, ids
-    outside the catalog, category words outside the vocabulary, an impossible price or age."""
+    outside the catalog, category words outside the vocabulary, an impossible price or age.
+
+    Pattern: stateless server, validate at the boundary. The browser carries step 1's result
+    between steps, so the server re-checks it against the catalog instead of trusting it."""
     catalog = deps.catalog
     if result is not None:
         if result.gate is None or result.gate.outcome != "proceed":
@@ -168,7 +179,10 @@ def _handle_error(request: Request, error: Exception) -> JSONResponse:
 
 
 def create_app(deps: Deps | None = None) -> FastAPI:
-    """The app; tests pass their own deps, otherwise the real ones are loaded."""
+    """The app; tests pass their own deps, otherwise the real ones are loaded.
+
+    Pattern: application factory and composition root. The only place real objects are built and
+    wired together (OpenAI provider, optional disk cache around it, catalog, rate limiter)."""
     if deps is None:
         tuning = Tuning()
         llm = OpenAIProvider(tuning.llm_timeout_s)
@@ -182,6 +196,8 @@ def create_app(deps: Deps | None = None) -> FastAPI:
     app.include_router(router)
     for kind in ERRORS:
         app.add_exception_handler(kind, _handle_error)
+    # The built React app (web/dist) served at "/" so one process serves UI and API on one origin.
+    # Mounted last: the /api routes above match first. Skipped in dev, where Vite serves the UI.
     if WEB_DIST.is_dir():
         app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
     return app

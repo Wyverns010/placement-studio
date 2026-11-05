@@ -17,6 +17,7 @@ def render(name: str, /, *, prompts_dir: Path = PROMPTS_DIR, **slots) -> str:
 
 
 def wrap(tag: str, text: str) -> str:
-    """Untrusted text inside <tag> tags, with any opening or closing tag inside it neutralised."""
+    """Untrusted text inside <tag> tags, with any opening or closing tag inside it neutralised.
+    Pattern: data/instruction separation (prompt-injection defence)."""
     inner = re.sub(r"<(/?)" + tag, lambda m: "‹" + m.group(1) + tag, text, flags=re.IGNORECASE)
     return f"<{tag}>{inner}</{tag}>"

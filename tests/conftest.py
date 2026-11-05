@@ -32,7 +32,7 @@ def brief(**overrides) -> Brief:
 
 
 def make_deps(llm, limiter=None):
-    """The app's shared objects with a fake LLM and a fresh rate limiter."""
+    """The app's shared objects with a fake LLM and a fresh rate limiter (test factory for Deps)."""
     from app.api import Deps
     from app.ratelimit import RateLimiter
     limits = T.ratelimit

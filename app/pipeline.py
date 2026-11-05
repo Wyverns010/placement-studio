@@ -30,7 +30,10 @@ from app.plan import build_config
 def stage1(text: str, budget_usd: float | None, note: str | None, brief: Brief | None, *,
            llm: LLMProvider, catalog: Catalog, tuning: Tuning) -> CampaignResult:
     """Read the text (or reuse the brief sent back with a note), decide, match publishers, then personas.
-    The gate reads what the advertiser wrote; a note only changes matching."""
+    The gate reads what the advertiser wrote; a note only changes matching.
+
+    Pattern: pipeline with early exits. A fixed sequence of plain functions; the gate's outcome
+    picks one return branch. No agent chooses the order."""
     base = brief or understand(text, catalog, llm, tuning)
     gate = decide(1.0 if base.describes_business else 0.0, BUSINESS_PROB[base.audience_type],
                   base.self_confidence, tuning.gate)

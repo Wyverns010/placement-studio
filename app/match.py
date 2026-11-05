@@ -146,7 +146,11 @@ def _aov(brief: Brief, publisher: Publisher, tuning: Tuning) -> tuple[Factor, bo
 
 def score_publishers(brief: Brief, catalog: Catalog, tuning: Tuning,
                      exclude: set[str] = frozenset()) -> list[PublisherScore]:
-    """Every publisher, best fit first. Excluded ids keep their fit but are never recommended."""
+    """Every publisher, best fit first. Excluded ids keep their fit but are never recommended.
+
+    Pattern: explainable weighted scoring. Each factor is a small pure function returning a score
+    and a note; the fit is their weighted sum, and the reason shown is the strongest or weakest
+    factor."""
     brief = scoped(brief, catalog, tuning)
     settings = tuning.publisher
     rows = []
