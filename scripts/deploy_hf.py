@@ -109,8 +109,10 @@ def main(argv: list[str] | None = None) -> int:
         from huggingface_hub import HfApi
         api = HfApi()
         api.create_repo(space, repo_type="space", space_sdk="docker", exist_ok=True)
+        # delete_patterns="*": the Space mirrors this upload exactly, so files removed locally
+        # (old modules, tests) don't linger and break the build. .gitattributes is always kept.
         api.upload_folder(folder_path=tmp, repo_id=space, repo_type="space",
-                          commit_message="Deploy Placement Studio")
+                          commit_message="Deploy Placement Studio", delete_patterns="*")
         print(f"Uploaded {len(files)} files -> https://huggingface.co/spaces/{space}")
         return 0
 
