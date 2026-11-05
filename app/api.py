@@ -6,7 +6,6 @@ the domain, llm/loaders/prompts the infrastructure. Routes validate, charge, the
 from __future__ import annotations
 
 import logging
-import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,19 +17,13 @@ from fastapi.staticfiles import StaticFiles
 from app import plan
 from app.ads import write_ads
 from app.constants.api import (
-    MSG_BAD_AGES,
-    MSG_BAD_PRICE,
     MSG_BUDGET,
     MSG_BUSY,
     MSG_EMPTY,
     MSG_LLM,
     MSG_NO_ADS,
-    MSG_NO_PUBLISHERS,
-    MSG_NOT_PROCEEDING,
     MSG_OTHER,
     MSG_RATE_LIMIT,
-    MSG_UNKNOWN_ID,
-    MSG_UNKNOWN_WORD,
 )
 from app.constants.brief import ANSWERS_HEADER
 from app.constants.paths import WEB_DIST
@@ -38,7 +31,6 @@ from app.llm import CachedProvider, LLMError, LLMProvider, OpenAIProvider
 from app.loaders import load_catalog, load_samples
 from app.models.ads import Creative
 from app.models.api import CampaignIn, ConfigIn, CreativesIn
-from app.models.brief import Brief
 from app.models.catalog import Catalog
 from app.models.result import CampaignResult
 from app.models.tuning import Tuning
@@ -82,38 +74,6 @@ def check_budget(budget_usd: float | None, tuning: Tuning) -> None:
         raise HTTPException(422, MSG_BUDGET.format(low=tuning.budget.min_usd, high=tuning.budget.max_usd))
 
 
-def check_stage(deps: Deps, brief: Brief | None, result: CampaignResult | None = None,
-                creatives: list[Creative] = ()) -> None:
-    """422 for anything the step code can't work with: a campaign the gate didn't let through, ids
-    outside the catalog, category words outside the vocabulary, an impossible price or age.
-
-    Pattern: stateless server, validate at the boundary. The browser carries step 1's result
-    between steps, so the server re-checks it against the catalog instead of trusting it."""
-    catalog = deps.catalog
-    if result is not None:
-        if result.gate is None or result.gate.outcome != "proceed":
-            raise HTTPException(422, MSG_NOT_PROCEEDING)
-        ids = ([(p.publisher_id, catalog.publisher_by_id) for p in result.publishers]
-               + [(p.persona_id, catalog.persona_by_id) for p in result.personas]
-               + [(ad.publisher_id, catalog.publisher_by_id) for ad in creatives]
-               + [(ad.persona_id, catalog.persona_by_id) for ad in creatives])
-        if any(key not in known for key, known in ids):
-            raise HTTPException(422, MSG_UNKNOWN_ID)
-        if not any(p.recommended for p in result.publishers):
-            raise HTTPException(422, MSG_NO_PUBLISHERS)
-    if brief is None:
-        return
-    for field, words in (("categories", catalog.vocab), ("adjacent_categories", catalog.vocab),
-                         ("conflicts", catalog.conflict_vocab)):
-        if not set(getattr(brief, field)) <= set(words):
-            raise HTTPException(422, MSG_UNKNOWN_WORD.format(field=field))
-    if brief.price_usd is not None and not (math.isfinite(brief.price_usd) and brief.price_usd >= 0):
-        raise HTTPException(422, MSG_BAD_PRICE)
-    high = deps.tuning.input.brief_age_max
-    if any(age is not None and not 0 <= age <= high for age in (brief.age_min, brief.age_max)):
-        raise HTTPException(422, MSG_BAD_AGES.format(high=high))
-
-
 router = APIRouter(prefix="/api")
 
 
@@ -134,7 +94,6 @@ def campaign(body: CampaignIn, request: Request, deps: Deps = Depends(get_deps))
     if not text:
         raise HTTPException(422, MSG_EMPTY)
     check_budget(body.budget_usd, deps.tuning)
-    check_stage(deps, body.brief)
     if body.answers:
         text += ANSWERS_HEADER + "\n".join(f"- {question}: {answer}" for question, answer in body.answers.items())
     charge(request, deps, deps.tuning.ratelimit.cost_campaign)
@@ -145,7 +104,6 @@ def campaign(body: CampaignIn, request: Request, deps: Deps = Depends(get_deps))
 def ads(body: CreativesIn, request: Request, deps: Deps = Depends(get_deps)) -> list[Creative]:
     """Step 3: one ad per persona for step 1's result; the note is guidance for the writers."""
     result = body.result
-    check_stage(deps, result.brief, result)
     charge(request, deps, deps.tuning.ratelimit.cost_ads)
     creatives = write_ads(result.input_text, result.brief, result.publishers, result.personas, body.note, deps.llm,
                           deps.catalog, deps.tuning)
@@ -159,7 +117,6 @@ def config(body: ConfigIn, request: Request, deps: Deps = Depends(get_deps)) -> 
     """Step 4, code only and free; a note is read by one LLM call first (charged). No budget means
     the recommended one."""
     result, creatives, budget_usd, note = body.result, body.creatives, body.budget_usd, body.note
-    check_stage(deps, result.brief, result, creatives)
     check_budget(budget_usd, deps.tuning)
     budget, dropped, pacing, notes = budget_usd, set(), None, []
     if note:

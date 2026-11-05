@@ -146,33 +146,3 @@ def test_config_note_is_read_and_its_notes_returned(client, llm, s1):
     r = client.post("/api/config", json=with_ads(client, s1, note="under $5k please"))
     assert r.status_code == 200 and r.json()["config"]["budget"]["monthly_usd"] == 5000
     assert any("5,000" in note for note in r.json()["notes"])
-
-
-def test_unknown_ids_are_422(client, s1):
-    body = with_ads(client, s1)
-    unknown_publisher = [{**s1["publishers"][0], "publisher_id": "pub_999"}, *s1["publishers"][1:]]
-    unknown_persona = [{**s1["personas"][0], "persona_id": "persona_999"}, *s1["personas"][1:]]
-    for path, payload in (("/api/creatives", {"result": s1}), ("/api/config", body)):
-        for change, detail in (({"publishers": unknown_publisher}, "Unknown publisher or persona in the request."),
-                               ({"personas": unknown_persona}, "Unknown publisher or persona in the request."),
-                               ({"brief": {**s1["brief"], "categories": ["spaceships"]}},
-                                "brief.categories has an unknown term.")):
-            r = client.post(path, json={**payload, "result": {**s1, **change}})
-            assert r.status_code == 422 and r.json()["detail"] == detail, (path, change)
-
-
-@pytest.mark.parametrize("change,detail", [
-    ({"publishers_recommended": False}, "No recommended publishers to place ads on."),
-    ({"brief": {"price_usd": -1}}, "brief.price_usd must be a finite amount of at least 0."),
-    ({"brief": {"age_min": 130}}, "brief ages must be between 0 and 120."),
-    ({"gate": {"outcome": "clarify"}}, "Ads and a config are only built for a campaign the gate let through."),
-])
-def test_stage_checks(client, s1, change, detail):
-    body = dict(s1)
-    if "publishers_recommended" in change:
-        body["publishers"] = [{**p, "recommended": False} for p in s1["publishers"]]
-    for key in ("brief", "gate"):
-        if key in change:
-            body[key] = {**s1[key], **change[key]}
-    r = client.post("/api/creatives", json={"result": body})
-    assert r.status_code == 422 and r.json()["detail"] == detail

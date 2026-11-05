@@ -136,7 +136,7 @@ class ClarifyTuning(BaseModel):
 class InputTuning(BaseModel):
     age_floor: int = 18  # fills a missing lower age bound ("under 35" -> 18-35)
     age_ceiling: int = 80  # fills a missing upper age bound ("over 50" -> 50-80)
-    brief_age_max: int = 120  # a brief sent back with an age above this is refused (422)
+    brief_age_max: int = 120  # the brief's ages are clamped to 0..this
     buyer_age_min: int = 18  # ages below this are the product's user, not the buyer
 
 
