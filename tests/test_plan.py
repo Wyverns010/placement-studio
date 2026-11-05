@@ -35,21 +35,23 @@ def test_recommended_budget_is_conversions_times_cpa_rounded_up_and_bounded():
     assert recommended_budget(10**7, 3, T) == T.budget.max_usd
 
 
-def test_split_is_whole_dollars_by_fit_and_adds_up_exactly():
-    items = split([ps(PAW, 0.9), ps(RUFF, 0.8), ps(TAIL, 0.7)], 10_000, CAT, T)
-    assert all(li.budget_usd == int(li.budget_usd) for li in items)
-    assert sum(li.budget_usd for li in items) == 10_000
+def test_split_is_each_fit_share_to_the_cent():
+    fits = [0.9, 0.8, 0.7]
+    items = split([ps(PAW, fits[0]), ps(RUFF, fits[1]), ps(TAIL, fits[2])], 10_000, CAT, T)
+    for li, fit in zip(items, fits):
+        assert li.share == pytest.approx(fit / sum(fits))
+        assert li.budget_usd == round(10_000 * fit / sum(fits), 2)  # 3750.0, 3333.33, 2916.67
     assert sum(li.share for li in items) == pytest.approx(1.0)
-    assert [li.budget_usd for li in items] == sorted((li.budget_usd for li in items), reverse=True)
+    assert sum(li.budget_usd for li in items) == pytest.approx(10_000, abs=0.01 * len(items))
     for li in items:  # CPM by audience income; impressions = budget / CPM x 1,000
         income = CAT.publisher_by_id[li.publisher_id].audience.income_tier
         assert li.cpm_usd == T.budget.cpm_by_income_usd.get(income, T.budget.assumed_cpm_usd)
         assert li.est_impressions == round(li.budget_usd / li.cpm_usd * 1000)
 
 
-def test_split_rounding_remainder_goes_to_the_best_fit():
-    items = split([ps(PAW, 1), ps(RUFF, 1), ps(TAIL, 1)], 1000, CAT, T)  # 333.33 each
-    assert [li.budget_usd for li in items] == [334, 333, 333]
+def test_split_equal_fits_split_evenly_to_the_cent():
+    items = split([ps(PAW, 1), ps(RUFF, 1), ps(TAIL, 1)], 1000, CAT, T)
+    assert [li.budget_usd for li in items] == [333.33, 333.33, 333.33]
 
 
 def test_split_edge_cases():

@@ -54,18 +54,18 @@ def recommended_budget(cpa: float, publishers: int, tuning: Tuning) -> float:
 
 
 def split(recommended: list[PublisherScore], monthly_usd: float, catalog: Catalog, tuning: Tuning) -> list[LineItem]:
-    """Whole dollars by fit share (the rounding remainder goes to the best fit), and the impressions
-    each buys at that publisher's CPM, which follows its audience's income."""
+    """Each publisher's exact fit share of the budget, to the cent (the total can differ by a cent per
+    line item), and the impressions it buys at that publisher's CPM, which follows its audience's income."""
     if not recommended:
         return []
     weights = [score.fit for score in recommended] if sum(s.fit for s in recommended) > 0 else [1.0] * len(recommended)
-    amounts = [math.floor(monthly_usd * weight / sum(weights)) for weight in weights]
-    amounts[0] += round(monthly_usd) - sum(amounts)
     items = []
-    for score, amount in zip(recommended, amounts):
+    for score, weight in zip(recommended, weights):
+        share = weight / sum(weights)
+        amount = round(monthly_usd * share, 2)
         income = catalog.publisher_by_id[score.publisher_id].audience.income_tier
         cpm = tuning.budget.cpm_by_income_usd.get(income, tuning.budget.assumed_cpm_usd)
-        items.append(LineItem(publisher_id=score.publisher_id, share=amount / sum(amounts), budget_usd=float(amount),
+        items.append(LineItem(publisher_id=score.publisher_id, share=share, budget_usd=amount,
                               cpm_usd=cpm, est_impressions=round(amount / cpm * 1000), ads=[]))
     return items
 

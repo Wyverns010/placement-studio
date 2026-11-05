@@ -72,7 +72,7 @@ web/                 React UI
 | projection (in `budget`) | What that buys: impressions (budget ÷ CPM, CPM by audience income), conversions, revenue, ROAS |
 | `bid_strategy` | Target CPA = 35% of order value (the price, or the publishers' AOV weighted by fit) |
 | `targeting` | Buyer ages, gender, interests, personas |
-| `line_items` | Publisher, whole-dollar budget by fit share, CPM, impressions, its ads |
+| `line_items` | Publisher, its exact fit share of the budget (to the cent), CPM, impressions, its ads |
 | `frequency_cap` | By price tier: value 5 per 7 days … luxury 2 per 21 |
 | `pacing` | Even, unless your note asks otherwise |
 | `guardrails` | Pause at 1.5× target CPA after 2,000 impressions |
