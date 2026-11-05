@@ -16,7 +16,6 @@ WORKDIR /srv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY app ./app
-COPY config ./config
 COPY prompts ./prompts
 COPY data ./data
 COPY --from=web /build/web/dist ./web/dist

@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 INCLUDE_FILES = ["Dockerfile", ".dockerignore", "pyproject.toml", "uv.lock"]
-INCLUDE_DIRS = ["app", "config", "prompts", "data", "web"]
+INCLUDE_DIRS = ["app", "prompts", "data", "web"]
 SKIP_DIRS = {"node_modules", "dist", "__pycache__", ".pytest_cache", ".venv", ".git", ".cache"}
 SKIP_SUFFIXES = {".pyc"}
 
