@@ -12,7 +12,7 @@ from evals import calibrate
 from evals.invariants import check
 from evals.run import load_cases, run_cases, split_for, summarize
 from tests.conftest import CAT, T
-from tests.test_pipeline import CLARIFY, _creatives, brief_obj, fake
+from tests.test_pipeline import ACCEPT, CLARIFY, _creatives, brief_obj, fake
 
 SEED = Path("tests/fixtures/seed_cases.jsonl")
 
@@ -37,7 +37,7 @@ def test_invariants_flag_config_on_clarify():
     proceed = result_for(fake())
     bad = proceed.model_copy(update={"outcome": "clarify"})
     fails = check(bad, T)
-    assert any("config" in f for f in fails) and any("creative" in f for f in fails)
+    assert any("config" in f and "ads" in f for f in fails)
 
 
 def test_invariants_flag_bad_shares_and_weak_fit_budget():
@@ -46,16 +46,13 @@ def test_invariants_flag_bad_shares_and_weak_fit_budget():
     bad = r.model_copy(update={"config": r.config.model_copy(update={"line_items": items})})
     assert any("share" in f for f in check(bad, T))
     wf = r.model_copy(update={"outcome": "weak_fit"})
-    assert any("test_budget" in f for f in check(wf, T))
+    assert any("test budget" in f for f in check(wf, T))
 
 
-def test_invariants_flag_fact_violation_and_persona_count():
+def test_invariants_flag_persona_count():
     r = result_for(fake())
-    c = r.creatives[0].model_copy(update={"headline": "Save 99% today"})
-    bad = r.model_copy(update={"creatives": [c] + r.creatives[1:],
-                               "personas": r.personas[:1]})
-    fails = check(bad, T)
-    assert any("fact" in f for f in fails) and any("persona" in f for f in fails)
+    bad = r.model_copy(update={"personas": r.personas[:1]})
+    assert any("personas" in f for f in check(bad, T))
 
 
 def test_split_is_deterministic_by_group():
@@ -73,7 +70,7 @@ def seed_llm():
             return brief_obj(describes_business=False, product=None, categories=[],
                              adjacent_categories=[])
         return brief_obj()
-    return FakeProvider({"BriefSchema": brief_by_text, "CreativeBatch": _creatives,
+    return FakeProvider({"BriefSchema": brief_by_text, "Draft": _creatives, "Review": ACCEPT,
                          "ClarifyBatch": CLARIFY})
 
 
@@ -185,12 +182,11 @@ def test_run_cases_counts_creative_retries_and_truncates_like_api():
     def creatives(system, user):
         calls["n"] += 1
         out = _creatives(system, user)
-        if "previous ad broke the rules" not in user and calls["n"] == 1:
-            for it in out.items:
-                it.headline = "Save 99% today"  # number not in the input -> one retry
+        if "fix every point" not in user and calls["n"] == 1:
+            out.headline = "Save 99% today"  # number not in the input -> one revision
         return out
 
-    llm = FakeProvider({"BriefSchema": brief_cb, "CreativeBatch": creatives, "ClarifyBatch": CLARIFY})
+    llm = FakeProvider({"BriefSchema": brief_cb, "Draft": creatives, "Review": ACCEPT, "ClarifyBatch": CLARIFY})
     case = {"id": "x", "group": "x", "split": split_for("x"), "expected": ["proceed"],
             "text": "We sell dog food. " + "z" * 3000}
     [rec] = run_cases([case], llm=llm, catalog=CAT, t=T,
@@ -203,27 +199,8 @@ def test_run_cases_counts_creative_retries_and_truncates_like_api():
     assert s["latency_p50"] is not None
 
 
-def test_invariants_flag_duplicate_headlines():
-    r = result_for(fake())
-    assert len(r.creatives) >= 2
-    dup = [c.model_copy(update={"headline": "Same  thing!"}) for c in r.creatives[:2]]
-    dup[1] = dup[1].model_copy(update={"headline": "same thing"})
-    bad = r.model_copy(update={"creatives": dup + r.creatives[2:]})
-    assert any("headline" in f and "duplicate" in f for f in check(bad, T))
-
-
-def test_invariants_flag_bad_budget_and_frequency():
-    r = result_for(fake())
-    for update, word in [({"source": "guess"}, "source"), ({"recommended_usd": 1}, "recommended_usd"),
-                         ({"pacing": "fast"}, "pacing")]:
-        cfg = r.config.model_copy(update={"budget": {**r.config.budget, **update}})
-        assert any(word in f for f in check(r.model_copy(update={"config": cfg}), T)), word
-    cfg = r.config.model_copy(update={"frequency_cap": {"impressions": 0, "per_days": 7}})
-    assert any("frequency" in f for f in check(r.model_copy(update={"config": cfg}), T))
-
-
 def test_invariants_flag_creative_missing_from_line_items():
     r = result_for(fake())
-    items = [li.model_copy(update={"creative_id": None, "extra_creative_ids": []}) for li in r.config.line_items]
+    items = [li.model_copy(update={"ads": []}) for li in r.config.line_items]
     bad = r.model_copy(update={"config": r.config.model_copy(update={"line_items": items})})
     assert any("not in any line item" in f for f in check(bad, T))

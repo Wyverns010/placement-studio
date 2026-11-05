@@ -1,1 +1,0 @@
-Draft the inputs.

@@ -4,12 +4,14 @@ import re
 
 import pytest
 
+from app.ads import write_ads
 from app.brief import brief_schema
 from app.constants.brief import NO_SIGNAL_QUESTIONS
-from app.create import CreativeBatch
 from app.llm import FakeProvider, LLMError
+from app.models.ads import Draft, Review
 from app.models.brief import ClarifyBatch, ClarifyQuestion
-from app.pipeline import make_config, make_creatives, run_full, stage1
+from app.pipeline import run_full, stage1
+from app.plan import build_config
 from tests.conftest import CAT, T
 
 
@@ -25,18 +27,20 @@ def brief_obj(**over):
     return brief_schema(CAT)(**base)
 
 
-def _creatives(system: str, user: str) -> CreativeBatch:
-    ids = re.findall(r"persona_id: (persona_\d+)", system)
-    return CreativeBatch.model_validate({"items": [
-        dict(persona_id=i, headline="Good food " + "xyz" * int(i[-3:]), body="Made with care", cta="Shop now", why="fit")
-        for i in ids]})
+def _creatives(system: str, user: str) -> Draft:
+    """A fake Copywriter: one clean draft, with a headline of its own per persona."""
+    persona_id = re.search(r"persona_id: (persona_\d+)", system).group(1)
+    return Draft(headline="Good food " + "xyz" * int(persona_id[-3:]), body="Made with care", cta="Shop now", why="fit")
+
+
+ACCEPT = Review(accept=True, notes=[])
 
 
 CLARIFY = ClarifyBatch(questions=[ClarifyQuestion(question="Price?", options=["Low", "High"])])
 
 
 def fake(**brief_over) -> FakeProvider:
-    return FakeProvider({"BriefSchema": brief_obj(**brief_over), "CreativeBatch": _creatives,
+    return FakeProvider({"BriefSchema": brief_obj(**brief_over), "Draft": _creatives, "Review": ACCEPT,
                          "ClarifyBatch": CLARIFY})
 
 
@@ -56,7 +60,7 @@ def test_stage1_stops_after_match():
     assert r.creatives == [] and r.config is None and r.budget_usd is None
     assert len(r.publishers) == 20 and any(p.recommended for p in r.publishers)
     assert 3 <= len(r.personas) <= 5
-    assert "CreativeBatch" not in [c["schema"] for c in llm.calls]
+    assert "Draft" not in [c["schema"] for c in llm.calls]
 
 
 def test_stage1_echoes_budget():
@@ -66,23 +70,22 @@ def test_stage1_echoes_budget():
 def test_run_full_chains_creatives_and_config_at_recommended_budget():
     r = full(fake())
     assert r.outcome == "proceed" and len(r.creatives) == len(r.personas)
-    assert r.config.budget["source"] == "recommended"
-    assert r.config.budget["monthly_usd"] == r.config.budget["recommended_usd"]
-    assert {li.creative_id for li in r.config.line_items} <= {c.creative_id for c in r.creatives}
+    assert r.config.budget.source == "recommended"
+    assert r.config.budget.monthly_usd == r.config.budget.recommended_usd
+    assert {a for li in r.config.line_items for a in li.ads} <= {c.persona_id for c in r.creatives}
 
 
 def test_run_full_user_budget_wins():
     r = full(fake(), budget=7000)
-    assert r.budget_usd == 7000 and r.config.budget["monthly_usd"] == 7000
-    assert r.config.budget["source"] == "user"
+    assert r.budget_usd == 7000 and r.config.budget.monthly_usd == 7000
+    assert r.config.budget.source == "user"
 
 
 def test_stages_compose_like_run_full():
     llm = fake()
     s1 = run(llm)
-    creatives = make_creatives(s1.input_text, s1.brief, s1.publishers, s1.personas,
-                               llm=llm, catalog=CAT, t=T)
-    cfg = make_config(s1.brief, s1.gate, s1.publishers, s1.personas, creatives, None, catalog=CAT, t=T)
+    creatives = write_ads(s1.input_text, s1.brief, s1.publishers, s1.personas, None, llm, CAT, T)
+    cfg = build_config(s1.brief, s1.publishers, s1.personas, creatives, None, CAT, T)
     r = full(fake())
     assert [c.model_dump() for c in creatives] == [c.model_dump() for c in r.creatives]
     assert cfg == r.config
@@ -95,7 +98,7 @@ def test_run_full_leaves_non_built_outcomes_alone():
     llm = fake(self_confidence=0.3)
     r = full(llm)
     assert r.outcome == "clarify" and r.creatives == [] and r.config is None
-    assert "CreativeBatch" not in [c["schema"] for c in llm.calls]
+    assert "Draft" not in [c["schema"] for c in llm.calls]
 
 
 def test_clarify_has_no_config():
@@ -103,7 +106,7 @@ def test_clarify_has_no_config():
     r = run(llm)
     assert r.outcome == "clarify" and r.config is None and r.creatives == []
     assert r.clarify and len(r.personas) == 1 and len(r.publishers) == 20
-    assert "CreativeBatch" not in [c["schema"] for c in llm.calls]
+    assert "Draft" not in [c["schema"] for c in llm.calls]
 
 
 def test_no_signal_skips_llm_creatives():
@@ -121,9 +124,9 @@ def test_weak_fit_outcome_from_proceed_gate():
     rec = [p for p in r.publishers if p.recommended]
     assert len(rec) == T.publisher.weak_fit_show and all(p.stretch for p in rec)
     assert "widgets" in r.message and str(len(rec)) in r.message
-    cfg = make_config(r.brief, r.gate, r.publishers, r.personas, [], None, catalog=CAT, t=T)
-    assert cfg.budget["test_budget"] and cfg.budget["pacing"] == "front_loaded"
-    assert full(fake(categories=[], adjacent_categories=["subscription"], product="widgets")).config.budget["test_budget"]
+    cfg = build_config(r.brief, r.publishers, r.personas, [], None, CAT, T)
+    assert cfg.budget.test_budget and cfg.budget.pacing == "front_loaded"
+    assert full(fake(categories=[], adjacent_categories=["subscription"], product="widgets")).config.budget.test_budget
 
 
 def test_weak_fit_with_no_related_publisher_picks_none():
@@ -159,6 +162,6 @@ def test_llm_failure_raises_for_the_api_to_map():
 
 
 def test_run_full_raises_on_creative_failure():
-    llm = FakeProvider({"BriefSchema": brief_obj(), "CreativeBatch": LLMError("x")})
+    llm = FakeProvider({"BriefSchema": brief_obj(), "Draft": LLMError("x")})
     with pytest.raises(LLMError):
         full(llm)

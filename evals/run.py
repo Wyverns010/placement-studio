@@ -83,7 +83,7 @@ def _run_one(case: dict, llm, catalog, t, stage1_only: bool = False) -> dict:
         rec["recommended_ids"] = [p.publisher_id for p in r.publishers if p.recommended]
         rec["persona_ids"] = [p.persona_id for p in r.personas]
         rec["invariant_failures"] = [] if stage1_only else check(r, t)
-        rec["creative_calls"] = counter.calls["CreativeBatch"]
+        rec["creative_calls"] = counter.calls["Draft"]
         # first pass makes one call per persona; every call beyond that is a retry
         rec["creative_retries"] = max(0, rec["creative_calls"] - len(r.personas)) if rec["creative_calls"] else 0
         rec["residual_violations"] = sum(1 for c in r.creatives if c.fact_violations)

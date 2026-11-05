@@ -1,8 +1,8 @@
 """Step 1 from text to result, and `run_full`, which chains all the steps for the evals."""
 from __future__ import annotations
 
+from app.ads import write_ads
 from app.brief import apply_note, clarify_questions, decide, understand
-from app.config_builder import build_config
 from app.constants.brief import (
     BUSINESS_PROB,
     NO_SIGNAL_QUESTIONS,
@@ -16,16 +16,13 @@ from app.constants.pipeline import (
     MSG_NOT_SHOPPABLE,
     MSG_WEAK_FIT,
 )
-from app.create import rewrite_creative, write_creatives
 from app.llm import LLMProvider
 from app.match import pick_publishers, score_personas, score_publishers, select_personas
-from app.models.ads import Creative
-from app.models.brief import Brief, GateResult
+from app.models.brief import Brief
 from app.models.catalog import Catalog
-from app.models.plan import CampaignConfig
 from app.models.result import CampaignResult
-from app.models.scores import PersonaScore, PublisherScore
 from app.models.tuning import Tuning
+from app.plan import build_config
 
 
 def stage1(text: str, budget_usd: float | None, note: str | None, brief: Brief | None, *,
@@ -74,51 +71,12 @@ def stage1(text: str, budget_usd: float | None, note: str | None, brief: Brief |
                           publishers=scores, personas=personas, clarify=[])
 
 
-def recommended_of(publishers: list[PublisherScore]) -> list[PublisherScore]:
-    return [p for p in publishers if p.recommended]
-
-
-def is_weak(publishers: list[PublisherScore]) -> bool:
-    """Stage 1 marks a weak fit's closest publishers as recommended stretch picks."""
-    return any(p.recommended and p.stretch for p in publishers)
-
-
-def make_creatives(text: str, brief: Brief, publishers: list[PublisherScore],
-                   personas: list[PersonaScore], *, llm: LLMProvider, catalog: Catalog,
-                   t: Tuning) -> list[Creative]:
-    """Stage 2: one ad per persona, on distinct recommended publishers where possible."""
-    return write_creatives(text, brief, personas, recommended_of(publishers), catalog, llm, t)
-
-
-def regenerate(text: str, brief: Brief, publishers: list[PublisherScore],
-               personas: list[PersonaScore], creatives: list[Creative], persona_id: str,
-               note: str | None, *, llm: LLMProvider, catalog: Catalog, t: Tuning) -> Creative:
-    """Stage 2: rewrite one persona's ad (same publisher), optionally steered by a note."""
-    return rewrite_creative(text, brief, personas, publishers, creatives, persona_id, note,
-                            catalog, llm, t)
-
-
-def make_config(brief: Brief, gate: GateResult, publishers: list[PublisherScore],
-                personas: list[PersonaScore], creatives: list[Creative], budget_usd: float | None,
-                *, catalog: Catalog, t: Tuning, exclude: frozenset[str] = frozenset(),
-                pacing_override: str | None = None) -> CampaignConfig:
-    """Stage 3 (code only): `budget_usd` None means use the recommended budget. `exclude` drops
-    publishers from the line items and `pacing_override` sets pacing (the media planner's choices)."""
-    return build_config(brief=brief, gate=gate,
-                        publishers=[p for p in recommended_of(publishers) if p.publisher_id not in exclude],
-                        personas=personas, creatives=creatives, monthly_usd=budget_usd,
-                        weak_fit=is_weak(publishers), catalog=catalog, t=t,
-                        pacing_override=pacing_override)
-
-
 def run_full(text: str, budget_usd: float | None = None, *, llm: LLMProvider, catalog: Catalog,
              tuning: Tuning) -> CampaignResult:
     """All steps in one call, for the evals: step 1, then ads and config when a campaign is built."""
     result = stage1(text, budget_usd, None, None, llm=llm, catalog=catalog, tuning=tuning)
     if result.outcome not in ("proceed", "weak_fit"):
         return result
-    creatives = make_creatives(text, result.brief, result.publishers, result.personas, llm=llm,
-                               catalog=catalog, t=tuning)
-    config = make_config(result.brief, result.gate, result.publishers, result.personas, creatives, budget_usd,
-                         catalog=catalog, t=tuning)
-    return result.model_copy(update={"creatives": creatives, "config": config})
+    ads = write_ads(text, result.brief, result.publishers, result.personas, None, llm, catalog, tuning)
+    config = build_config(result.brief, result.publishers, result.personas, ads, budget_usd, catalog, tuning)
+    return result.model_copy(update={"creatives": ads, "config": config})

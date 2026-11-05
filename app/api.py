@@ -24,6 +24,8 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import run_in_threadpool
 
+from app import plan
+from app.ads import write_ads
 from app.constants.api import MSG_LLM, MSG_OTHER
 from app.llm import CachedProvider, LLMError, LLMProvider, OpenAIProvider
 from app.loaders import load_catalog, load_samples, load_tuning
@@ -34,14 +36,8 @@ from app.models.plan import CampaignConfig
 from app.models.result import Mode, TraceStep
 from app.models.scores import PersonaScore, PublisherScore
 from app.models.tuning import Tuning
-from app.pipeline import recommended_of, stage1
+from app.pipeline import stage1
 from app.ratelimit import RateLimiter
-from app.stepagents.runtime import AgentRuntime, openai_runtime
-from app.stepagents.steps import (
-    config_step,
-    creatives_step,
-    regenerate_step,
-)
 
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
 BUSY_MSG = "The demo is busy — try a sample or come back in a bit."
@@ -117,12 +113,6 @@ def get_llm() -> LLMProvider:
     return CachedProvider(provider, Path(cache)) if cache else provider
 
 
-@lru_cache(maxsize=1)
-def get_agent_runtime() -> AgentRuntime | None:
-    """The step agents' runtime; None (plain code, mode "code") when disabled or keyless."""
-    return openai_runtime(get_tuning())
-
-
 class CampaignRequest(BaseModel):
     text: str
     budget_usd: float | None = None  # optional; only echoed back for stage 3
@@ -141,12 +131,6 @@ class CreativesRequest(BaseModel):
     steer: str | None = None  # step-level note for the step's agent(s); data
 
 
-class RegenerateRequest(CreativesRequest):
-    creatives: list[Creative]
-    persona_id: str
-    note: str | None = None
-
-
 class ConfigRequest(CreativesRequest):
     """Stage 3: budget_usd omitted means use the recommended budget."""
     creatives: list[Creative]
@@ -162,10 +146,6 @@ class AgentMeta(BaseModel):
 
 class CreativesResponse(AgentMeta):
     creatives: list[Creative]
-
-
-class CreativeResponse(AgentMeta):
-    creative: Creative
 
 
 class ConfigResponse(AgentMeta):
@@ -260,7 +240,7 @@ def _validate_stage(req: CreativesRequest, catalog: Catalog, t: Tuning) -> str:
         raise HTTPException(422, "Unknown publisher in the request.")
     if len({p.publisher_id for p in req.publishers}) != len(req.publishers):
         raise HTTPException(422, "Duplicate publisher ids.")
-    if not recommended_of(req.publishers):
+    if not any(p.recommended for p in req.publishers):
         raise HTTPException(422, "No recommended publishers to place ads on.")
     if not 1 <= len(req.personas) <= t.persona.max:
         raise HTTPException(422, f"Send between 1 and {t.persona.max} personas.")
@@ -271,8 +251,7 @@ def _validate_stage(req: CreativesRequest, catalog: Catalog, t: Tuning) -> str:
     for c in creatives:
         if c.persona_id not in known_personas or c.publisher_id not in known_pubs:
             raise HTTPException(422, "Unknown persona or publisher in a creative.")
-    if (len({c.creative_id for c in creatives}) != len(creatives)
-            or len({c.persona_id for c in creatives}) != len(creatives)):
+    if len({c.persona_id for c in creatives}) != len(creatives):
         raise HTTPException(422, "Duplicate creative ids.")
     if len(creatives) > t.persona.max:
         raise HTTPException(422, f"Send at most {t.persona.max} creatives.")
@@ -358,53 +337,32 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
 @app.post("/api/creatives", response_model=CreativesResponse)
 async def creatives(req: CreativesRequest, request: Request,
                     llm: LLMProvider = Depends(get_llm), catalog: Catalog = Depends(get_catalog),
-                    t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter),
-                    runtime: AgentRuntime | None = Depends(get_agent_runtime)):
+                    t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter)):
     text = _validate_stage(req, catalog, t)
     steer = _steer(req.steer, t)
     _check_rate(request, limiter, t.ratelimit.cost_creatives)
-    out, meta = await _live(lambda: creatives_step(text, req.brief, req.publishers, req.personas,
-                                                   steer, llm=llm, catalog=catalog, t=t,
-                                                   runtime=runtime))
+    out = await _live(lambda: write_ads(text, req.brief, req.publishers, req.personas, steer, llm, catalog, t))
     if not out:
         raise HTTPException(502, NO_ADS_MSG)
-    return {"creatives": out, **meta}
-
-
-@app.post("/api/creatives/regenerate", response_model=CreativeResponse)
-async def regenerate_creative(req: RegenerateRequest, request: Request,
-                              llm: LLMProvider = Depends(get_llm),
-                              catalog: Catalog = Depends(get_catalog),
-                              t: Tuning = Depends(get_tuning),
-                              limiter: RateLimiter = Depends(get_limiter),
-                              runtime: AgentRuntime | None = Depends(get_agent_runtime)):
-    text = _validate_stage(req, catalog, t)
-    steer = _steer(req.steer, t)
-    if not any(c.persona_id == req.persona_id for c in req.creatives):
-        raise HTTPException(422, "persona_id has no creative to regenerate.")
-    note = (req.note or "").strip() or None
-    if note and len(note) > t.creative.note_max_chars:
-        raise HTTPException(422, f"Keep the note to {t.creative.note_max_chars} characters.")
-    _check_rate(request, limiter, t.ratelimit.cost_regenerate)
-    out, meta = await _live(lambda: regenerate_step(
-        text, req.brief, req.publishers, req.personas, req.creatives, req.persona_id, note, steer,
-        llm=llm, catalog=catalog, t=t, runtime=runtime))
-    return {"creative": out, **meta}
+    return {"creatives": out, "mode": "agent"}
 
 
 @app.post("/api/config", response_model=ConfigResponse)
-def config(req: ConfigRequest, request: Request, catalog: Catalog = Depends(get_catalog),
-           t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter),
-           runtime: AgentRuntime | None = Depends(get_agent_runtime)):
-    """Code only and free; with a steer the media planner agent runs first (rate limited)."""
+async def config(req: ConfigRequest, request: Request, llm: LLMProvider = Depends(get_llm),
+                 catalog: Catalog = Depends(get_catalog), t: Tuning = Depends(get_tuning),
+                 limiter: RateLimiter = Depends(get_limiter)):
+    """Code only and free; a note is read by one LLM call first (rate limited)."""
     _validate_stage(req, catalog, t)
     _check_budget(req.budget_usd, t)
     steer = _steer(req.steer, t)
-    if steer and runtime is not None:
+    budget, dropped, pacing, notes = req.budget_usd, set(), None, []
+    if steer:
         _check_rate(request, limiter, t.agents.ratelimit_cost_config)
-    cfg, meta = config_step(req.brief, req.gate, req.publishers, req.personas, req.creatives,
-                            req.budget_usd, steer, catalog=catalog, t=t, runtime=runtime)
-    return {"config": cfg, **meta}
+        from_note, dropped, pacing, notes = await _live(lambda: plan.apply_note(steer, req.publishers, llm, t))
+        budget = from_note if from_note is not None else budget
+    cfg = plan.build_config(req.brief, req.publishers, req.personas, req.creatives, budget, catalog, t,
+                            dropped, pacing)
+    return {"config": cfg, "mode": "agent" if steer else "code", "agent_notes": notes}
 
 
 DIST = Path(__file__).resolve().parent.parent / "web" / "dist"

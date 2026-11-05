@@ -14,7 +14,8 @@ from pathlib import Path
 
 from app.llm import CachedProvider, LLMError, OpenAIProvider
 from app.loaders import load_catalog, load_tuning
-from app.pipeline import make_config, stage1
+from app.pipeline import stage1
+from app.plan import build_config
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "evals" / "cases.jsonl"
@@ -47,8 +48,8 @@ def snapshot(case: dict, llm, catalog, tuning) -> dict:
     result = stage1(case["text"].strip(), None, None, None, llm=llm, catalog=catalog, tuning=tuning)
     config = None
     if result.outcome in ("proceed", "weak_fit"):
-        config = make_config(result.brief, result.gate, result.publishers, result.personas, [], None,
-                             catalog=catalog, t=tuning).model_dump()
+        config = build_config(result.brief, result.publishers, result.personas, [], None, catalog,
+                              tuning).model_dump()
     return {"id": case["id"], "stage1": _clean(result.model_dump()), "config": _clean(config)}
 
 

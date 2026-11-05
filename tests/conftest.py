@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from app.loaders import load_catalog, load_tuning
 from app.models.brief import Brief
 
@@ -30,14 +28,3 @@ def brief(**overrides) -> Brief:
     )
     base.update(overrides)
     return Brief(**base)
-
-
-@pytest.fixture(autouse=True)
-def _no_live_agents():
-    """No test reaches a live model: the API's step-agent runtime is off (mode "code") unless a
-    test overrides api.get_agent_runtime with a scripted one."""
-    from app import api
-
-    api.app.dependency_overrides[api.get_agent_runtime] = lambda: None
-    yield
-    api.app.dependency_overrides.pop(api.get_agent_runtime, None)

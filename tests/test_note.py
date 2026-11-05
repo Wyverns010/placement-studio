@@ -2,6 +2,7 @@
 from app.brief import apply_note
 from app.llm import FakeProvider
 from app.models.brief import BriefChanges
+from app.models.scores import PublisherScore
 from app.pipeline import stage1
 from tests.conftest import CAT, T, brief
 
@@ -44,3 +45,14 @@ def test_brief_note_applies_ages_and_categories():
     current, _, _, notes = apply_note("add pet health, ages 30 to 60", brief(**DOG), llm, CAT, T)
     assert current.categories == ["pet_food", "pet_health"] and (current.age_min, current.age_max) == (30, 60)
     assert len(notes) == 2
+
+
+def test_plan_note_refuses_budget_not_in_note():
+    from app.models.plan import PlanChanges
+    from app.plan import apply_note as apply_plan_note
+    pawline = PublisherScore(publisher_id=PAWLINE, name="Pawline", fit=0.7, factors=[], recommended=True,
+                             stretch=False, reason="")
+    llm = FakeProvider({"PlanChanges": PlanChanges(budget_usd=4000, drop_publishers=[], pacing=None,
+                                                   not_applied=[])})
+    budget, dropped, pacing, notes = apply_plan_note("keep it cheap", [pawline], llm, T)
+    assert budget is None and dropped == set() and pacing is None and notes
