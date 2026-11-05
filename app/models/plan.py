@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, NamedTuple
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -21,14 +21,10 @@ class Budget(BaseModel):
     recommended_usd: float
     source: Literal["recommended", "user"]
     pacing: Pacing
-    unallocated_usd: float  # beyond what the publishers can absorb
-    test_budget: bool  # a weak fit's small test
-    est_impressions: int
+    est_impressions: int  # each line item's budget / CPM x 1,000, added up
     est_conversions: int  # spend / target CPA
     est_revenue_usd: float  # conversions x order value
-    est_roas: float
-    conversions_per_1k: float  # what the target CPA needs per 1,000 impressions
-    cpa_is_stretch: bool  # above the plausible rate for checkout offers
+    est_roas: float  # revenue / spend (about 1 / the CPA fraction)
 
 
 class CampaignConfig(BaseModel):
@@ -42,13 +38,6 @@ class CampaignConfig(BaseModel):
     frequency_cap: dict  # {"impressions": int, "per_days": int}
     guardrails: dict  # {"pause_if_cpa_over_x": float, "cpa_limit_usd": float, "min_impressions": int}
     rationales: dict[str, str]  # field name -> one line, shown on hover
-
-
-class Recommendation(NamedTuple):
-    usd: float  # what we recommend (the weak-fit test share when fit is weak)
-    full_usd: float  # rounded and clamped, before any weak-fit test share
-    cpa: float
-    capped: list[str]  # publisher ids whose reach is below what the conversion goal needs
 
 
 class PlanChanges(BaseModel):

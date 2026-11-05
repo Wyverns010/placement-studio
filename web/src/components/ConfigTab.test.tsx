@@ -11,7 +11,7 @@ const config: CampaignConfig = {
   campaign_id: 'cmp_1',
   objective: 'conversions',
   conversion_event: 'subscription_start',
-  budget: { monthly_usd: 25000, recommended_usd: 25000, source: 'recommended', pacing: 'even', unallocated_usd: 1500, test_budget: true },
+  budget: { monthly_usd: 25000, recommended_usd: 25000, source: 'recommended', pacing: 'even', est_impressions: 1923077, est_conversions: 595, est_revenue_usd: 71400, est_roas: 2.86 },
   bid_strategy: { type: 'target_cpa', target_usd: 42 },
   targeting: {
     age_range: [30, 60],
@@ -47,8 +47,7 @@ describe('ConfigTab', () => {
     render(<ConfigTab config={config} />)
     expect(screen.getAllByText(/\$25,000/).length).toBeGreaterThan(0)
     expect(screen.getByText(/Target CPA · \$42/)).toBeInTheDocument()
-    expect(screen.getByText('Test budget')).toBeInTheDocument()
-    expect(screen.getByText(/Unallocated \$1,500/)).toBeInTheDocument()
+    expect(screen.getByText('2.86×')).toBeInTheDocument()
     expect(screen.getByText(/3 \/ user \/ 7 days/)).toBeInTheDocument()
     expect(screen.queryByText(/"bid_strategy"/)).toBeNull()
     await user.click(screen.getByRole('tab', { name: 'JSON' }))

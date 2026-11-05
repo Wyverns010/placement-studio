@@ -67,7 +67,7 @@ const cfg = (monthly: number, source: 'recommended' | 'user', extra: Partial<Cam
   campaign_id: 'cmp_1',
   objective: 'conversions',
   conversion_event: 'subscription_start',
-  budget: { monthly_usd: monthly, recommended_usd: 6000, source, pacing: 'even', unallocated_usd: 0, test_budget: false },
+  budget: { monthly_usd: monthly, recommended_usd: 6000, source, pacing: 'even', est_impressions: 0, est_conversions: 0, est_revenue_usd: 0, est_roas: 0 },
   bid_strategy: { type: 'target_cpa', target_usd: 41 },
   targeting: {},
   line_items: [
@@ -431,12 +431,12 @@ describe('Staged results', () => {
     expect(vi.mocked(buildConfig).mock.calls.at(-1)![2]).toBe(15000)
   })
 
-  it('weak_fit keeps its banner on every step and shows the test budget on step 3', async () => {
+  it('weak_fit keeps its banner on every step through to the config', async () => {
     const user = userEvent.setup()
     vi.mocked(buildConfig).mockResolvedValue(
       out(
         cfg(1200, 'recommended', {
-          budget: { monthly_usd: 1200, recommended_usd: 1200, source: 'recommended', pacing: 'front_loaded', unallocated_usd: 0, test_budget: true },
+          budget: { monthly_usd: 1200, recommended_usd: 1200, source: 'recommended', pacing: 'front_loaded', est_impressions: 0, est_conversions: 0, est_revenue_usd: 0, est_roas: 0 },
         }),
       ),
     )
@@ -449,7 +449,7 @@ describe('Staged results', () => {
     await screen.findByText('Food for old friends')
     expect(screen.getByText('Few publishers match this closely.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /approve creatives & build config/i }))
-    expect(await screen.findByText('Test budget: $1,200 / month')).toBeInTheDocument()
+    expect(await screen.findByText(/front loaded pacing/i)).toBeInTheDocument()
     expect(screen.getByText('Few publishers match this closely.')).toBeInTheDocument()
     expect(screen.getByText(/front loaded pacing/i)).toBeInTheDocument()
   })

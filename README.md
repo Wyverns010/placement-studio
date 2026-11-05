@@ -68,12 +68,13 @@ web/                 React UI
 | Field | Why |
 |---|---|
 | `objective`, `conversion_event` | Purchase vs subscription_start: what the bidder optimises |
-| `budget` | Per publisher: target CPA × 200 conversions a month (50 a week, what a CPA bid needs to leave learning), capped at 25% of its impressions at a CPM set by its audience's income; summed and rounded up to $500. Weak fit = a test at 20% (≤ $3,000). Your number, or one in your note, wins |
-| projection (in `budget`) | What that buys: impressions, conversions, revenue, ROAS, and the conversions per 1,000 impressions the CPA needs (flagged if unrealistic) |
-| `bid_strategy` | Target CPA = 35% of order value (× 2 for subscriptions) |
+| `budget` | Target CPA × 200 conversions a month (50 a week, what a CPA bid needs to leave learning) per publisher, rounded up to $500. Your number, or one in your note, wins |
+| projection (in `budget`) | What that buys: impressions (budget ÷ CPM, CPM by audience income), conversions, revenue, ROAS |
+| `bid_strategy` | Target CPA = 35% of order value (the price, or the publishers' AOV weighted by fit) |
 | `targeting` | Buyer ages, gender, interests, personas |
-| `line_items` | Publisher, budget share by fit (10% floor, reach cap), its ads |
+| `line_items` | Publisher, whole-dollar budget by fit share, CPM, impressions, its ads |
 | `frequency_cap` | By price tier: value 5 per 7 days … luxury 2 per 21 |
+| `pacing` | Even, unless your note asks otherwise |
 | `guardrails` | Pause at 1.5× target CPA after 2,000 impressions |
 | `rationales` | One line per field |
 

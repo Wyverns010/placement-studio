@@ -58,7 +58,6 @@ export default function ConfigFormatted({
 
   const b = config.budget
   const monthly = num(b.monthly_usd) ?? 0
-  const unallocated = num(b.unallocated_usd) ?? 0
   const bid = config.bid_strategy
   const bidType = typeof bid.type === 'string' ? bid.type : ''
   const bidTarget = num(bid.target_usd)
@@ -94,11 +93,6 @@ export default function ConfigFormatted({
             Your budget
           </span>
         )}
-        {b.test_budget === true && (
-          <span className="ml-2 rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-semibold text-warn">
-            Test budget
-          </span>
-        )}
         <div
           className="my-2 flex h-3 overflow-hidden rounded-full bg-[#ece6fb]"
           role="img"
@@ -122,7 +116,6 @@ export default function ConfigFormatted({
               {pubName(li.publisher_id)} {pct(li.share)}
             </span>
           ))}
-          {unallocated > 0 && <span>Unallocated {usd(unallocated)}</span>}
         </div>
         {config.line_items.some((li) => num(li.cpm_usd) != null) && (
           <div className="mt-3 overflow-x-auto">
@@ -157,8 +150,7 @@ export default function ConfigFormatted({
                 <p data-testid="impressions-how" className="m-0 mt-2 text-[11.5px] leading-snug text-muted">
                   <b className="font-semibold text-ink">How these are worked out.</b> CPM (the price of 1,000
                   impressions) follows the publisher's audience income: mid $10, mid-high $13, high $16.
-                  Share follows fit, with a 10% floor, capped at a quarter of the publisher's monthly
-                  impressions. Budget = share × {usd(monthly)}. Impressions = budget ÷ CPM × 1,000, e.g.{' '}
+                  Share follows fit. Budget = share × {usd(monthly)}. Impressions = budget ÷ CPM × 1,000, e.g.{' '}
                   {pubName(li.publisher_id)}: {usd(li.budget_usd)} ÷ {usd(cpm)} × 1,000 ={' '}
                   {(num(li.est_impressions) ?? 0).toLocaleString('en-US')}.
                 </p>
@@ -182,11 +174,6 @@ export default function ConfigFormatted({
               </div>
             ))}
           </div>
-          {b.cpa_is_stretch === true && (
-            <p className="m-0 mt-2 text-[12px] font-semibold text-warn">
-              This CPA needs more conversions per impression than checkout offers usually get.
-            </p>
-          )}
         </Row>
       )}
       <Row label="Targeting" rkey="targeting" config={config}>

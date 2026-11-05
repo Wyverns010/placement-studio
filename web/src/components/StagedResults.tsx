@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { buildConfig, createCreatives } from '../api'
-import { usd } from '../format'
 import type { CampaignConfig, CampaignResult, Creative } from '../types'
 import ConfigStep from './ConfigStep'
 import { NoteBox, NoteList } from './NoteBox'
@@ -191,7 +190,6 @@ export default function StagedResults({
   ]
   /** A personas note keeps the publishers note it was built on (both are step-1 notes). */
   const personasNote = (text: string) => [initialNote.trim(), text.trim()].filter(Boolean).join('. ')
-  const testBudget = config?.budget.test_budget === true ? config.budget.monthly_usd : undefined
 
   const headingCls = 'm-0 text-lg font-semibold tracking-[-0.01em] outline-none sm:text-xl'
   const errorBlock = stepError && (
@@ -209,9 +207,6 @@ export default function StagedResults({
             title={recCount === 0 ? 'No publisher fits.' : 'Weak fit — treat this as a test.'}
           >
             {result.message && <p className="m-0">{result.message}</p>}
-            {step === 'config' && typeof testBudget === 'number' && (
-              <p className="m-0 mt-1 font-semibold">Test budget: {usd(testBudget)} / month</p>
-            )}
           </OutcomeBanner>
         </div>
       )}

@@ -32,8 +32,6 @@ def check(result: CampaignResult, ads: list[Creative], config: CampaignConfig | 
         failures.append(f"recommended budget {budget.recommended_usd} outside the bounds")
     elif budget.source == "recommended" and budget.monthly_usd != budget.recommended_usd:
         failures.append("budget source is recommended but monthly != recommended")
-    if outcome == "weak_fit" and budget.source == "recommended" and not budget.test_budget:
-        failures.append("weak_fit: no test budget")
     placed = {persona_id for item in config.line_items for persona_id in item.ads}
     failures += [f"ad {ad.persona_id} is not in any line item" for ad in ads if ad.persona_id not in placed]
     return failures

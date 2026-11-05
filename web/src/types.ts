@@ -85,15 +85,10 @@ export interface ConfigBudget {
   recommended_usd: number
   source: 'recommended' | 'user'
   pacing: Pacing
-  unallocated_usd: number
-  test_budget: boolean
-  est_impressions?: number
-  est_conversions?: number
-  est_revenue_usd?: number
-  est_roas?: number
-  /** What the target CPA needs per 1,000 impressions; cpa_is_stretch when above the usual rate. */
-  conversions_per_1k?: number
-  cpa_is_stretch?: boolean
+  est_impressions: number
+  est_conversions: number
+  est_revenue_usd: number
+  est_roas: number
 }
 
 export interface CampaignConfig {

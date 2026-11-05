@@ -133,12 +133,12 @@ def test_steps_end_to_end(client, s1):
         assert client.post("/api/config", json={**body, "budget_usd": budget}).status_code == 422
 
 
-def test_weak_fit_config_is_a_test(client, llm):
+def test_weak_fit_still_gets_a_config(client, llm):
     llm.responses["BriefSchema"] = brief_obj(categories=[], adjacent_categories=["subscription"], product="widgets")
     s1 = client.post("/api/campaign", json={"text": "widgets"}).json()
     assert s1["outcome"] == "weak_fit"
     config = client.post("/api/config", json=with_ads(client, s1)).json()["config"]
-    assert config["budget"]["test_budget"] is True and config["budget"]["pacing"] == "front_loaded"
+    assert config["budget"]["source"] == "recommended" and config["budget"]["pacing"] == "even"
 
 
 def test_config_note_is_read_and_its_notes_returned(client, llm, s1):

@@ -71,19 +71,13 @@ class BudgetTuning(BaseModel):
     max_usd: float = 5_000_000.0
     assumed_cpm_usd: float = 12.0  # CPM when a publisher's income tier isn't listed below
     cpm_by_income_usd: dict[str, float] = {"mid": 10.0, "mid-high": 13.0, "high": 16.0}  # richer audiences cost more
-    max_share_of_impressions: float = 0.25  # one campaign buys at most this share of a publisher's monthly impressions
-    min_share: float = 0.10
-    weak_fit_test_fraction: float = 0.20  # weak fit: recommend this share of the full budget, as a test...
-    weak_fit_test_max_usd: float = 3000.0  # ...capped here (a test should stay cheap), then rounded
     learning_conversions_per_week: int = 50  # a CPA bid needs ~50 conversions a week per line item to leave learning
     weeks_per_month: int = 4  # so a month's goal is 200 conversions per line item
-    max_conversions_per_1k_impressions: float = 2.0  # checkout offers rarely convert above ~0.2% of impressions
     round_to_usd: float = 500.0  # the recommended budget rounds up to a multiple of this
 
 
 class BidTuning(BaseModel):
     cpa_fraction_of_order_value: float = 0.35
-    subscription_ltv_multiplier: float = 2.0
     guardrail_cpa_multiple: float = 1.5
     guardrail_min_impressions: int = 2000
 
@@ -102,10 +96,6 @@ class FrequencyTuning(BaseModel):
         "luxury": FrequencyCap(impressions=2, per_days=21),
         "unknown": FrequencyCap(impressions=3, per_days=7),
     }
-    subscription_extra: int = 1  # a subscription start earns one more reminder
-    weak_fit_reduction: int = 1  # a weak-fit test shows fewer...
-    weak_fit_max_per_days: int = 14  # ...over a window no longer than this (a short, front-loaded test)
-    min_impressions: int = 1
 
 
 class GateTuning(BaseModel):

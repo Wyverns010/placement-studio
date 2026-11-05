@@ -35,8 +35,6 @@ def test_invariants_catch_broken_results():
     halved = config.model_copy(update={"line_items": [i.model_copy(update={"share": i.share / 2})
                                                       for i in config.line_items]})
     assert any("share" in f for f in check(result, ads, halved, T))
-    weak = result.model_copy(update={"outcome": "weak_fit"})
-    assert any("test budget" in f for f in check(weak, ads, config, T))
     few = result.model_copy(update={"personas": result.personas[:1]})
     assert any("personas" in f for f in check(few, ads, config, T))
     unplaced = config.model_copy(update={"line_items": [i.model_copy(update={"ads": []}) for i in config.line_items]})

@@ -125,8 +125,8 @@ def test_weak_fit_outcome_from_proceed_gate():
     assert len(rec) == T.publisher.weak_fit_show and all(p.stretch for p in rec)
     assert "widgets" in r.message and str(len(rec)) in r.message
     cfg = build_config(r.brief, r.publishers, r.personas, [], None, CAT, T)
-    assert cfg.budget.test_budget and cfg.budget.pacing == "front_loaded"
-    assert full(fake(categories=[], adjacent_categories=["subscription"], product="widgets"))[2].budget.test_budget
+    assert cfg.budget.source == "recommended" and cfg.budget.pacing == "even" and cfg.line_items
+    assert full(fake(categories=[], adjacent_categories=["subscription"], product="widgets"))[2] is not None
 
 
 def test_weak_fit_with_no_related_publisher_picks_none():
