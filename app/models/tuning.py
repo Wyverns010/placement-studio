@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class PublisherTuning(BaseModel):
+class Strict(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # a key the code doesn't read is an error, not dead config
+
+
+class PublisherTuning(Strict):
     weights: dict[str, float]  # category, audience, income, aov
     category_scores: dict[str, float]  # primary, subcategory, same_category, adjacent, attribute
     attribute_tags: list[str]
@@ -23,7 +27,7 @@ class PublisherTuning(BaseModel):
     weak_fit_show: int
 
 
-class PersonaTuning(BaseModel):
+class PersonaTuning(Strict):
     weights: dict[str, float]  # affinity, price, age, publishers
     affinity_scores: dict[str, float]  # direct, family, adjacent, sibling
     price_ideal: dict[str, float]
@@ -38,7 +42,7 @@ class PersonaTuning(BaseModel):
     mode_bonus: float  # added to affinity (at least family) when the brief names the mode
 
 
-class BudgetTuning(BaseModel):
+class BudgetTuning(Strict):
     min_usd: float
     max_usd: float
     assumed_cpm_usd: float  # CPM for an income tier missing from cpm_by_income_usd
@@ -53,19 +57,19 @@ class BudgetTuning(BaseModel):
     round_to_usd: float = Field(gt=0)
 
 
-class FrequencyCap(BaseModel):
+class FrequencyCap(Strict):
     impressions: int
     per_days: int
 
 
-class BidTuning(BaseModel):
+class BidTuning(Strict):
     cpa_fraction_of_order_value: float
     subscription_ltv_multiplier: float
     guardrail_cpa_multiple: float
     guardrail_min_impressions: int
 
 
-class FrequencyTuning(BaseModel):
+class FrequencyTuning(Strict):
     by_price_tier: dict[str, FrequencyCap]
     subscription_extra: int
     weak_fit_reduction: int
@@ -73,13 +77,13 @@ class FrequencyTuning(BaseModel):
     min_impressions: int
 
 
-class GateTuning(BaseModel):
+class GateTuning(Strict):
     proceed_threshold: float
     no_signal_threshold: float
     business_threshold: float
 
 
-class CreativeTuning(BaseModel):
+class CreativeTuning(Strict):
     headline_max_chars: int
     body_max_chars: int
     cta_max_chars: int
@@ -88,20 +92,20 @@ class CreativeTuning(BaseModel):
     headline_similarity: float  # word overlap at or above this counts as a duplicate headline
 
 
-class InputTuning(BaseModel):
+class InputTuning(Strict):
     age_floor: int  # fills a missing lower age bound ("under 35" -> 18-35)
     age_ceiling: int  # fills a missing upper age bound ("over 50" -> 50-80)
     brief_age_max: int  # ages above this in a brief are clamped
     buyer_age_min: int  # ages below this are the product's user, not the buyer
 
 
-class ClarifyTuning(BaseModel):
+class ClarifyTuning(Strict):
     max_questions: int
     max_options: int
     min_options: int
 
 
-class RateLimitTuning(BaseModel):
+class RateLimitTuning(Strict):
     per_client_runs: int  # paid runs per client per window
     per_client_window_s: float
     global_runs_per_hour: int  # process-wide cap on paid runs
@@ -110,7 +114,7 @@ class RateLimitTuning(BaseModel):
     cost_config_note: int  # step 4 with a note (without one it's free)
 
 
-class Tuning(BaseModel):
+class Tuning(Strict):
     llm_timeout_s: float  # OpenAI client timeout per request (no SDK retries)
     publisher: PublisherTuning
     persona: PersonaTuning

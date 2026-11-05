@@ -1,3 +1,5 @@
+import pytest
+
 from app.loaders import load_tuning
 
 
@@ -27,3 +29,13 @@ def test_load_tuning_independent_of_cwd(tmp_path, monkeypatch):
 def test_category_words_come_from_prompts():
     from app.prompts import CATEGORY_WORDS
     assert CATEGORY_WORDS.get("home", "home".replace("_", " ")) == "home goods" and CATEGORY_WORDS.get("new_thing", "new_thing".replace("_", " ")) == "new thing"
+
+
+def test_a_key_the_code_does_not_read_is_refused(tmp_path):
+    from pydantic import ValidationError
+
+    from app.constants.paths import TUNING_PATH
+    extra = tmp_path / "tuning.yaml"
+    extra.write_text(TUNING_PATH.read_text().replace("clarify:\n", "clarify:\n  max_turns: 3\n", 1))
+    with pytest.raises(ValidationError, match="max_turns"):
+        load_tuning(extra)

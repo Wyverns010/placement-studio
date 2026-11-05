@@ -92,33 +92,17 @@ creative:
   cta_max_chars: 30
   headline_similarity: 0.8      # token-set Jaccard at or above this counts as a duplicate headline
   claim_words: [clinically, proven, cure, guaranteed, "#1", doctor, vet-recommended, award]
-  # generic copy (headline/body): sent back once unless the advertiser wrote the phrase
+  # generic copy the playbook tells the Copywriter and the Critic to avoid
   banned_phrases: [high-quality, perfect for, look no further, elevate, unlock, game-changer]
-  age_range_bounds: [13, 99]    # a bare "NN-NN" in copy counts as an age range only inside these
-  parrot_ngram: 6               # headline/body copying this many consecutive advertiser words is sent back
-  parrot_sentence_min_words: 4  # ...as is a whole advertiser sentence of at least this many words
-  note_max_chars: 200           # regenerate note from the advertiser (treated as data)
-  audience_words: [women, men, moms, mums, mothers, dads, fathers, parents, seniors, millennials, gen z, boomers, teens]
 clarify:
   max_questions: 3              # clarify questions kept from the LLM
   max_options: 5                # tap-able options kept per question
   min_options: 2                # a question with fewer options is dropped
-stage1:
-  top_publishers_shown: 5       # publishers streamed in the stage-1 "publishers" event
-  clarify_publishers_shown: 3   # clarify outcome: faded best guess, top N only
 llm_timeout_s: 25               # OpenAI client timeout per request (no SDK retries)
 input:
   age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
   age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)
-  max_chars: 1500
-  max_answers: 5                # clarify answers appended to the text
-  max_answer_chars: 200         # per question and per answer
-  max_body_bytes: 262144        # request body cap (256 KB)
-  brief_product_max_chars: 120  # stage 2/3 echo checks (defence in depth behind the stage token)
-  brief_list_max_items: 10      # facts, unknowns
-  brief_item_max_chars: 200
-  brief_categories_max: 20      # categories, adjacent_categories, conflicts
-  brief_age_max: 120
+  brief_age_max: 120            # a brief sent back with an age above this is refused (422)
   buyer_age_min: 18             # ages below this are the product's user, not the buyer
 ratelimit:
   per_client_runs: 20           # live (paid) runs per client per window
@@ -127,32 +111,3 @@ ratelimit:
   cost_campaign: 1              # runs charged per call: step 1
   cost_ads: 2                   # step 3: up to 3 calls per persona
   cost_config_note: 1           # step 4 with a note (without one it's free)
-agents:                         # step agents (app/stepagents)
-  enabled: true
-  run_without_steer:            # live runs with no steer: use the agent, or plain code ("code" mode)
-    strategist: false           # unsteered agent == code on 121/121 cases, +6 s (evals/AGENT_COMPARISON.md)
-    creative: true              # the one switch for step ② (ads and Regenerate)
-    media_planner: false        # stage 3 stays free and instant unless the user steers it
-  steer_max_chars: 300          # the "Tell the agent…" text (data, never instructions)
-  max_turns: {strategist: 10, copywriter: 6, critic: 3, media_planner: 8}
-  min_recommended_after_steer: 1  # the steer is the advertiser's own call: it may narrow to one publisher, never to none
-  max_share_after_steer: 1.0    # the advertiser may put all of it in one publisher if they ask
-  critic_max_rounds: 1          # one critic review per ad; the revision after it is final (code still checks it)
-  critic_stop_fraction: 0.7     # once a step has spent this share of its cap, reviews are refused
-  creative_est_usd_per_ad: 0.03 # measured ≈$0.03/ad; ads × this over the cap -> code, before spending
-  max_cost_usd:                 # cost guard per step run (≈25–30¢ worst case per session); over -> fallback
-    strategist: 0.02
-    creative: 0.25              # measured mean $0.095, max $0.135; 5-ad briefs with critic rounds exceeded 0.15
-    media_planner: 0.01
-  timeout_s: 30                 # per agent model call (OpenAI client), never more than the step's
-  max_retries: 1                # SDK retries per model call, still within step_timeout_s
-  step_timeout_s: 90            # whole step; over -> fallback
-  max_notes: 6                  # agent_notes kept per step
-  note_max_chars: 200
-  trace_args_chars: 80          # agent_trace summaries are cut to these lengths
-  trace_result_chars: 160
-  ratelimit_cost_config: 1      # runs charged for /api/config with a steer (the planner is an LLM)
-  prices_per_1m_usd:            # USD per 1M tokens for the cost guard; check OpenAI's price page.
-    gpt-5.4-mini: {input: 0.75, cached_input: 0.075, output: 4.5}
-    gpt-5.5: {input: 5.0, cached_input: 0.5, output: 30.0}
-    default: {input: 5.0, cached_input: 0.5, output: 30.0}   # any other model: priced high
