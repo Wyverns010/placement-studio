@@ -1,4 +1,4 @@
-"""Step 4: the campaign config, all numbers from code (config/tuning.yaml), and the note reader."""
+"""Step 4: the campaign config, all numbers from code (app/models/tuning.py), and the note reader."""
 from __future__ import annotations
 
 import hashlib

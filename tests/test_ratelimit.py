@@ -49,7 +49,7 @@ def test_cost_counts_multiple_runs_and_refuses_if_it_would_overflow():
 
 
 def test_limits_come_from_tuning():
-    from app.loaders import load_tuning
-    r = load_tuning().ratelimit
+    from app.models.tuning import Tuning
+    r = Tuning().ratelimit
     assert (r.per_client_runs, r.per_client_window_s, r.global_runs_per_hour) == (20, 600, 200)
     assert (r.cost_campaign, r.cost_ads, r.cost_config_note) == (1, 2, 1)

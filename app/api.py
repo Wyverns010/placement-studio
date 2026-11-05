@@ -32,7 +32,7 @@ from app.constants.api import (
 from app.constants.brief import ANSWERS_HEADER
 from app.constants.paths import WEB_DIST
 from app.llm import CachedProvider, LLMError, LLMProvider, OpenAIProvider
-from app.loaders import load_catalog, load_samples, load_tuning
+from app.loaders import load_catalog, load_samples
 from app.models.ads import Creative
 from app.models.api import CampaignIn, Note
 from app.models.brief import Brief
@@ -170,7 +170,7 @@ def _handle_error(request: Request, error: Exception) -> JSONResponse:
 def create_app(svc: Services | None = None) -> FastAPI:
     """The app; tests pass their own services, otherwise the real ones are loaded."""
     if svc is None:
-        tuning = load_tuning()
+        tuning = Tuning()
         llm = OpenAIProvider(tuning.llm_timeout_s)
         cache = os.getenv("LLM_CACHE_DIR")  # evals and local runs reuse earlier answers
         limits = tuning.ratelimit

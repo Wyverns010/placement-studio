@@ -22,9 +22,9 @@ function setup(text: string) {
 }
 
 describe('Landing', () => {
-  it('caps the brief at 1500 characters and shows a counter', () => {
+  it('does not cap the brief length', () => {
     setup('Dog food')
-    expect(screen.getByLabelText('Describe your brand')).toHaveAttribute('maxLength', '1500')
-    expect(screen.getByText('8 / 1500')).toBeInTheDocument()
+    expect(screen.getByLabelText('Describe your brand')).not.toHaveAttribute('maxLength')
+    expect(screen.queryByText(/\/ 1500/)).not.toBeInTheDocument()
   })
 })

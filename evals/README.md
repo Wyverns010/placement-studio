@@ -57,7 +57,7 @@ held-out split has been looked at several times since it was written, so its num
 
 | Tried | Result | Kept? |
 |---|---|---|
-| Tuning weights and thresholds on train | 61/84 → 84/84 train | yes, in `config/tuning.yaml` |
+| Tuning weights and thresholds on train | 61/84 → 84/84 train | yes, in `app/models/tuning.py` |
 | A Laya encoder gate (4 typed questions) instead of the LLM's own read | 30/36 held out vs 34/36; +0.3–0.5 s and ~2 GB per process | no |
 | A graph matcher for publishers | tied the formula on every case | no |
 | Agents (OpenAI Agents SDK) per step | same picks as code for steps 1, 2, 4; a judge preferred their ads 67% of the time | no: plain LLM calls are simpler; the Copywriter → Critic → one revision loop is kept |

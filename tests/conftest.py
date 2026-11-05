@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from app.loaders import load_catalog, load_tuning
+from app.loaders import load_catalog
 from app.models.brief import Brief
+from app.models.tuning import Tuning
 
 CAT = load_catalog()
-T = load_tuning()
+T = Tuning()
 
 
 def brief(**overrides) -> Brief:

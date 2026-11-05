@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 from app.llm import CachedProvider, LLMError, OpenAIProvider
-from app.loaders import load_catalog, load_tuning
+from app.loaders import load_catalog
+from app.models.tuning import Tuning
 from app.pipeline import stage1
 from app.plan import build_config
 
@@ -62,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     os.environ.pop("LLM_CACHE_DIR", None)
     inner = OpenAIProvider() if mode == "--write" else CacheOnly()
     llm = CachedProvider(inner, CACHE)
-    catalog, tuning = load_catalog(ROOT / "data"), load_tuning()
+    catalog, tuning = load_catalog(ROOT / "data"), Tuning()
     cases = [json.loads(line) for line in CASES.read_text().splitlines() if line.strip()]
     snapshots = [snapshot(case, llm, catalog, tuning) for case in cases]
     if mode == "--write":

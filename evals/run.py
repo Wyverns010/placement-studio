@@ -16,7 +16,7 @@ from pathlib import Path
 from app.constants.brief import BUSINESS_PROB
 from app.constants.paths import ROOT
 from app.llm import CachedProvider, LLMProvider, OpenAIProvider
-from app.loaders import load_catalog, load_tuning
+from app.loaders import load_catalog
 from app.match import pick_publishers
 from app.models.catalog import Catalog
 from app.models.tuning import Tuning
@@ -88,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stage1", action="store_true", help="step 1 only: outcomes, publishers, personas")
     parser.add_argument("--no-cache", action="store_true")
     args = parser.parse_args(argv)
-    tuning, catalog = load_tuning(), load_catalog()
+    tuning, catalog = Tuning(), load_catalog()
     llm = OpenAIProvider(tuning.llm_timeout_s)
     if not args.no_cache:
         llm = CachedProvider(llm, Path(os.getenv("LLM_CACHE_DIR") or ROOT / ".cache" / "llm"))

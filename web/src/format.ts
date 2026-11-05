@@ -61,7 +61,7 @@ export function humanise(s: string): string {
   return s.replace(/\b[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+\b/g, (m) => m.replace(/_/g, ' '))
 }
 
-// Matches budget.min_usd / max_usd in config/tuning.yaml.
+// Matches budget.min_usd / max_usd in app/models/tuning.py.
 export const BUDGET_MIN = 500
 export const BUDGET_MAX = 5_000_000
 

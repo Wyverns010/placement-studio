@@ -4,7 +4,6 @@ import { parseBudgetInput } from '../format'
 import ReadingPanel from './ReadingPanel'
 import { Busy } from './ui'
 
-const MAX_CHARS = 1500 // matches input.max_chars in config/tuning.yaml
 
 interface Props {
   samples: Sample[]
@@ -56,14 +55,10 @@ export default function Landing(p: Props) {
             value={p.text}
             onChange={(e) => p.onTextChange(e.target.value)}
             rows={3}
-            maxLength={MAX_CHARS}
             placeholder="What do you sell, and to whom?"
             className="block h-[84px] w-full resize-none border-0 bg-transparent text-[15px] leading-normal text-ink outline-none placeholder:text-muted"
             style={{ font: '15px/1.5 Inter, sans-serif' }}
           />
-          <div className="mt-1 text-right text-[11px] text-muted">
-            {p.text.length} / {MAX_CHARS}
-          </div>
           {p.error && (
             <p role="alert" className="mt-2 mb-0 text-[13px] leading-snug text-bad">
               {p.error}

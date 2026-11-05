@@ -1,16 +1,13 @@
-"""Reading the data pack, the example advertisers and the tuning file."""
+"""Reading the data pack and the example advertisers."""
 from __future__ import annotations
 
 import json
 import re
 from pathlib import Path
 
-import yaml
-
 from app.constants.catalog import SAMPLE_LABELS
-from app.constants.paths import DATA_DIR, EXAMPLES, TUNING_PATH
+from app.constants.paths import DATA_DIR, EXAMPLES
 from app.models.catalog import Catalog
-from app.models.tuning import Tuning
 
 
 def load_catalog(data_dir: Path = DATA_DIR) -> Catalog:
@@ -27,7 +24,3 @@ def load_samples(path: Path = EXAMPLES) -> list[dict]:
             samples.append({"id": number, "label": SAMPLE_LABELS.get(number, f"Example {number}"),
                             "text": match.group(2)})
     return samples
-
-
-def load_tuning(path: Path = TUNING_PATH) -> Tuning:
-    return Tuning.model_validate(yaml.safe_load(path.read_text()))

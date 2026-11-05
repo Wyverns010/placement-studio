@@ -58,7 +58,6 @@ app/
   loaders.py     catalog, examples, tuning
   ratelimit.py   per-client and global limits
   models/        pydantic models    constants/  fixed values
-config/tuning.yaml   every weight and threshold, with why
 prompts/             the LLM prompts and the copywriting playbook
 evals/               labelled cases, runner, calibration
 web/                 React UI

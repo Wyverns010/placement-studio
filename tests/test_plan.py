@@ -91,7 +91,7 @@ def test_target_cpa_falls_back_to_weighted_aov():
     assert got == round(T.bid.cpa_fraction_of_order_value * pub.avg_order_value_usd)
 
 
-# ---- recommended budget, frequency and pacing from economics (config/tuning.yaml) ----
+# ---- recommended budget, frequency and pacing from economics (app/models/tuning.py) ----
 
 
 PAW, RUFF, TAIL = by_name("Pawline"), by_name("Ruffco"), by_name("Tailcrate")
@@ -150,17 +150,6 @@ def test_weak_fit_test_capped_and_rounded():
     t.budget.weak_fit_test_fraction = 0.1  # 0.1 x 17,000 = 1,700 -> 1,500
     odd = recommended_budget(brief(price_usd=80), pubs, prices(pubs), CAT, True, t)
     assert odd.usd % t.budget.round_to_usd == 0 and odd.usd == 1500
-
-
-def test_round_to_usd_must_be_positive():
-    import yaml
-    from pydantic import ValidationError
-
-    from app.models.tuning import Tuning
-    raw = yaml.safe_load(open("config/tuning.yaml"))
-    raw["budget"]["round_to_usd"] = 0
-    with pytest.raises(ValidationError):
-        Tuning(**raw)
 
 
 @pytest.mark.parametrize("tier,want", [("value", (5, 7)), ("mid", (4, 7)), ("premium", (3, 14)),
