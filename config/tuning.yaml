@@ -109,6 +109,8 @@ stage1:
 llm:
   timeout_s: 25                 # OpenAI client timeout per request (no SDK retries)
 input:
+  age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
+  age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)
   max_chars: 1500
   max_answers: 5                # clarify answers appended to the text
   max_answer_chars: 200         # per question and per answer
@@ -119,9 +121,6 @@ input:
   brief_categories_max: 20      # categories, adjacent_categories, conflicts
   brief_age_max: 120
   buyer_age_min: 18             # ages below this are the product's user, not the buyer
-audience:
-  age_floor: 18                 # fills a missing lower age bound ("under 35" -> 18-35)
-  age_ceiling: 80               # fills a missing upper age bound ("over 50" -> 50-80)
 ratelimit:
   per_client_runs: 20           # live (paid) runs per client per window
   per_client_window_s: 600

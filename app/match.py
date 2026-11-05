@@ -1,4 +1,4 @@
-"""Plain, explainable publisher scoring: every fit decomposes into 4 visible factors."""
+"""Steps 1–2: publisher and persona fit. Every fit is a weighted sum of visible factors."""
 from __future__ import annotations
 
 import math
@@ -8,334 +8,320 @@ from app.models.catalog import Catalog, Persona, Publisher
 from app.models.scores import Factor, PersonaScore, PublisherScore
 from app.models.tuning import Tuning
 
-_INCOME_NAME = {1: "mid", 2: "mid-high", 3: "high"}
-EXCLUDED_REASON = "Excluded by your note"  # a publisher a steer removed
+INCOME_NAMES = {1: "mid", 2: "mid-high", 3: "high"}
+EXCLUDED_REASON = "Excluded by your note"
 
 
-def _label(s: str) -> str:
-    return s.replace("_", " ")
+# ---- shared ----
+
+def scoped(brief: Brief, catalog: Catalog, tuning: Tuning) -> Brief:
+    """The brief without scoped words whose category it doesn't otherwise name ("toys" for kids'
+    toys is not a pet store's toys)."""
+    words = set(brief.categories) | set(brief.adjacent_categories)
+    kept = set()
+    for word in words:
+        parent = tuning.publisher.scoped_terms.get(word)
+        if parent is None or (words - {word}) & ({parent} | set(catalog.vocab_groups.get(parent, []))):
+            kept.add(word)
+    if kept == words:
+        return brief
+    return brief.model_copy(update={"categories": [c for c in brief.categories if c in kept],
+                                    "adjacent_categories": [c for c in brief.adjacent_categories if c in kept]})
 
 
-def _category(b: Brief, p: Publisher, t: Tuning, catalog: Catalog) -> tuple[Factor, str]:
-    cs = t.publisher.category_scores
-    attrs = set(t.publisher.attribute_tags)
-    if p.category in b.categories:
-        # the brief also names a narrower term in this category (kitchen) that this publisher lacks
-        narrow = sorted(set(b.categories) & set(catalog.vocab_groups.get(p.category, [])) - attrs
-                        - set(p.subcategories) - {p.category})
-        if narrow and not set(b.categories) & set(p.subcategories):
-            return Factor(name="category", score=cs.same_category,
-                          note=f"{_label(p.category).capitalize()} category, but no {_label(narrow[0])}"), "same_category"
-        return Factor(name="category", score=cs.primary, note=f"{_label(p.category).capitalize()} category match"), "primary"
-    sub = [c for c in p.subcategories if c in b.categories and c not in attrs]
+def term_parents(catalog: Catalog, tuning: Tuning) -> dict[str, set[str]]:
+    """Category word -> the publisher categories it sits under (catalog groups + affinity_parents)."""
+    attributes = set(tuning.publisher.attribute_tags)
+    parents: dict[str, set[str]] = {}
+    for category, words in catalog.vocab_groups.items():
+        for word in words:
+            if word not in attributes and word != category:
+                parents.setdefault(word, set()).add(category)
+    for word, parent in tuning.publisher.affinity_parents.items():
+        parents.setdefault(word, set()).add(parent)
+    return parents
+
+
+def age_bounds(brief: Brief, tuning: Tuning) -> tuple[int, int] | None:
+    """The brief's ages with a missing end filled in ("over 50" -> 50-80); None when it gives none."""
+    if brief.age_min is None and brief.age_max is None:
+        return None
+    low = brief.age_min if brief.age_min is not None else tuning.input.age_floor
+    high = brief.age_max if brief.age_max is not None else tuning.input.age_ceiling
+    return low, high
+
+
+def age_overlap(bounds: tuple[int, int] | None, low: int, high: int, unknown: float) -> float:
+    """Share of the brief's age range covered by [low, high]; `unknown` if the brief has no range."""
+    if bounds is None:
+        return unknown
+    brief_low, brief_high = bounds
+    if brief_high <= brief_low:
+        return 1.0 if low <= brief_low <= high else 0.0
+    return max(0.0, min(brief_high, high) - max(brief_low, low)) / (brief_high - brief_low)
+
+
+# ---- publishers ----
+
+def _category(brief: Brief, publisher: Publisher, catalog: Catalog, tuning: Tuning) -> tuple[Factor, str]:
+    """The category factor and its level: primary, subcategory, same_category, adjacent, attribute, none."""
+    scores = tuning.publisher.category_scores
+    attributes = set(tuning.publisher.attribute_tags)
+    label = publisher.category.replace("_", " ")
+    if publisher.category in brief.categories:
+        # the brief also names a narrower word in this category (kitchen) that this publisher lacks
+        narrow = sorted(set(brief.categories) & set(catalog.vocab_groups.get(publisher.category, []))
+                        - attributes - set(publisher.subcategories) - {publisher.category})
+        if narrow and not set(brief.categories) & set(publisher.subcategories):
+            note = f"{label.capitalize()} category, but no {narrow[0].replace('_', ' ')}"
+            return Factor(name="category", score=scores["same_category"], note=note), "same_category"
+        note = f"{label.capitalize()} category match"
+        return Factor(name="category", score=scores["primary"], note=note), "primary"
+    sub = [word for word in publisher.subcategories if word in brief.categories and word not in attributes]
     if sub:
-        return Factor(name="category", score=cs.subcategory, note=f"{_label(sub[0]).capitalize()} subcategory match"), "subcategory"
-    # parent category of a brief term: some publisher lists the term as a subcategory under p.category
-    parents = {q.category for term in b.categories if term not in attrs
-               for q in catalog.publishers if term in q.subcategories}
-    if p.category in parents:
-        return Factor(name="category", score=cs.same_category, note=f"Same category: {_label(p.category)}"), "same_category"
-    # a persona-affinity term that tuning maps to this publisher's category (home_decor -> home)
-    via = [term for term in b.categories if t.publisher.affinity_parents.get(term) == p.category]
+        note = f"{sub[0].replace('_', ' ').capitalize()} subcategory match"
+        return Factor(name="category", score=scores["subcategory"], note=note), "subcategory"
+    # parent category of a brief word: some publisher lists the word as a subcategory under this category
+    parents = {other.category for word in brief.categories if word not in attributes
+               for other in catalog.publishers if word in other.subcategories}
+    if publisher.category in parents:
+        return Factor(name="category", score=scores["same_category"], note=f"Same category: {label}"), "same_category"
+    # a persona-affinity word that tuning maps to this publisher's category (home_decor -> home)
+    via = [word for word in brief.categories if tuning.publisher.affinity_parents.get(word) == publisher.category]
     if via:
-        return Factor(name="category", score=cs.same_category, note=f"Same category via {_label(via[0])}"), "same_category"
-    adj = sorted((p.tags & set(b.adjacent_categories)) - attrs)
-    if adj:
-        return Factor(name="category", score=cs.adjacent, note=f"Adjacent: {_label(adj[0])}"), "adjacent"
-    via = [term for term in b.adjacent_categories if t.publisher.affinity_parents.get(term) == p.category]
+        note = f"Same category via {via[0].replace('_', ' ')}"
+        return Factor(name="category", score=scores["same_category"], note=note), "same_category"
+    adjacent = sorted((publisher.tags & set(brief.adjacent_categories)) - attributes)
+    if adjacent:
+        note = f"Adjacent: {adjacent[0].replace('_', ' ')}"
+        return Factor(name="category", score=scores["adjacent"], note=note), "adjacent"
+    via = [word for word in brief.adjacent_categories
+           if tuning.publisher.affinity_parents.get(word) == publisher.category]
     if via:
-        return Factor(name="category", score=cs.adjacent, note=f"Adjacent via {_label(via[0])}"), "adjacent"
-    shared = sorted(p.tags & (set(b.categories) | set(b.adjacent_categories)) & attrs)
+        note = f"Adjacent via {via[0].replace('_', ' ')}"
+        return Factor(name="category", score=scores["adjacent"], note=note), "adjacent"
+    shared = sorted(publisher.tags & (set(brief.categories) | set(brief.adjacent_categories)) & attributes)
     if shared:
-        return Factor(name="category", score=cs.attribute, note=f"Shared attribute: {_label(shared[0])}"), "attribute"
+        note = f"Shared attribute: {shared[0].replace('_', ' ')}"
+        return Factor(name="category", score=scores["attribute"], note=note), "attribute"
     return Factor(name="category", score=0.0, note="No category overlap"), "none"
 
 
-def scoped(b: Brief, catalog: Catalog, t: Tuning) -> Brief:
-    """The brief without scoped terms whose category it doesn't otherwise name ("toys" for kids'
-    toys is not a pet store's toys)."""
-    groups = catalog.vocab_groups
-    terms = set(b.categories) | set(b.adjacent_categories)
-
-    def keep(c: str) -> bool:
-        parent = t.publisher.scoped_terms.get(c)
-        return parent is None or bool((terms - {c}) & ({parent} | set(groups.get(parent, []))))
-    if all(keep(c) for c in terms):
-        return b
-    return b.model_copy(update={"categories": [c for c in b.categories if keep(c)],
-                                "adjacent_categories": [c for c in b.adjacent_categories if keep(c)]})
-
-
-def age_bounds(b: Brief, t: Tuning) -> tuple[int, int] | None:
-    """The brief's age range with a missing bound filled from tuning ("over 50" -> 50-80);
-    None when the brief gives no age at all."""
-    if b.age_min is None and b.age_max is None:
-        return None
-    a = t.audience
-    lo = b.age_min if b.age_min is not None else a.age_floor
-    hi = b.age_max if b.age_max is not None else a.age_ceiling
-    return lo, hi
-
-
-def _age_overlap(bounds: tuple[int, int] | None, other_min: int, other_max: int,
-                 unknown: float) -> float:
-    """Share of the brief's age range covered by [other_min, other_max]; `unknown` if the brief has no range."""
-    if bounds is None:
-        return unknown
-    lo, hi = bounds
-    if hi <= lo:
-        return 1.0 if other_min <= lo <= other_max else 0.0
-    return max(0.0, min(hi, other_max) - max(lo, other_min)) / (hi - lo)
-
-
-def _audience(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
-    u = t.publisher.unknown_factor
-    bounds = age_bounds(b, t)
-    age = _age_overlap(bounds, p.age_min, p.age_max, u)
-    split = p.audience.gender_split
-    known_gender = b.gender_skew in ("female", "male")
-    gender = split.get(b.gender_skew, 0.0) if known_gender else u
-    aw = t.publisher.audience_weights
-    score = aw.age * age + aw.gender * gender
-    unknown = bounds is None and not known_gender
+def _audience(brief: Brief, publisher: Publisher, tuning: Tuning) -> tuple[Factor, bool]:
+    """Age overlap and gender share; also whether both are unknown."""
+    unknown = tuning.publisher.unknown_factor
+    bounds = age_bounds(brief, tuning)
+    age = age_overlap(bounds, publisher.age_min, publisher.age_max, unknown)
+    split = publisher.audience.gender_split
+    known_gender = brief.gender_skew in ("female", "male")
+    gender = split.get(brief.gender_skew, 0.0) if known_gender else unknown
+    weights = tuning.publisher.audience_weights
+    score = weights["age"] * age + weights["gender"] * gender
     top = "female" if split.get("female", 0) >= split.get("male", 0) else "male"
-    share = round(split.get(top, 0.0) * 100)
-    who = "women" if top == "female" else "men"
-    return Factor(name="audience", score=score, note=f"Skews {p.audience.age_skew}, {share}% {who}"), unknown
+    note = (f"Skews {publisher.audience.age_skew}, {round(split.get(top, 0.0) * 100)}% "
+            f"{'women' if top == 'female' else 'men'}")
+    return Factor(name="audience", score=score, note=note), bounds is None and not known_gender
 
 
-def _income(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
-    target = t.publisher.income_targets.get(b.price_tier)
+def _income(brief: Brief, publisher: Publisher, tuning: Tuning) -> tuple[Factor, bool]:
+    """How close the publisher's audience income is to what the price tier needs."""
+    target = tuning.publisher.income_targets.get(brief.price_tier)
     if target is None:
-        return Factor(name="income", score=t.publisher.unknown_factor, note="Price tier unknown"), True
-    note = f"Income tier {_INCOME_NAME[p.income_rank]} vs {b.price_tier}"
-    score = max(0.0, 1 - abs(p.income_rank - target) / t.publisher.income_scale)
+        return Factor(name="income", score=tuning.publisher.unknown_factor, note="Price tier unknown"), True
+    score = max(0.0, 1 - abs(publisher.income_rank - target) / tuning.publisher.income_scale)
+    note = f"Income tier {INCOME_NAMES[publisher.income_rank]} vs {brief.price_tier}"
     return Factor(name="income", score=score, note=note), False
 
 
-def _aov(b: Brief, p: Publisher, t: Tuning) -> tuple[Factor, bool]:
-    if b.price_usd is None or b.price_usd <= 0:
-        return Factor(name="aov", score=t.publisher.unknown_factor, note="Price unknown"), True
-    ratio = math.log2(b.price_usd / p.avg_order_value_usd)
+def _aov(brief: Brief, publisher: Publisher, tuning: Tuning) -> tuple[Factor, bool]:
+    """The price against the publisher's average order, on a log scale."""
+    if brief.price_usd is None or brief.price_usd <= 0:
+        return Factor(name="aov", score=tuning.publisher.unknown_factor, note="Price unknown"), True
+    ratio = math.log2(brief.price_usd / publisher.avg_order_value_usd)
     # a product cheaper than the typical basket can sit inside it; one far above it is the real mismatch
-    scale = t.publisher.aov_log2_scale if ratio >= 0 else t.publisher.aov_below_log2_scale
-    score = max(0.0, 1 - abs(ratio) / scale)
-    return Factor(name="aov", score=score, note=f"AOV ${p.avg_order_value_usd:.0f} vs ${b.price_usd:.0f} price"), False
+    scale = tuning.publisher.aov_log2_scale if ratio >= 0 else tuning.publisher.aov_below_log2_scale
+    note = f"AOV ${publisher.avg_order_value_usd:.0f} vs ${brief.price_usd:.0f} price"
+    return Factor(name="aov", score=max(0.0, 1 - abs(ratio) / scale), note=note), False
 
 
-def _pick_reason(factors: list[Factor], unknown: list[bool], recommended: bool) -> Factor:
-    """Strongest (recommended) or weakest (excluded) factor, ignoring unknown-placeholder factors."""
-    known = [f for f, u in zip(factors, unknown) if not u] or factors[:1]
-    return max(known, key=lambda f: f.score) if recommended else min(known, key=lambda f: f.score)
-
-
-def score_publishers(brief: Brief, catalog: Catalog, t: Tuning,
-                     exclude: frozenset[str] = frozenset()) -> list[PublisherScore]:
-    """Every publisher, best fit first. `exclude` ids (a user's steer) keep their fit but are never
-    recommended and don't take a recommendation slot."""
-    brief = scoped(brief, catalog, t)
-    pt = t.publisher
-    w = pt.weights
-    weights = {"category": w.category, "audience": w.audience, "income": w.income, "aov": w.aov}
-    rows: list[tuple[float, Publisher, list[Factor], list[bool]]] = []
-    for p in catalog.publishers:
-        cat, level = _category(brief, p, t, catalog)
-        aud, aud_unk = _audience(brief, p, t)
-        inc, inc_unk = _income(brief, p, t)
-        aov, aov_unk = _aov(brief, p, t)
-        factors = [cat, aud, inc, aov]
-        fit = sum(weights[f.name] * f.score for f in factors)
+def score_publishers(brief: Brief, catalog: Catalog, tuning: Tuning,
+                     exclude: set[str] = frozenset()) -> list[PublisherScore]:
+    """Every publisher, best fit first. Excluded ids keep their fit but are never recommended."""
+    brief = scoped(brief, catalog, tuning)
+    settings = tuning.publisher
+    rows = []
+    for publisher in catalog.publishers:
+        category, level = _category(brief, publisher, catalog, tuning)
+        audience, audience_unknown = _audience(brief, publisher, tuning)
+        income, income_unknown = _income(brief, publisher, tuning)
+        aov, aov_unknown = _aov(brief, publisher, tuning)
+        factors = [category, audience, income, aov]
+        fit = sum(settings.weights[factor.name] * factor.score for factor in factors)
         if level in ("attribute", "none"):
-            fit *= pt.no_category_penalty
-        if not aov_unk:
-            fit *= pt.aov_gate_floor + (1 - pt.aov_gate_floor) * aov.score
-        rows.append((fit, p, factors, [False, aud_unk, inc_unk, aov_unk]))
-    rows.sort(key=lambda r: (-r[0], r[1].id))
-    out: list[PublisherScore] = []
-    rank = 0
-    for fit, p, factors, unk in rows:
-        if p.id in exclude:
+            fit *= settings.no_category_penalty
+        if not aov_unknown:
+            fit *= settings.aov_gate_floor + (1 - settings.aov_gate_floor) * aov.score
+        rows.append((fit, publisher, factors, [False, audience_unknown, income_unknown, aov_unknown]))
+    rows.sort(key=lambda row: (-row[0], row[1].id))
+    scores, rank = [], 0
+    for fit, publisher, factors, unknown in rows:
+        if publisher.id in exclude:
             recommended, reason = False, EXCLUDED_REASON
         else:
-            recommended = fit >= pt.cutoff and rank < pt.max_recommended
-            reason = _pick_reason(factors, unk, recommended).note
+            recommended = fit >= settings.cutoff and rank < settings.max_recommended
+            # the reason is the strongest factor (recommended) or the weakest (not), ignoring unknowns
+            known = [factor for factor, is_unknown in zip(factors, unknown) if not is_unknown] or factors[:1]
+            reason = (max if recommended else min)(known, key=lambda factor: factor.score).note
             rank += 1
-        out.append(PublisherScore(
-            publisher_id=p.id, name=p.name, fit=round(fit, 3), factors=factors,
-            recommended=recommended, stretch=False, reason=reason,
-        ))
-    return out
+        scores.append(PublisherScore(publisher_id=publisher.id, name=publisher.name, fit=round(fit, 3),
+                                     factors=factors, recommended=recommended, stretch=False, reason=reason))
+    return scores
 
 
-def is_weak_fit(scores: list[PublisherScore], t: Tuning) -> bool:
-    return sum(1 for s in scores if s.recommended) < t.publisher.weak_fit_min_recommended
-
-
-def mark_stretch(scores: list[PublisherScore], t: Tuning,
-                 excluded: frozenset[str] = frozenset()) -> list[PublisherScore]:
-    """The closest weak_fit_show publishers (skipping `excluded`) with some category overlap become
-    recommended stretch picks; when none overlaps, nothing is picked (no test worth running)."""
-    n = t.publisher.weak_fit_show
-
-    def related(s: PublisherScore) -> bool:
-        return any(f.name == "category" and f.score > 0 for f in s.factors)
-    out, picked = [], 0
-    for s in scores:
-        pick = s.publisher_id not in excluded and picked < n and related(s)
+def pick_publishers(brief: Brief, catalog: Catalog, tuning: Tuning,
+                    exclude: set[str] = frozenset()) -> tuple[list[PublisherScore], bool]:
+    """Scores, and whether the fit is weak. A weak fit marks the closest related publishers (some
+    category link) as recommended stretch picks; when none is related, nothing is picked."""
+    scores = score_publishers(brief, catalog, tuning, exclude)
+    if sum(score.recommended for score in scores) >= tuning.publisher.weak_fit_min_recommended:
+        return scores, False
+    picked, marked = 0, []
+    for score in scores:
+        related = any(factor.name == "category" and factor.score > 0 for factor in score.factors)
+        pick = score.publisher_id not in exclude and picked < tuning.publisher.weak_fit_show and related
         picked += pick
-        out.append(s.model_copy(update={"recommended": pick, "stretch": pick}))
-    return out
-
+        marked.append(score.model_copy(update={"recommended": pick, "stretch": pick}))
+    return marked, True
 
 
 # ---- personas ----
 
-
-def term_parents(catalog: Catalog, t: Tuning) -> dict[str, set[str]]:
-    """Category term -> the publisher categories it sits under (catalog groups + affinity_parents)."""
-    attrs = set(t.publisher.attribute_tags)
-    out: dict[str, set[str]] = {}
-    for cat, subs in catalog.vocab_groups.items():
-        for s in subs:
-            if s not in attrs and s != cat:
-                out.setdefault(s, set()).add(cat)
-    for term, parent in t.publisher.affinity_parents.items():
-        out.setdefault(term, set()).add(parent)
-    return out
-
-
-def _affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> Factor:
-    """The best category link, plus a bonus when the brief names this persona's shopping mode
-    ("mostly bought as gifts" -> The Gifter), wherever the brief puts it."""
-    base = _category_affinity(b, p, t, parents)
-    mode = sorted(set(t.persona.attribute_affinities.get(p.id, []))
-                  & (set(b.categories) | set(b.adjacent_categories)))
-    if not mode:
-        return base
-    score = min(1.0, max(base.score, t.persona.affinity_scores.family) + t.persona.mode_bonus)
-    return Factor(name="affinity", score=score, note=f"Shops for: {mode[0]}")
-
-
-def _category_affinity(b: Brief, p: Persona, t: Tuning, parents: dict[str, set[str]]) -> Factor:
-    sc = t.persona.affinity_scores
-    attrs = set(t.publisher.attribute_tags)
-    aff = set(p.category_affinities) - attrs
-    cats = set(b.categories) - attrs
-    direct = sorted(aff & cats)
-    if direct:
-        return Factor(name="affinity", score=sc.direct, note=f"Affinity: {direct[0]}")
-    family = sorted((a, c) for a in aff for c in cats
+def _affinity(brief: Brief, persona: Persona, parents: dict[str, set[str]], tuning: Tuning) -> Factor:
+    """The best category link (direct, family, sibling, adjacent), plus a bonus when the brief names
+    this persona's shopping mode ("mostly bought as gifts" -> The Gifter)."""
+    scores = tuning.persona.affinity_scores
+    attributes = set(tuning.publisher.attribute_tags)
+    affinities = set(persona.category_affinities) - attributes
+    categories = set(brief.categories) - attributes
+    direct = sorted(affinities & categories)
+    family = sorted((a, c) for a in affinities for c in categories
                     if c in parents.get(a, ()) or a in parents.get(c, ()))
-    if family:
-        a, c = family[0]
-        return Factor(name="affinity", score=sc.family, note=f"Affinity: {a} (under {c})")
-    sib = sorted((a, c) for a in aff for c in cats if parents.get(a, set()) & parents.get(c, set()))
-    if sib:
-        a, c = sib[0]
-        return Factor(name="affinity", score=sc.sibling, note=f"Related: {a} ~ {c}")
-    adj = sorted(aff & set(b.adjacent_categories))
-    if adj:
-        return Factor(name="affinity", score=sc.adjacent, note=f"Adjacent affinity: {adj[0]}")
-    return Factor(name="affinity", score=0.0, note="No affinity overlap")
+    sibling = sorted((a, c) for a in affinities for c in categories if parents.get(a, set()) & parents.get(c, set()))
+    adjacent = sorted(affinities & set(brief.adjacent_categories))
+    if direct:
+        link = Factor(name="affinity", score=scores["direct"], note=f"Affinity: {direct[0]}")
+    elif family:
+        note = f"Affinity: {family[0][0]} (under {family[0][1]})"
+        link = Factor(name="affinity", score=scores["family"], note=note)
+    elif sibling:
+        link = Factor(name="affinity", score=scores["sibling"], note=f"Related: {sibling[0][0]} ~ {sibling[0][1]}")
+    elif adjacent:
+        link = Factor(name="affinity", score=scores["adjacent"], note=f"Adjacent affinity: {adjacent[0]}")
+    else:
+        link = Factor(name="affinity", score=0.0, note="No affinity overlap")
+    modes = sorted(set(tuning.persona.attribute_affinities.get(persona.id, []))
+                   & (set(brief.categories) | set(brief.adjacent_categories)))
+    if not modes:
+        return link
+    score = min(1.0, max(link.score, scores["family"]) + tuning.persona.mode_bonus)
+    return Factor(name="affinity", score=score, note=f"Shops for: {modes[0]}")
 
 
-def _persona_price(b: Brief, p: Persona, t: Tuning) -> Factor:
-    ideal = t.persona.price_ideal.get(b.price_tier)
+def _price(brief: Brief, persona: Persona, tuning: Tuning) -> Factor:
+    """How close the persona's price sensitivity is to the brief's price tier."""
+    ideal = tuning.persona.price_ideal.get(brief.price_tier)
     if ideal is None:
-        return Factor(name="price", score=t.publisher.unknown_factor, note="Price tier unknown")
-    score = max(0.0, 1 - abs(ideal - p.price_rank) / t.persona.price_scale)
-    sens = p.price_sensitivity
-    return Factor(name="price", score=score, note=f"{sens.capitalize()} price sensitivity vs {b.price_tier}")
+        return Factor(name="price", score=tuning.publisher.unknown_factor, note="Price tier unknown")
+    score = max(0.0, 1 - abs(ideal - persona.price_rank) / tuning.persona.price_scale)
+    note = f"{persona.price_sensitivity.capitalize()} price sensitivity vs {brief.price_tier}"
+    return Factor(name="price", score=score, note=note)
 
 
-def _persona_age(b: Brief, p: Persona, t: Tuning) -> Factor:
-    bounds = age_bounds(b, t)
-    score = _age_overlap(bounds, p.age_min, p.age_max, t.publisher.unknown_factor)
+def _age(brief: Brief, persona: Persona, tuning: Tuning) -> Factor:
+    """How much of the brief's age range the persona covers."""
+    bounds = age_bounds(brief, tuning)
+    score = age_overlap(bounds, persona.age_min, persona.age_max, tuning.publisher.unknown_factor)
     note = ("Brief ages unknown" if bounds is None
-            else f"Ages {p.age_min}\u2013{p.age_max} vs {bounds[0]}\u2013{bounds[1]}")
+            else f"Ages {persona.age_min}–{persona.age_max} vs {bounds[0]}–{bounds[1]}")
     return Factor(name="age", score=score, note=note)
 
 
-def _persona_publishers(p: Persona, pubs: list[tuple[Publisher, float]], t: Tuning,
-                        parents: dict[str, set[str]]) -> Factor:
-    """Does this persona shop on the publishers picked in step ①? Per publisher (weighted by its
-    fit): 0.6 x category link (an affinity is the publisher's category or subcategory 1.0, sits
-    under its category 0.7) + 0.4 x the share of the persona's ages in the publisher's audience."""
-    if not pubs:
-        return Factor(name="publishers", score=t.publisher.unknown_factor, note="No publishers picked yet")
-    aff = set(p.category_affinities)
-    total = sum(w for _, w in pubs) or 1.0
+def _shops_there(persona: Persona, chosen: list[tuple[Publisher, float]], parents: dict[str, set[str]],
+                 tuning: Tuning) -> Factor:
+    """Does this persona shop on the publishers picked in step 1? Per publisher, weighted by its
+    fit: 0.6 x category link (an affinity is its category or subcategory 1.0, sits under its
+    category 0.7) + 0.4 x the share of the persona's ages in its audience."""
+    if not chosen:
+        return Factor(name="publishers", score=tuning.publisher.unknown_factor, note="No publishers picked yet")
+    affinities = set(persona.category_affinities)
+    total = sum(fit for _, fit in chosen) or 1.0
     score, shops = 0.0, []
-    for pub, w in pubs:
-        where = {pub.category, *pub.subcategories}
-        link = (1.0 if aff & where
-                else t.persona.affinity_scores.family if any(pub.category in parents.get(a, ()) for a in aff)
-                else 0.0)
-        ages = _age_overlap((p.age_min, p.age_max), pub.age_min, pub.age_max, t.publisher.unknown_factor)
-        score += w / total * (0.6 * link + 0.4 * ages)
+    for publisher, fit in chosen:
+        if affinities & {publisher.category, *publisher.subcategories}:
+            link = 1.0
+        elif any(publisher.category in parents.get(word, ()) for word in affinities):
+            link = tuning.persona.affinity_scores["family"]
+        else:
+            link = 0.0
+        ages = age_overlap((persona.age_min, persona.age_max), publisher.age_min, publisher.age_max,
+                           tuning.publisher.unknown_factor)
+        score += fit / total * (0.6 * link + 0.4 * ages)
         if link:
-            shops.append(pub.name)
+            shops.append(publisher.name)
     note = f"Shops at {', '.join(shops[:2])}" if shops else "Rarely shops these publishers"
     return Factor(name="publishers", score=round(score, 3), note=note)
 
 
-def _persona_raw(b: Brief, p: Persona, t: Tuning,
-                 parents: dict[str, set[str]] | None = None,
-                 pubs: list[tuple[Publisher, float]] | None = None) -> tuple[float, list[Factor]]:
-    """Unclamped fit and its factors (penalty factors only when they apply). `pubs` (publisher, fit)
-    are step ①'s picks; without them (pubs None) the publishers factor is left out."""
-    w = t.persona.weights
-    aff = _affinity(b, p, t, parents or {})
-    price, age = _persona_price(b, p, t), _persona_age(b, p, t)
-    factors = [aff, price, age]
-    raw = w.affinity * aff.score + w.price * price.score + w.age * age.score
-    if pubs is not None and w.publishers:
-        shop = _persona_publishers(p, pubs, t, parents or {})
-        factors.append(shop)
-        raw += w.publishers * shop.score
-    if aff.score <= 0 and t.persona.niche_penalty:
-        cats = {c for a in p.category_affinities for c in (parents or {}).get(a, set())}
-        if len(cats) == 1:
-            factors.append(Factor(name="niche", score=-t.persona.niche_penalty,
-                                  note=f"Only shops {_label(next(iter(cats)))}"))
-            raw -= t.persona.niche_penalty
-    if age.score <= 0 and age_bounds(b, t) is not None and t.persona.age_mismatch_penalty:
-        factors.append(Factor(name="age_mismatch", score=-t.persona.age_mismatch_penalty,
+def _persona_fit(brief: Brief, persona: Persona, chosen: list[tuple[Publisher, float]],
+                 parents: dict[str, set[str]], tuning: Tuning) -> tuple[float, list[Factor]]:
+    """The unclamped fit and its factors: 4 weighted factors, then any of 3 penalties."""
+    settings = tuning.persona
+    affinity, price, age = _affinity(brief, persona, parents, tuning), _price(brief, persona, tuning), _age(brief, persona, tuning)
+    shops = _shops_there(persona, chosen, parents, tuning)
+    factors = [affinity, price, age, shops]
+    weights = settings.weights  # added left to right, as the numbers were tuned (sum() rounds differently)
+    fit = (weights["affinity"] * affinity.score + weights["price"] * price.score + weights["age"] * age.score
+           + weights["publishers"] * shops.score)
+    if affinity.score <= 0 and settings.niche_penalty:
+        categories = {c for word in persona.category_affinities for c in parents.get(word, set())}
+        if len(categories) == 1:
+            note = f"Only shops {next(iter(categories)).replace('_', ' ')}"
+            factors.append(Factor(name="niche", score=-settings.niche_penalty, note=note))
+            fit -= settings.niche_penalty
+    if age.score <= 0 and age_bounds(brief, tuning) is not None and settings.age_mismatch_penalty:
+        factors.append(Factor(name="age_mismatch", score=-settings.age_mismatch_penalty,
                               note="Outside the brief's ages"))
-        raw -= t.persona.age_mismatch_penalty
-    hit = sorted({c.lower() for c in b.conflicts} & {d.lower() for d in p.disinterested_in})
-    if hit:
-        pen = t.persona.conflict_penalty
-        raw -= pen
-        factors.append(Factor(name="conflict", score=-pen, note=f"Conflicts: {hit[0]}"))
-    return raw, factors
+        fit -= settings.age_mismatch_penalty
+    conflicts = sorted({c.lower() for c in brief.conflicts} & {d.lower() for d in persona.disinterested_in})
+    if conflicts:
+        factors.append(Factor(name="conflict", score=-settings.conflict_penalty, note=f"Conflicts: {conflicts[0]}"))
+        fit -= settings.conflict_penalty
+    return fit, factors
 
 
-def score_personas(brief: Brief, catalog: Catalog, t: Tuning,
-                   publishers: list[PublisherScore] | None = None) -> list[PersonaScore]:
-    """Every persona, best fit first. `publishers`: step ①'s recommended ones; personas are picked
-    after them, so a persona who shops there scores higher."""
-    brief = scoped(brief, catalog, t)
-    parents = term_parents(catalog, t)
-    pubs = ([(catalog.publisher_by_id[s.publisher_id], s.fit) for s in publishers]
-            if publishers is not None else None)
+def score_personas(brief: Brief, catalog: Catalog, tuning: Tuning,
+                   recommended: list[PublisherScore]) -> list[PersonaScore]:
+    """Every persona, best fit first, scored against step 1's recommended publishers."""
+    brief = scoped(brief, catalog, tuning)
+    parents = term_parents(catalog, tuning)
+    chosen = [(catalog.publisher_by_id[score.publisher_id], score.fit) for score in recommended]
     rows = []
-    for p in catalog.personas:
-        raw, factors = _persona_raw(brief, p, t, parents, pubs)
-        rows.append((max(0.0, min(1.0, raw)), p, factors))
-    rows.sort(key=lambda r: (-r[0], r[1].id))
-    return [PersonaScore(persona_id=p.id, name=p.name, fit=round(fit, 3), factors=f, stretch=False)
-            for fit, p, f in rows]
+    for persona in catalog.personas:
+        fit, factors = _persona_fit(brief, persona, chosen, parents, tuning)
+        rows.append((max(0.0, min(1.0, fit)), persona, factors))
+    rows.sort(key=lambda row: (-row[0], row[1].id))
+    return [PersonaScore(persona_id=persona.id, name=persona.name, fit=round(fit, 3), factors=factors,
+                         stretch=False) for fit, persona, factors in rows]
 
 
-def select_personas(scores: list[PersonaScore], t: Tuning) -> list[PersonaScore]:
-    """Scores must be sorted best-first. Qualifiers (>= cutoff, up to max), else stretch-fill up to min,
-    personas with some category affinity first (price and age alone don't make a shopper plausible)."""
-    pt = t.persona
-    chosen = [s.model_copy(update={"stretch": False}) for s in scores if s.fit >= pt.cutoff][: pt.max]
-    if len(chosen) < pt.min:
-        def no_affinity(s: PersonaScore) -> bool:
-            return all(f.score <= 0 for f in s.factors if f.name == "affinity")
-        rest = sorted((s for s in scores if s.fit < pt.cutoff), key=no_affinity)[: pt.min - len(chosen)]
-        chosen += [s.model_copy(update={"stretch": True}) for s in rest]
+def select_personas(scores: list[PersonaScore], tuning: Tuning) -> list[PersonaScore]:
+    """Personas at or above the cut-off (up to max); if fewer than min, stretch picks fill up,
+    those with some category affinity first (price and age alone don't make a plausible shopper)."""
+    settings = tuning.persona
+    chosen = [score.model_copy(update={"stretch": False})
+              for score in scores if score.fit >= settings.cutoff][: settings.max]
+    if len(chosen) < settings.min:
+        rest = sorted((score for score in scores if score.fit < settings.cutoff),
+                      key=lambda score: all(f.score <= 0 for f in score.factors if f.name == "affinity"))
+        chosen += [score.model_copy(update={"stretch": True}) for score in rest[: settings.min - len(chosen)]]
     return chosen

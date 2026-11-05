@@ -12,10 +12,9 @@ import os
 import sys
 from pathlib import Path
 
-from app.gate import get_gate
 from app.llm import CachedProvider, LLMError, OpenAIProvider
 from app.loaders import load_catalog, load_tuning
-from app.pipeline import collect, make_config, run_stage1
+from app.pipeline import make_config, stage1
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "evals" / "cases.jsonl"
@@ -45,9 +44,7 @@ def _clean(value):
 
 
 def snapshot(case: dict, llm, catalog, tuning) -> dict:
-    gate = get_gate(tuning=tuning)
-    result = collect(run_stage1(case["text"].strip(), None, llm=llm, gate=gate, catalog=catalog,
-                                t=tuning))
+    result = stage1(case["text"].strip(), None, None, None, llm=llm, catalog=catalog, tuning=tuning)
     config = None
     if result.outcome in ("proceed", "weak_fit"):
         config = make_config(result.brief, result.gate, result.publishers, result.personas, [], None,

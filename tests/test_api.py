@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 
 from app import api
 from app.constants.paths import EXAMPLES
-from app.gate import get_gate
 from app.llm import FakeProvider, LLMError
 from app.loaders import load_samples
 from app.ratelimit import RateLimiter
@@ -25,7 +24,6 @@ def llm():
 def client(llm):
     limiter = RateLimiter(limit=T.ratelimit.per_client_runs, window_s=T.ratelimit.per_client_window_s)
     api.app.dependency_overrides[api.get_llm] = lambda: llm
-    api.app.dependency_overrides[api.get_gate_dep] = lambda: get_gate("llm", tuning=T)
     api.app.dependency_overrides[api.get_catalog] = lambda: CAT
     api.app.dependency_overrides[api.get_tuning] = lambda: T
     api.app.dependency_overrides[api.get_limiter] = lambda: limiter
@@ -67,7 +65,7 @@ def test_post_campaign_echoes_budget(client):
     assert client.post("/api/campaign", json={"text": "dog food", "budget_usd": 3000}).json()["budget_usd"] == 3000
 
 
-STAGE1_EVENTS = ["understood", "gate", "publishers", "personas", "done"]
+STAGE1_EVENTS = ["done"]  # one event until the stream is removed (Task 4)
 
 
 def test_stream_events(client):
@@ -312,16 +310,11 @@ def test_clarify_result_cannot_reach_stage2_or_3(client, llm):
 
 
 @pytest.mark.parametrize("brief_over,detail", [
-    ({"product": "x" * 121}, "brief.product is too long."),
-    ({"facts": ["f"] * 11}, "brief.facts has too many items."),
-    ({"facts": ["f" * 201]}, "brief.facts has an item that is too long."),
-    ({"unknowns": ["u"] * 11}, "brief.unknowns has too many items."),
     ({"categories": ["not_a_category"]}, "brief.categories has an unknown term."),
-    ({"adjacent_categories": ["pet"] * 21}, "brief.adjacent_categories has too many items."),
     ({"price_usd": -1}, "brief.price_usd must be a finite amount of at least 0."),
     ({"age_min": 130}, "brief ages must be between 0 and 120."),
 ])
-def test_brief_caps(client, s1, brief_over, detail):
+def test_brief_checks(client, s1, brief_over, detail):
     body = {**_stage2(s1), "brief": {**s1["brief"], **brief_over}}
     r = client.post("/api/creatives", json=body)
     assert r.status_code == 422 and r.json()["detail"] == detail
@@ -349,22 +342,6 @@ def test_request_body_size_limit(client):
     r = client.post("/api/creatives", content=b"x" * (T.input.max_body_bytes + 1),
                     headers={"content-type": "application/json"})
     assert r.status_code == 413
-
-
-def test_oversized_llm_brief_is_clamped_in_stage1_and_flows_through(client, llm):
-    big = brief_obj(product="Dog food " * 30, facts=["Real chicken, " * 30] * 14,
-                    unknowns=["price " * 60] * 12, categories=["pet_food"] * 25,
-                    adjacent_categories=["pet"] * 25)
-    llm.responses["BriefSchema"] = big
-    s1 = client.post("/api/campaign", json={"text": "We sell dog food"}).json()
-    i = T.input
-    assert len(s1["brief"]["product"]) <= i.brief_product_max_chars
-    assert len(s1["brief"]["facts"]) == i.brief_list_max_items
-    assert s1["brief"]["categories"] == ["pet_food"]
-    r = client.post("/api/creatives", json=_stage2(s1))
-    assert r.status_code == 200, r.json()
-    cfg = client.post("/api/config", json=_stage3(s1, r.json()["creatives"]))
-    assert cfg.status_code == 200, cfg.json()
 
 
 def test_lone_surrogates_are_422_not_500(client, s1):

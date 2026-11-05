@@ -3,31 +3,11 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
-class PublisherWeights(BaseModel):
-    category: float
-    audience: float
-    income: float
-    aov: float
-
-
-class CategoryScores(BaseModel):
-    primary: float
-    subcategory: float
-    same_category: float
-    adjacent: float
-    attribute: float
-
-
-class AudienceWeights(BaseModel):
-    age: float
-    gender: float
-
-
 class PublisherTuning(BaseModel):
-    weights: PublisherWeights
-    category_scores: CategoryScores
+    weights: dict[str, float]  # category, audience, income, aov
+    category_scores: dict[str, float]  # primary, subcategory, same_category, adjacent, attribute
     attribute_tags: list[str]
-    audience_weights: AudienceWeights
+    audience_weights: dict[str, float]  # age, gender
     income_targets: dict[str, float]
     income_scale: float
     aov_log2_scale: float
@@ -43,23 +23,9 @@ class PublisherTuning(BaseModel):
     weak_fit_show: int
 
 
-class PersonaWeights(BaseModel):
-    affinity: float
-    price: float
-    age: float
-    publishers: float = 0.0  # how well the persona fits the publishers picked in step ①
-
-
-class AffinityScores(BaseModel):
-    direct: float
-    adjacent: float
-    family: float = 0.0   # a parent or child of the brief's term (supplements under wellness_dtc)
-    sibling: float = 0.0  # both terms sit under the same parent category (home_goods, home_decor)
-
-
 class PersonaTuning(BaseModel):
-    weights: PersonaWeights
-    affinity_scores: AffinityScores
+    weights: dict[str, float]  # affinity, price, age, publishers
+    affinity_scores: dict[str, float]  # direct, family, adjacent, sibling
     price_ideal: dict[str, float]
     price_scale: float
     conflict_penalty: float
@@ -132,6 +98,8 @@ class CreativeTuning(BaseModel):
 
 
 class InputTuning(BaseModel):
+    age_floor: int  # fills a missing lower age bound ("under 35" -> 18-35)
+    age_ceiling: int  # fills a missing upper age bound ("over 50" -> 50-80)
     max_chars: int
     max_answers: int
     max_answer_chars: int
@@ -142,11 +110,6 @@ class InputTuning(BaseModel):
     brief_categories_max: int
     brief_age_max: int
     buyer_age_min: int = 18
-
-
-class AudienceTuning(BaseModel):
-    age_floor: int
-    age_ceiling: int
 
 
 class ClarifyTuning(BaseModel):
@@ -210,7 +173,6 @@ class Tuning(BaseModel):
     gate: GateTuning
     creative: CreativeTuning
     input: InputTuning
-    audience: AudienceTuning
     ratelimit: RateLimitTuning
     clarify: ClarifyTuning
     stage1: Stage1Tuning

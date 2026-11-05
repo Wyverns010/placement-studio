@@ -1,170 +1,77 @@
-"""The flow in three stages the client drives, plus `run_full` that chains them for evals.
-
-1. run_stage1: understand -> gate -> match, as a generator of stage events (SSE).
-2. make_creatives / regenerate: one ad per selected persona (LLM), or a rewrite of one.
-3. make_config: the campaign config (code only).
-"""
+"""Step 1 from text to result, and `run_full`, which chains all the steps for the evals."""
 from __future__ import annotations
 
-import logging
-from dataclasses import dataclass
-from typing import Iterator
-
+from app.brief import apply_note, clarify_questions, decide, understand
 from app.config_builder import build_config
-from app.create import (
+from app.constants.brief import (
+    BUSINESS_PROB,
     NO_SIGNAL_QUESTIONS,
-    clarify_questions,
-    rewrite_creative,
-    write_creatives,
+    NOTE_GATE,
+    NOTE_KEEP_ONE,
 )
-from app.gate import ConfidenceGate
-from app.llm import LLMError, LLMProvider
-from app.match import (
-    is_weak_fit,
-    mark_stretch,
-    score_personas,
-    score_publishers,
-    select_personas,
+from app.constants.pipeline import (
+    MSG_BUSINESS,
+    MSG_NO_FIT,
+    MSG_NO_SIGNAL,
+    MSG_NOT_SHOPPABLE,
+    MSG_WEAK_FIT,
 )
+from app.create import rewrite_creative, write_creatives
+from app.llm import LLMProvider
+from app.match import pick_publishers, score_personas, score_publishers, select_personas
 from app.models.ads import Creative
-from app.models.brief import Brief, ClarifyQuestion, GateResult
+from app.models.brief import Brief, GateResult
 from app.models.catalog import Catalog
 from app.models.plan import CampaignConfig
-from app.models.result import CampaignResult, StageEvent
+from app.models.result import CampaignResult
 from app.models.scores import PersonaScore, PublisherScore
 from app.models.tuning import Tuning
-from app.understand import clamp_brief, understand
-
-log = logging.getLogger(__name__)
-
-MSG_LLM = "The AI service didn't respond — try again or pick a sample."
-MSG_OTHER = "Something went wrong building this campaign."
-MSG_NO_SIGNAL = "Nothing to go on yet — tell us a little about what you sell."
 
 
-def msg_weak_fit(product: str | None, n: int) -> str:
-    if n == 0:
-        return (f"Nothing in this catalog fits {product or 'this product'}: no publisher sells "
-                "anything close, so we don't recommend spending here.")
-    return (f"Nothing in this catalog is a strong match for {product or 'this product'}. "
-            f"These are the closest {n} — run them as a small test.")
-
-
-def msg_out_of_scope(product: str | None, audience_type: str = "business") -> str:
-    if audience_type == "not_shoppable":
-        return (f"This catalog reaches online shoppers at checkout; {product or 'this'} isn't "
-                "something they buy there, so we don't recommend spending here.")
-    return (f"This catalog reaches shoppers at checkout; {product or 'this product'} sells to "
-            "business buyers, so we don't recommend spending here.")
-
-
-@dataclass(frozen=True)
-class Stage1Plan:
-    """What the stage-1 agent chose through its tools (app/stepagents/strategist.py); code applies
-    it. `brief` is the understood brief the gate reads; `adjusted` (if any) is that brief with the
-    steer's changes, used for matching and returned. Exclusions keep their scores but are never
-    picked. `clarify` reuses questions a tool already asked for."""
-    brief: Brief
-    adjusted: Brief | None = None
-    exclude_publishers: frozenset[str] = frozenset()
-    exclude_personas: frozenset[str] = frozenset()
-    clarify: tuple[ClarifyQuestion, ...] | None = None
-
-
-class PipelineError(Exception):
-    """Raised by collect() when the stream ended in an error event; message is user-safe."""
-
-
-def _pub_data(pubs: list[PublisherScore], t: Tuning, outcome: str = "proceed") -> dict:
-    if outcome == "clarify":
-        pubs = pubs[: t.stage1.clarify_publishers_shown]  # faded best guess: top N only
-    return {
-        "recommended": [p.publisher_id for p in pubs if p.recommended],
-        "top": [{"id": p.publisher_id, "name": p.name, "fit": p.fit}
-                for p in pubs[: t.stage1.top_publishers_shown]],
-    }
-
-
-def _persona_data(ps: list[PersonaScore]) -> dict:
-    return {"selected": [{"id": p.persona_id, "name": p.name, "fit": p.fit, "stretch": p.stretch}
-                         for p in ps]}
-
-
-def run_stage1(text: str, budget_usd: float | None, *, llm: LLMProvider, gate: ConfidenceGate,
-               catalog: Catalog, t: Tuning, plan: Stage1Plan | None = None,
-               meta: dict | None = None) -> Iterator[StageEvent]:
-    """Stage 1 events: understood, gate, [publishers, personas,] done | error. `budget_usd` is only
-    echoed in the result (the client passes it on to stage 3). `plan` applies an agent's choices;
-    `meta` (mode, agent_trace, agent_notes) is copied into the result."""
-    try:
-        yield from _run(text, budget_usd, llm, gate, catalog, t, plan, meta or {})
-    except LLMError:
-        log.exception("pipeline LLM failure")
-        yield StageEvent(stage="error", data={"message": MSG_LLM})
-    except Exception:
-        log.exception("pipeline failure")
-        yield StageEvent(stage="error", data={"message": MSG_OTHER})
-
-
-def _run(text, budget_usd, llm, gate, catalog, t, plan: Stage1Plan | None,
-         meta: dict) -> Iterator[StageEvent]:
-    def result(outcome, message=None, publishers=(), personas=(), clarify=()) -> CampaignResult:
-        return CampaignResult(
-            input_text=text, budget_usd=budget_usd, outcome=outcome, message=message,
-            brief=brief, gate=g, publishers=list(publishers), personas=list(personas),
-            creatives=[], clarify=list(clarify), config=None, **meta,
-        )
-
-    if plan:
-        base, brief = plan.brief, plan.adjusted or plan.brief
-        no_pubs, no_personas = plan.exclude_publishers, plan.exclude_personas
-    else:
-        base = brief = clamp_brief(understand(text, catalog, llm), t)  # within the stage 2/3 caps
-        no_pubs = no_personas = frozenset()
-    yield StageEvent(stage="understood", data=brief.model_dump())
-    g = gate.assess(text, base)  # the gate reads what the advertiser wrote, never a steer
-    yield StageEvent(stage="gate", data=g.model_dump())
-
-    if g.outcome == "no_signal":
-        yield StageEvent(stage="done", data=result("no_signal", MSG_NO_SIGNAL,
-                                                   clarify=NO_SIGNAL_QUESTIONS).model_dump())
-        return
-
-    scored = score_publishers(brief, catalog, t, no_pubs)
-
-    if g.outcome == "out_of_scope":
-        excluded = [s.model_copy(update={"recommended": False, "stretch": False}) for s in scored]
-        yield StageEvent(stage="publishers", data=_pub_data(excluded, t))
-        yield StageEvent(stage="done", data=result(
-            "out_of_scope", msg_out_of_scope(brief.product, brief.audience_type), publishers=excluded).model_dump())
-        return
-
-    def persona_scores_for(pubs: list[PublisherScore]) -> list[PersonaScore]:
-        """Step ①'s publishers come first; the personas are scored against the recommended ones."""
-        recs = [p for p in pubs if p.recommended]
-        return [p for p in score_personas(brief, catalog, t, recs) if p.persona_id not in no_personas]
-
-    if g.outcome == "clarify":
-        persona_scores = persona_scores_for(scored)
-        yield StageEvent(stage="publishers", data=_pub_data(scored, t, "clarify"))
-        top = select_personas(persona_scores, t)[:1]
-        yield StageEvent(stage="personas", data=_persona_data(top))
-        questions = (list(plan.clarify) if plan and plan.clarify is not None
-                     else clarify_questions(text, brief, llm, catalog, t))
-        yield StageEvent(stage="done", data=result(
-            "clarify", None, publishers=scored, personas=top, clarify=questions).model_dump())
-        return
-
-    weak = is_weak_fit(scored, t)
+def stage1(text: str, budget_usd: float | None, note: str | None, brief: Brief | None, *,
+           llm: LLMProvider, catalog: Catalog, tuning: Tuning) -> CampaignResult:
+    """Read the text (or reuse the brief sent back with a note), decide, match publishers, then personas.
+    The gate reads what the advertiser wrote; a note only changes matching."""
+    base = brief or understand(text, catalog, llm, tuning)
+    gate = decide(1.0 if base.describes_business else 0.0, BUSINESS_PROB[base.audience_type],
+                  base.self_confidence, tuning.gate)
+    current, dropped_publishers, dropped_personas, notes = base, set(), set(), []
+    if note and gate.outcome == "proceed":
+        current, dropped_publishers, dropped_personas, notes = apply_note(note, base, llm, catalog, tuning)
+    elif note:
+        notes = [NOTE_GATE.format(outcome=gate.outcome)]
+    shared = dict(input_text=text, budget_usd=budget_usd, brief=current, gate=gate, creatives=[],
+                  config=None, mode="agent" if note else "code", agent_notes=notes)
+    if gate.outcome == "no_signal":
+        return CampaignResult(**shared, outcome="no_signal", message=MSG_NO_SIGNAL, publishers=[],
+                              personas=[], clarify=NO_SIGNAL_QUESTIONS)
+    if gate.outcome == "out_of_scope":
+        excluded = [score.model_copy(update={"recommended": False, "stretch": False})
+                    for score in score_publishers(current, catalog, tuning)]
+        template = MSG_NOT_SHOPPABLE if current.audience_type == "not_shoppable" else MSG_BUSINESS
+        default = "this" if current.audience_type == "not_shoppable" else "this product"
+        return CampaignResult(**shared, outcome="out_of_scope", publishers=excluded, personas=[], clarify=[],
+                              message=template.format(product=current.product or default))
+    if gate.outcome == "clarify":
+        scores = score_publishers(current, catalog, tuning)
+        recommended = [score for score in scores if score.recommended]
+        preview = select_personas(score_personas(current, catalog, tuning, recommended), tuning)[:1]
+        return CampaignResult(**shared, outcome="clarify", message=None, publishers=scores, personas=preview,
+                              clarify=clarify_questions(text, current, llm, catalog, tuning))
+    scores, weak = pick_publishers(current, catalog, tuning, dropped_publishers)
+    if dropped_publishers and not any(score.recommended for score in scores):
+        notes.append(NOTE_KEEP_ONE)
+        scores, weak = pick_publishers(current, catalog, tuning)
+    recommended = [score for score in scores if score.recommended]
+    personas = select_personas([score for score in score_personas(current, catalog, tuning, recommended)
+                                if score.persona_id not in dropped_personas], tuning)
+    message = None
     if weak:
-        scored = mark_stretch(scored, t, no_pubs)
-    yield StageEvent(stage="publishers", data=_pub_data(scored, t))
-    personas = select_personas(persona_scores_for(scored), t)
-    yield StageEvent(stage="personas", data=_persona_data(personas))
-    outcome = "weak_fit" if weak else "proceed"
-    message = msg_weak_fit(brief.product, sum(s.recommended for s in scored)) if weak else None
-    yield StageEvent(stage="done", data=result(
-        outcome, message, publishers=scored, personas=personas).model_dump())
+        product = current.product or "this product"
+        message = (MSG_WEAK_FIT.format(product=product, n=len(recommended)) if recommended
+                   else MSG_NO_FIT.format(product=product))
+    return CampaignResult(**shared, outcome="weak_fit" if weak else "proceed", message=message,
+                          publishers=scores, personas=personas, clarify=[])
 
 
 def recommended_of(publishers: list[PublisherScore]) -> list[PublisherScore]:
@@ -204,26 +111,14 @@ def make_config(brief: Brief, gate: GateResult, publishers: list[PublisherScore]
                         pacing_override=pacing_override)
 
 
-BUILT = ("proceed", "weak_fit")
-
-
-def run_full(text: str, budget_usd: float | None = None, *, llm: LLMProvider,
-             gate: ConfidenceGate, catalog: Catalog, t: Tuning) -> CampaignResult:
-    """All three stages in one call (evals). Raises PipelineError for a stage-1
-    error and lets stage-2 errors (e.g. LLMError) propagate."""
-    r = collect(run_stage1(text, budget_usd, llm=llm, gate=gate, catalog=catalog, t=t))
-    if r.outcome not in BUILT:
-        return r
-    creatives = make_creatives(text, r.brief, r.publishers, r.personas, llm=llm, catalog=catalog, t=t)
-    config = make_config(r.brief, r.gate, r.publishers, r.personas, creatives, budget_usd,
-                         catalog=catalog, t=t)
-    return r.model_copy(update={"creatives": creatives, "config": config})
-
-
-def collect(events: Iterator[StageEvent]) -> CampaignResult:
-    for e in events:
-        if e.stage == "done":
-            return CampaignResult.model_validate(e.data)
-        if e.stage == "error":
-            raise PipelineError(e.data.get("message", MSG_OTHER))
-    raise PipelineError(MSG_OTHER)
+def run_full(text: str, budget_usd: float | None = None, *, llm: LLMProvider, catalog: Catalog,
+             tuning: Tuning) -> CampaignResult:
+    """All steps in one call, for the evals: step 1, then ads and config when a campaign is built."""
+    result = stage1(text, budget_usd, None, None, llm=llm, catalog=catalog, tuning=tuning)
+    if result.outcome not in ("proceed", "weak_fit"):
+        return result
+    creatives = make_creatives(text, result.brief, result.publishers, result.personas, llm=llm,
+                               catalog=catalog, t=tuning)
+    config = make_config(result.brief, result.gate, result.publishers, result.personas, creatives, budget_usd,
+                         catalog=catalog, t=tuning)
+    return result.model_copy(update={"creatives": creatives, "config": config})

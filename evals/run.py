@@ -14,11 +14,10 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from app.gate import get_gate
 from app.llm import CachedProvider, OpenAIProvider
 from app.loaders import load_catalog, load_tuning
-from app.match import is_weak_fit, score_publishers
-from app.pipeline import collect, run_full, run_stage1
+from app.match import pick_publishers
+from app.pipeline import run_full, stage1
 from evals.invariants import check
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,22 +56,7 @@ class _CallCounter:
         return self.inner.parse(system=system, user=user, schema=schema, model=model)
 
 
-class _TimedGate:
-    """Per-case gate wrapper that records how long assess() took."""
-
-    def __init__(self, inner):
-        self.inner = inner
-        self.seconds = 0.0
-
-    def assess(self, text, brief):
-        start = time.perf_counter()
-        try:
-            return self.inner.assess(text, brief)
-        finally:
-            self.seconds += time.perf_counter() - start
-
-
-def _run_one(case: dict, llm, gate, catalog, t, stage1_only: bool = False) -> dict:
+def _run_one(case: dict, llm, catalog, t, stage1_only: bool = False) -> dict:
     rec = {"id": case["id"], "split": case["split"], "expected": case["expected"],
            "must_publishers": case.get("must_publishers", []),
            "must_not_publishers": case.get("must_not_publishers", []),
@@ -83,12 +67,11 @@ def _run_one(case: dict, llm, gate, catalog, t, stage1_only: bool = False) -> di
            "latency_s": 0.0, "creative_calls": 0, "creative_retries": 0, "residual_violations": 0}
     text = case["text"].strip()[: t.input.max_chars]  # same truncation as the API
     counter = _CallCounter(llm)
-    timed = _TimedGate(gate)
     start = time.perf_counter()
     try:
         # all three stages at the recommended budget (cases' legacy budget_usd is ignored)
-        r = (collect(run_stage1(text, None, llm=counter, gate=timed, catalog=catalog, t=t)) if stage1_only
-             else run_full(text, None, llm=counter, gate=timed, catalog=catalog, t=t))
+        r = (stage1(text, None, None, None, llm=counter, catalog=catalog, tuning=t) if stage1_only
+             else run_full(text, None, llm=counter, catalog=catalog, tuning=t))
         rec["outcome"] = r.outcome
         if r.gate:
             rec["gate_impl"] = r.gate.impl
@@ -96,7 +79,7 @@ def _run_one(case: dict, llm, gate, catalog, t, stage1_only: bool = False) -> di
                               if k in ("has_content", "business_prob", "clarity")}
             rec["gate_signals"] = r.gate.signals
         if r.brief and r.outcome != "no_signal":
-            rec["weak_fit_if_proceed"] = is_weak_fit(score_publishers(r.brief, catalog, t), t)
+            rec["weak_fit_if_proceed"] = pick_publishers(r.brief, catalog, t)[1]
         rec["recommended_ids"] = [p.publisher_id for p in r.publishers if p.recommended]
         rec["persona_ids"] = [p.persona_id for p in r.personas]
         rec["invariant_failures"] = [] if stage1_only else check(r, t)
@@ -107,14 +90,13 @@ def _run_one(case: dict, llm, gate, catalog, t, stage1_only: bool = False) -> di
     except Exception as e:  # noqa: BLE001 - one bad case must never abort the run
         rec["error"] = f"{type(e).__name__}: {e}"[:200]
     rec["latency_s"] = round(time.perf_counter() - start, 2)
-    rec["gate_latency_s"] = round(timed.seconds, 6)
     return rec
 
 
-def run_cases(cases: list[dict], *, llm, gate, catalog, t, concurrency: int = 8,
+def run_cases(cases: list[dict], *, llm, catalog, t, concurrency: int = 8,
               stage1_only: bool = False) -> list[dict]:
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as ex:
-        return list(ex.map(lambda c: _run_one(c, llm, gate, catalog, t, stage1_only), cases))
+        return list(ex.map(lambda c: _run_one(c, llm, catalog, t, stage1_only), cases))
 
 
 def summarize(recs: list[dict]) -> dict:
@@ -141,7 +123,6 @@ def summarize(recs: list[dict]) -> dict:
 
     first = sum(r.get("creative_calls", 0) - r.get("creative_retries", 0) for r in recs)
     lat = sorted(r["latency_s"] for r in recs if "latency_s" in r)
-    gate_lat = [r["gate_latency_s"] for r in recs if "gate_latency_s" in r]
 
     def pct(q):
         return lat[min(len(lat) - 1, int(q * len(lat)))] if lat else None
@@ -150,7 +131,6 @@ def summarize(recs: list[dict]) -> dict:
             "retry_rate": sum(r.get("creative_retries", 0) for r in recs) / first if first else None,
             "residual_violations": sum(r.get("residual_violations", 0) for r in recs),
             "latency_p50": pct(0.5), "latency_p90": pct(0.9),
-            "gate_latency_mean": sum(gate_lat) / len(gate_lat) if gate_lat else None,
             "accuracy": correct / n if n else 0.0, "per": per,
             "confusion": {e: dict(c) for e, c in conf.items()},
             "must_hit": hit("must_publishers", True),
@@ -183,8 +163,6 @@ def render(s: dict) -> str:
              f"residual violations: {s['residual_violations']}")
     if s["latency_p50"] is not None:
         L.append(f"latency p50 {s['latency_p50']:.1f}s, p90 {s['latency_p90']:.1f}s (near 0 when cached)")
-    if s.get("gate_latency_mean") is not None:
-        L.append(f"gate latency mean {s["gate_latency_mean"] * 1000:.2f} ms per case")
     if s["invariant_failures"]:
         L.append("invariant failures:")
         for cid, fs in s["invariant_failures"].items():
@@ -223,11 +201,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         os.environ.setdefault("LLM_CACHE_DIR", str(ROOT / ".cache" / "llm"))
     t = load_tuning(ROOT / "config" / "tuning.yaml")
-    gate = get_gate(tuning=t)
 
     only = {x for x in a.only.split(",") if x} or None
     cases = load_cases(a.cases, split=a.split, only=only)
-    recs = run_cases(cases, llm=make_llm(), gate=gate, catalog=load_catalog(ROOT / "data"), t=t,
+    recs = run_cases(cases, llm=make_llm(), catalog=load_catalog(ROOT / "data"), t=t,
                      concurrency=a.concurrency, stage1_only=a.stage1)
     LAST_RUN.write_text(json.dumps(recs, indent=1))
     LAST_RUN.with_name(f"last_run_llm_{a.split}.json").write_text(json.dumps(recs, indent=1))

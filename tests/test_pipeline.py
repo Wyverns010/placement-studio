@@ -4,19 +4,12 @@ import re
 
 import pytest
 
-from app.create import NO_SIGNAL_QUESTIONS, CreativeBatch
-from app.gate import get_gate
+from app.brief import brief_schema
+from app.constants.brief import NO_SIGNAL_QUESTIONS
+from app.create import CreativeBatch
 from app.llm import FakeProvider, LLMError
 from app.models.brief import ClarifyBatch, ClarifyQuestion
-from app.pipeline import (
-    PipelineError,
-    collect,
-    make_config,
-    make_creatives,
-    run_full,
-    run_stage1,
-)
-from app.understand import brief_schema
+from app.pipeline import make_config, make_creatives, run_full, stage1
 from tests.conftest import CAT, T
 
 
@@ -48,34 +41,26 @@ def fake(**brief_over) -> FakeProvider:
 
 
 def run(llm, text="We sell dog food", budget=None):
-    return list(run_stage1(text, budget, llm=llm, gate=get_gate("llm", tuning=T),
-                           catalog=CAT, t=T))
+    return stage1(text, budget, None, None, llm=llm, catalog=CAT, tuning=T)
 
 
 def full(llm, text="We sell dog food", budget=None):
-    return run_full(text, budget, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T)
+    return run_full(text, budget, llm=llm, catalog=CAT, tuning=T)
 
-
-def stages(evs):
-    return [e.stage for e in evs]
 
 
 def test_stage1_stops_after_match():
     llm = fake()
-    evs = run(llm)
-    assert stages(evs) == ["understood", "gate", "publishers", "personas", "done"]
-    r = collect(iter(evs))
+    r = run(llm)
     assert r.outcome == "proceed" and r.message is None
     assert r.creatives == [] and r.config is None and r.budget_usd is None
     assert len(r.publishers) == 20 and any(p.recommended for p in r.publishers)
     assert 3 <= len(r.personas) <= 5
-    pub = evs[2].data
-    assert len(pub["top"]) == 5 and pub["recommended"]
     assert "CreativeBatch" not in [c["schema"] for c in llm.calls]
 
 
 def test_stage1_echoes_budget():
-    assert collect(iter(run(fake(), budget=1000))).budget_usd == 1000
+    assert run(fake(), budget=1000).budget_usd == 1000
 
 
 def test_run_full_chains_creatives_and_config_at_recommended_budget():
@@ -94,7 +79,7 @@ def test_run_full_user_budget_wins():
 
 def test_stages_compose_like_run_full():
     llm = fake()
-    s1 = collect(iter(run(llm)))
+    s1 = run(llm)
     creatives = make_creatives(s1.input_text, s1.brief, s1.publishers, s1.personas,
                                llm=llm, catalog=CAT, t=T)
     cfg = make_config(s1.brief, s1.gate, s1.publishers, s1.personas, creatives, None, catalog=CAT, t=T)
@@ -115,29 +100,23 @@ def test_run_full_leaves_non_built_outcomes_alone():
 
 def test_clarify_has_no_config():
     llm = fake(self_confidence=0.3)
-    evs = run(llm)
-    assert stages(evs) == ["understood", "gate", "publishers", "personas", "done"]
-    r = collect(iter(evs))
+    r = run(llm)
     assert r.outcome == "clarify" and r.config is None and r.creatives == []
     assert r.clarify and len(r.personas) == 1 and len(r.publishers) == 20
-    assert len(evs[2].data["top"]) <= 5
     assert "CreativeBatch" not in [c["schema"] for c in llm.calls]
 
 
 def test_no_signal_skips_llm_creatives():
     llm = fake(describes_business=False, product=None, categories=[], adjacent_categories=[])
-    evs = run(llm, text="idk just try it")
-    assert stages(evs) == ["understood", "gate", "done"]
-    r = collect(iter(evs))
+    r = run(llm, text="idk just try it")
     assert r.outcome == "no_signal" and r.clarify == NO_SIGNAL_QUESTIONS
     assert r.publishers == [] and r.personas == [] and r.config is None
     assert [c["schema"] for c in llm.calls] == ["BriefSchema"]
 
 
 def test_weak_fit_outcome_from_proceed_gate():
-    evs = run(fake(categories=[], adjacent_categories=["subscription"], product="widgets"))
-    assert evs[1].data["outcome"] == "proceed"
-    r = collect(iter(evs))
+    r = run(fake(categories=[], adjacent_categories=["subscription"], product="widgets"))
+    assert r.gate.outcome == "proceed"
     assert r.outcome == "weak_fit" and r.config is None
     rec = [p for p in r.publishers if p.recommended]
     assert len(rec) == T.publisher.weak_fit_show and all(p.stretch for p in rec)
@@ -148,49 +127,35 @@ def test_weak_fit_outcome_from_proceed_gate():
 
 
 def test_weak_fit_with_no_related_publisher_picks_none():
-    r = collect(iter(run(fake(categories=[], adjacent_categories=[], product="wooden toys"))))
+    r = run(fake(categories=[], adjacent_categories=[], product="wooden toys"))
     assert r.outcome == "weak_fit" and not any(p.recommended for p in r.publishers)
     assert "Nothing in this catalog fits wooden toys" in r.message
 
 
 def test_out_of_scope_all_excluded():
-    evs = run(fake(audience_type="business", product="dental software"))
-    assert stages(evs) == ["understood", "gate", "publishers", "done"]
-    r = collect(iter(evs))
+    r = run(fake(audience_type="business", product="dental software"))
     assert r.outcome == "out_of_scope" and r.config is None and r.creatives == []
     assert len(r.publishers) == 20 and not any(p.recommended for p in r.publishers)
     assert all(p.reason for p in r.publishers)
     assert "business buyers" in r.message and "dental software" in r.message
-    assert evs[2].data["recommended"] == []
 
 
 def test_out_of_scope_message_for_not_shoppable_does_not_claim_business_buyers():
-    r = collect(iter(run(fake(audience_type="not_shoppable", product="emergency plumbing"))))
+    r = run(fake(audience_type="not_shoppable", product="emergency plumbing"))
     assert r.outcome == "out_of_scope" and r.config is None
     assert "business buyers" not in r.message
     assert "emergency plumbing" in r.message and "shoppers" in r.message
 
 
 def test_out_of_scope_message_falls_back_without_product():
-    r = collect(iter(run(fake(audience_type="business", product=None))))
+    r = run(fake(audience_type="business", product=None))
     assert "this product" in r.message
 
 
-def test_llm_failure_emits_error_event():
-    llm = FakeProvider({"BriefSchema": LLMError("sk-secret leaked")})
-    evs = run(llm)
-    assert stages(evs) == ["error"]
-    assert "sk-secret" not in evs[-1].data["message"]
-    assert "didn't respond" in evs[-1].data["message"]
-    with pytest.raises(PipelineError):
-        collect(iter(evs))
+def test_llm_failure_raises_for_the_api_to_map():
+    with pytest.raises(LLMError):
+        run(FakeProvider({"BriefSchema": LLMError("sk-secret leaked")}))
 
-
-def test_unexpected_failure_emits_generic_error_last():
-    llm = FakeProvider({"BriefSchema": RuntimeError("sk-boom")})
-    evs = run(llm)
-    assert stages(evs)[-1] == "error" and "sk-boom" not in evs[-1].data["message"]
-    assert evs[-1].data["message"] == "Something went wrong building this campaign."
 
 
 def test_run_full_raises_on_creative_failure():

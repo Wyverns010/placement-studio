@@ -13,7 +13,7 @@ GATE = GateResult(outcome="proceed", confidence=0.9, threshold=0.7, impl="llm", 
 
 def _inputs(b=B):
     pubs = [p for p in score_publishers(b, CAT, T) if p.recommended]
-    personas = select_personas(score_personas(b, CAT, T), T)
+    personas = select_personas(score_personas(b, CAT, T, []), T)
     creatives = [Creative(creative_id=f"c{i}", persona_id=p.persona_id, publisher_id=pubs[i % len(pubs)].publisher_id,
                           headline="h", body="b", cta="c", why="w") for i, p in enumerate(personas)]
     return pubs, personas, creatives
@@ -73,12 +73,12 @@ def test_age_range_from_brief_or_personas():
 def test_one_sided_age_fills_bounds_in_config():
     b = B.model_copy(update={"age_min": 50, "age_max": None})
     cfg, _, _ = _build(b=b)
-    assert cfg.targeting["age_range"] == [50, T.audience.age_ceiling]
+    assert cfg.targeting["age_range"] == [50, T.input.age_ceiling]
     assert "None" not in cfg.rationales["targeting"]
-    assert f"ages 50-{T.audience.age_ceiling}" in cfg.rationales["targeting"]
+    assert f"ages 50-{T.input.age_ceiling}" in cfg.rationales["targeting"]
     b = B.model_copy(update={"age_min": None, "age_max": 35})
     cfg, _, _ = _build(b=b)
-    assert cfg.targeting["age_range"] == [T.audience.age_floor, 35]
+    assert cfg.targeting["age_range"] == [T.input.age_floor, 35]
 
 
 def test_budget_defaults_to_recommended_with_source():

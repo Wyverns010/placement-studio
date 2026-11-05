@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pydantic import BaseModel
 
 from app.constants.ads import CTA_OPTIONS
-from app.constants.llm import MODEL_CREATIVE, MODEL_FAST
+from app.constants.llm import MODEL_CREATIVE
 from app.copycheck import (
     Problem,
     ad_problems,
@@ -17,7 +17,7 @@ from app.copycheck import (
 )
 from app.llm import LLMError, LLMProvider
 from app.models.ads import Creative, Cta
-from app.models.brief import Brief, ClarifyQuestion
+from app.models.brief import Brief
 from app.models.catalog import Catalog, Persona
 from app.models.scores import PersonaScore, PublisherScore
 from app.models.tuning import Tuning
@@ -35,19 +35,6 @@ class CreativeItem(BaseModel):
 class CreativeBatch(BaseModel):
     items: list[CreativeItem]
 
-
-class ClarifyBatch(BaseModel):
-    questions: list[ClarifyQuestion]
-
-
-NO_SIGNAL_QUESTIONS: list[ClarifyQuestion] = [
-    ClarifyQuestion(
-        question="What do you sell?",
-        options=["Physical product", "Subscription", "App or service", "Food or drink"],
-    ),
-    ClarifyQuestion(question="Who usually buys it?", options=["Women", "Men", "Parents", "Everyone"]),
-    ClarifyQuestion(question="Roughly what does it cost?", options=["Under $30", "$30–100", "$100+"]),
-]
 
 HEADLINE_KINDS = {"headline_duplicate", "headline_product", "headline_unchanged"}
 
@@ -294,61 +281,3 @@ def rewrite_creative(
     out = build(it)
     out.fact_violations = [p.message for p in probs]
     return out
-
-
-def category_words(catalog: Catalog) -> str:
-    cats = sorted({p.category for p in catalog.publishers})
-    return ", ".join(CATEGORY_WORDS.get(c, c.replace("_", " ")) for c in cats)
-
-
-ANSWERS_HEADER = "\n\nAdditional details:\n"  # the API appends clarify answers to the text after this
-
-
-def answered_questions(text: str) -> dict[str, str]:
-    """Clarify answers already in the stage-1 text ("- question: answer" lines after ANSWERS_HEADER)."""
-    _, sep, tail = text.partition(ANSWERS_HEADER)
-    if not sep:
-        return {}
-    pairs = (line[2:].split(": ", 1) for line in tail.splitlines() if line.startswith("- "))
-    return {p[0].strip(): p[1].strip() for p in pairs if len(p) == 2}
-
-
-def _norm(q: str) -> str:
-    return " ".join(q.lower().replace("?", " ").split())
-
-
-# What a clarify question is about, by its words: the same topic is never asked twice.
-_TOPICS = {"audience": ("who ", "whom", "audience", "age", "customer"),
-           "price": ("price", "cost", "spend", "how much", "$"),
-           "product": ("what kind", "what type", "product", "category", "what do you sell", "service")}
-
-
-def _topic(q: str) -> str | None:
-    n = f" {_norm(q)} "
-    return next((k for k, words in _TOPICS.items() if any(w in n for w in words)), None)
-
-
-def clarify_questions(text: str, brief: Brief, llm: LLMProvider, catalog: Catalog,
-                      t: Tuning) -> list[ClarifyQuestion]:
-    answered = answered_questions(text)
-    system = render(
-        "clarify",
-        categories=category_words(catalog),
-        product=brief.product or FEEDBACK["product_default"],
-        facts="; ".join(brief.facts) or FEEDBACK["none"],
-        unknowns="\n".join(f"- {u}" for u in brief.unknowns) or FEEDBACK["clarify_unknowns_default"],
-        answered="\n".join(f"- {q}: {a}" for q, a in answered.items()) or FEEDBACK["none"],
-    )
-    user = wrap("advertiser_text", text)
-    out = llm.parse(system=system, user=user, schema=ClarifyBatch, model=MODEL_FAST)
-    qs: list[ClarifyQuestion] = []
-    asked = {_norm(q) for q in answered}
-    asked_topics = {_topic(q) for q in answered} - {None}
-    for q in out.questions:
-        # the prompt says never re-ask; this catches a repeat in the same or other words
-        if _norm(q.question) in asked or _topic(q.question) in asked_topics:
-            continue
-        opts = q.options[: t.clarify.max_options]
-        if len(opts) >= t.clarify.min_options:
-            qs.append(ClarifyQuestion(question=q.question, options=opts))
-    return qs[: t.clarify.max_questions]

@@ -2,7 +2,6 @@
 failure. Every result carries `mode` ("agent" | "fallback" | "code"), `agent_trace` and
 `agent_notes`.
 
-  stage1_events     Strategist          -> stage events (+ `agent` trace events while it works)
   creatives_step    Copywriter + Critic -> one ad per persona
   regenerate_step   Copywriter + Critic -> one rewritten ad
   config_step       Media planner       -> the campaign config (code builds it)
@@ -10,21 +9,17 @@ failure. Every result carries `mode` ("agent" | "fallback" | "code"), `agent_tra
 from __future__ import annotations
 
 import logging
-import queue
-import threading
-from typing import Any, Awaitable, Callable, Iterator
+from typing import Any, Awaitable, Callable
 
-from app.gate import ConfidenceGate
 from app.llm import LLMProvider
 from app.models.ads import Creative
 from app.models.brief import Brief, GateResult
 from app.models.catalog import Catalog
 from app.models.plan import CampaignConfig
-from app.models.result import StageEvent
 from app.models.scores import PersonaScore, PublisherScore
 from app.models.tuning import Tuning
-from app.pipeline import Stage1Plan, make_config, make_creatives, regenerate, run_stage1
-from app.stepagents import creative, planner, strategist
+from app.pipeline import make_config, make_creatives, regenerate
+from app.stepagents import creative, planner
 from app.stepagents.runtime import (
     AgentRuntime,
     CostCapExceeded,
@@ -35,44 +30,6 @@ from app.stepagents.runtime import (
 
 log = logging.getLogger(__name__)
 CODE = {"mode": "code", "agent_trace": [], "agent_notes": []}
-_DONE = object()
-
-
-def stage1_events(text: str, budget_usd: float | None, steer: str | None, *, llm: LLMProvider,
-                  gate: ConfidenceGate, catalog: Catalog, t: Tuning,
-                  runtime: AgentRuntime | None) -> Iterator[StageEvent]:
-    """Stage 1 events. With the agent: `agent` events (one per tool call) as it works, then the
-    usual understood, gate, … done built by code from its choices."""
-    if runtime is None or not wants_agent("strategist", steer, t):
-        yield from run_stage1(text, budget_usd, llm=llm, gate=gate, catalog=catalog, t=t, meta=CODE)
-        return
-    steps: queue.Queue = queue.Queue()
-    session = Session("strategist", runtime, t, on_step=steps.put)
-    ws = strategist.Stage1Workspace(text, steer, llm=llm, gate=gate, catalog=catalog, t=t,
-                                    session=session)
-    box: dict = {}
-
-    def work():
-        try:
-            run_step(lambda: strategist.run(ws, runtime), t, runtime)
-        except BaseException as e:  # noqa: BLE001 - any agent failure falls back to code
-            box["error"] = e
-        finally:
-            steps.put(_DONE)
-
-    threading.Thread(target=work, daemon=True, name="strategist").start()
-    while (item := steps.get()) is not _DONE:
-        yield StageEvent(stage="agent", data=item.model_dump())
-    if "error" in box:
-        log.warning("strategist agent failed, falling back: %r", box["error"])
-        meta = session.fallback_meta(box["error"])
-        yield StageEvent(stage="agent", data=meta["agent_trace"][-1].model_dump())
-        plan = Stage1Plan(brief=ws.understood) if ws.understood else None  # don't pay twice
-        yield from run_stage1(text, budget_usd, llm=llm, gate=gate, catalog=catalog, t=t,
-                              plan=plan, meta=meta)
-        return
-    yield from run_stage1(text, budget_usd, llm=llm, gate=gate, catalog=catalog, t=t,
-                          plan=ws.plan(), meta=session.meta("agent"))
 
 
 def _projected_over_cap(n_ads: int, session: Session) -> CostCapExceeded | None:

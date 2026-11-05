@@ -11,7 +11,7 @@ import re
 import sys
 from pathlib import Path
 
-from app.gate import decide_outcome
+from app.brief import decide
 from app.loaders import load_tuning
 from app.models.tuning import GateTuning
 
@@ -30,8 +30,7 @@ GRIDS = {"proceed_threshold": _grid(0.40, 0.90), "no_signal_threshold": _grid(0.
 
 def redecide(rec: dict, g: GateTuning) -> str:
     s = rec["signals"]
-    r = decide_outcome(has_content=s["has_content"], business_prob=s["business_prob"],
-                       clarity=s["clarity"], t=g, impl="llm", signals={})
+    r = decide(s["has_content"], s["business_prob"], s["clarity"], g)
     if r.outcome == "proceed" and rec.get("weak_fit_if_proceed"):
         return "weak_fit"
     return r.outcome

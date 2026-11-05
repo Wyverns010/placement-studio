@@ -5,7 +5,6 @@ from pathlib import Path
 
 import yaml
 
-from app.gate import get_gate
 from app.llm import FakeProvider
 from app.models.result import CampaignResult
 from app.pipeline import run_full
@@ -19,7 +18,7 @@ SEED = Path("tests/fixtures/seed_cases.jsonl")
 
 
 def result_for(llm, text="We sell dog food") -> CampaignResult:
-    return run_full(text, None, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T)
+    return run_full(text, None, llm=llm, catalog=CAT, tuning=T)
 
 
 def test_invariants_pass_on_valid_proceed():
@@ -81,7 +80,7 @@ def seed_llm():
 def test_run_cases_on_seed_with_fake():
     cases = load_cases(SEED, split="all")
     assert len(cases) == 3
-    recs = run_cases(cases, llm=seed_llm(), gate=get_gate("llm", tuning=T), catalog=CAT, t=T,
+    recs = run_cases(cases, llm=seed_llm(), catalog=CAT, t=T,
                      concurrency=2)
     by = {r["id"]: r for r in recs}
     assert [r["id"] for r in recs] == [c["id"] for c in cases]
@@ -97,7 +96,7 @@ def test_run_cases_on_seed_with_fake():
 def test_run_cases_records_error_without_aborting():
     cases = load_cases(SEED, split="all")
     llm = FakeProvider({})  # every call raises LookupError -> pipeline error event
-    recs = run_cases(cases, llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T,
+    recs = run_cases(cases, llm=llm, catalog=CAT, t=T,
                      concurrency=2)
     assert [r["outcome"] for r in recs] == ["error"] * 3
 
@@ -194,7 +193,7 @@ def test_run_cases_counts_creative_retries_and_truncates_like_api():
     llm = FakeProvider({"BriefSchema": brief_cb, "CreativeBatch": creatives, "ClarifyBatch": CLARIFY})
     case = {"id": "x", "group": "x", "split": split_for("x"), "expected": ["proceed"],
             "text": "We sell dog food. " + "z" * 3000}
-    [rec] = run_cases([case], llm=llm, gate=get_gate("llm", tuning=T), catalog=CAT, t=T,
+    [rec] = run_cases([case], llm=llm, catalog=CAT, t=T,
                       concurrency=1)
     assert len(seen[0]) < 1500 + 200  # wrapped text, truncated to input.max_chars
     assert rec["creative_retries"] == 1

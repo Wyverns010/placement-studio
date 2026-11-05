@@ -22,26 +22,25 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
-from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
+from starlette.concurrency import run_in_threadpool
 
-from app.gate import ConfidenceGate, get_gate
+from app.constants.api import MSG_LLM, MSG_OTHER
 from app.llm import CachedProvider, LLMError, LLMProvider, OpenAIProvider
 from app.loaders import load_catalog, load_samples, load_tuning
 from app.models.ads import Creative
 from app.models.brief import Brief, GateResult
 from app.models.catalog import Catalog
 from app.models.plan import CampaignConfig
-from app.models.result import CampaignResult, Mode, StageEvent, TraceStep
+from app.models.result import Mode, TraceStep
 from app.models.scores import PersonaScore, PublisherScore
 from app.models.tuning import Tuning
-from app.pipeline import MSG_LLM, MSG_OTHER, PipelineError, collect, recommended_of
+from app.pipeline import recommended_of, stage1
 from app.ratelimit import RateLimiter
 from app.stepagents.runtime import AgentRuntime, openai_runtime
 from app.stepagents.steps import (
     config_step,
     creatives_step,
     regenerate_step,
-    stage1_events,
 )
 
 RATE_LIMIT_MSG = "Demo limit reached — try a sample or wait a few minutes."
@@ -118,10 +117,6 @@ def get_llm() -> LLMProvider:
     return CachedProvider(provider, Path(cache)) if cache else provider
 
 
-def get_gate_dep(t: Tuning = Depends(get_tuning)) -> ConfidenceGate:
-    return get_gate(tuning=t)
-
-
 @lru_cache(maxsize=1)
 def get_agent_runtime() -> AgentRuntime | None:
     """The step agents' runtime; None (plain code, mode "code") when disabled or keyless."""
@@ -133,6 +128,7 @@ class CampaignRequest(BaseModel):
     budget_usd: float | None = None  # optional; only echoed back for stage 3
     answers: dict[str, str] | None = None
     steer: str | None = None  # "Tell the agent…" (data, at most agents.steer_max_chars)
+    brief: Brief | None = None  # sent back with a note, so the text isn't read again
 
 
 class CreativesRequest(BaseModel):
@@ -232,21 +228,11 @@ def _max_input_chars(t: Tuning) -> int:
 
 
 def _check_brief(b: Brief, catalog: Catalog, t: Tuning) -> None:
-    """Size and vocabulary caps on an echoed brief (defence in depth)."""
+    """Vocabulary, price and age checks on a brief sent back by the client."""
     i = t.input
-    if b.product and len(b.product) > i.brief_product_max_chars:
-        raise HTTPException(422, "brief.product is too long.")
-    for name in ("facts", "unknowns"):
-        items = getattr(b, name)
-        if len(items) > i.brief_list_max_items:
-            raise HTTPException(422, f"brief.{name} has too many items.")
-        if any(len(x) > i.brief_item_max_chars for x in items):
-            raise HTTPException(422, f"brief.{name} has an item that is too long.")
     for name, vocab in (("categories", catalog.vocab), ("adjacent_categories", catalog.vocab),
                         ("conflicts", catalog.conflict_vocab)):
         items = getattr(b, name)
-        if len(items) > i.brief_categories_max:
-            raise HTTPException(422, f"brief.{name} has too many items.")
         if not set(items) <= set(vocab):
             raise HTTPException(422, f"brief.{name} has an unknown term.")
     if b.price_usd is not None and not (math.isfinite(b.price_usd) and b.price_usd >= 0):
@@ -294,7 +280,7 @@ def _validate_stage(req: CreativesRequest, catalog: Catalog, t: Tuning) -> str:
 
 
 async def _live(fn):
-    """Run a stage-2 call in a thread; map failures to a user-safe 502."""
+    """Run a step in a thread; map failures to a user-safe 502."""
     try:
         return await run_in_threadpool(fn)
     except LLMError:
@@ -325,29 +311,22 @@ def list_samples():
 
 @app.post("/api/campaign")
 async def campaign(req: CampaignRequest, request: Request,
-                   llm: LLMProvider = Depends(get_llm), gate: ConfidenceGate = Depends(get_gate_dep),
-                   catalog: Catalog = Depends(get_catalog), t: Tuning = Depends(get_tuning),
-                   limiter: RateLimiter = Depends(get_limiter),
-                   runtime: AgentRuntime | None = Depends(get_agent_runtime)):
+                   llm: LLMProvider = Depends(get_llm), catalog: Catalog = Depends(get_catalog),
+                   t: Tuning = Depends(get_tuning), limiter: RateLimiter = Depends(get_limiter)):
     text, budget = _prepare(req.text, req.budget_usd, req.answers, t)
     steer = _steer(req.steer, t)
+    if req.brief:
+        _check_brief(req.brief, catalog, t)
     _check_rate(request, limiter, t.ratelimit.cost_stage1)
-    try:
-        return (await run_in_threadpool(
-            lambda: collect(stage1_events(text, budget, steer, llm=llm, gate=gate, catalog=catalog,
-                                          t=t, runtime=runtime))))
-    except PipelineError as e:
-        return JSONResponse({"detail": str(e)}, status_code=502)
+    return await _live(lambda: stage1(text, budget, steer, req.brief, llm=llm, catalog=catalog, tuning=t))
 
 
 @app.get("/api/campaign/stream")
 async def campaign_stream(request: Request, text: str = "", budget_usd: float | None = None,
                           answers: str | None = Query(None), steer: str | None = Query(None),
                           llm: LLMProvider = Depends(get_llm),
-                          gate: ConfidenceGate = Depends(get_gate_dep),
                           catalog: Catalog = Depends(get_catalog), t: Tuning = Depends(get_tuning),
-                          limiter: RateLimiter = Depends(get_limiter),
-                          runtime: AgentRuntime | None = Depends(get_agent_runtime)):
+                          limiter: RateLimiter = Depends(get_limiter)):
     parsed: dict[str, str] | None = None
     if answers:
         try:
@@ -361,15 +340,17 @@ async def campaign_stream(request: Request, text: str = "", budget_usd: float | 
     steer = _steer(steer, t)
     _check_rate(request, limiter, t.ratelimit.cost_stage1)
 
-    def encode(e: StageEvent) -> dict:
-        data = CampaignResult.model_validate(e.data).model_dump() if e.stage == "done" else e.data
-        return {"event": e.stage, "data": json.dumps(data)}
-
-    async def gen():
-        it = stage1_events(full_text, budget, steer, llm=llm, gate=gate, catalog=catalog, t=t,
-                           runtime=runtime)
-        async for e in iterate_in_threadpool(it):
-            yield encode(e)
+    async def gen():  # one "done" event (the stream itself goes in Task 4)
+        try:
+            result = await run_in_threadpool(
+                lambda: stage1(full_text, budget, steer, None, llm=llm, catalog=catalog, tuning=t))
+            yield {"event": "done", "data": result.model_dump_json()}
+        except LLMError:
+            log.exception("stage 1 LLM failure")
+            yield {"event": "error", "data": json.dumps({"message": MSG_LLM})}
+        except Exception:
+            log.exception("stage 1 failure")
+            yield {"event": "error", "data": json.dumps({"message": MSG_OTHER})}
 
     return EventSourceResponse(gen())
 

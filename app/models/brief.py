@@ -42,3 +42,14 @@ class ClarifyQuestion(BaseModel):
 
 class ClarifyBatch(BaseModel):
     questions: list[ClarifyQuestion]
+
+
+class BriefChanges(BaseModel):
+    """What one LLM call reads from a step 1 note; code checks every field before applying it."""
+    drop_publishers: list[str]
+    drop_personas: list[str]
+    add_categories: list[str]
+    remove_categories: list[str]
+    age_min: int | None
+    age_max: int | None
+    not_applied: list[str]  # parts of the note these fields can't express, one sentence each
