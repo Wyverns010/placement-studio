@@ -9,7 +9,7 @@ from app.llm import FakeProvider, LLMError
 from app.loaders import load_samples
 from app.models.plan import PlanChanges
 from app.ratelimit import RateLimiter
-from tests.conftest import T, services
+from tests.conftest import T, make_deps
 from tests.test_note import changes
 from tests.test_pipeline import ACCEPT, CLARIFY, _creatives, brief_obj
 
@@ -23,7 +23,7 @@ def llm():
 
 
 def client_for(llm, limiter=None) -> TestClient:
-    return TestClient(create_app(services(llm, limiter)), raise_server_exceptions=False)
+    return TestClient(create_app(make_deps(llm, limiter)), raise_server_exceptions=False)
 
 
 @pytest.fixture

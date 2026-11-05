@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -34,7 +34,7 @@ from app.constants.paths import WEB_DIST
 from app.llm import CachedProvider, LLMError, LLMProvider, OpenAIProvider
 from app.loaders import load_catalog, load_samples
 from app.models.ads import Creative
-from app.models.api import CampaignIn, Note
+from app.models.api import CampaignIn, ConfigIn, CreativesIn
 from app.models.brief import Brief
 from app.models.catalog import Catalog
 from app.models.result import CampaignResult
@@ -47,7 +47,7 @@ ERRORS = {LLMError: (502, MSG_LLM), Exception: (502, MSG_OTHER)}
 
 
 @dataclass(frozen=True)
-class Services:
+class Deps:
     """What every request uses, built once when the app starts."""
     tuning: Tuning
     catalog: Catalog
@@ -55,16 +55,16 @@ class Services:
     limiter: RateLimiter
 
 
-def services(request: Request) -> Services:
-    return request.app.state.services
+def get_deps(request: Request) -> Deps:
+    return request.app.state.deps
 
 
-def charge(request: Request, svc: Services, cost: int) -> None:
+def charge(request: Request, deps: Deps, cost: int) -> None:
     """429 when this client (the right-most X-Forwarded-For hop, added by our proxy) or everyone
     together is over the limit."""
     hops = [hop.strip() for hop in request.headers.get("x-forwarded-for", "").split(",") if hop.strip()]
     client = hops[-1] if hops else (request.client.host if request.client else "unknown")
-    refused = svc.limiter.check(client, cost)
+    refused = deps.limiter.check(client, cost)
     if refused:
         raise HTTPException(429, MSG_BUSY if refused == "global" else MSG_RATE_LIMIT)
 
@@ -74,11 +74,11 @@ def check_budget(budget_usd: float | None, tuning: Tuning) -> None:
         raise HTTPException(422, MSG_BUDGET.format(low=tuning.budget.min_usd, high=tuning.budget.max_usd))
 
 
-def check_stage(svc: Services, brief: Brief | None, result: CampaignResult | None = None,
+def check_stage(deps: Deps, brief: Brief | None, result: CampaignResult | None = None,
                 creatives: list[Creative] = ()) -> None:
     """422 for anything the step code can't work with: a campaign the gate didn't let through, ids
     outside the catalog, category words outside the vocabulary, an impossible price or age."""
-    catalog = svc.catalog
+    catalog = deps.catalog
     if result is not None:
         if result.gate is None or result.gate.outcome != "proceed":
             raise HTTPException(422, MSG_NOT_PROCEEDING)
@@ -98,7 +98,7 @@ def check_stage(svc: Services, brief: Brief | None, result: CampaignResult | Non
             raise HTTPException(422, MSG_UNKNOWN_WORD.format(field=field))
     if brief.price_usd is not None and not (math.isfinite(brief.price_usd) and brief.price_usd >= 0):
         raise HTTPException(422, MSG_BAD_PRICE)
-    high = svc.tuning.input.brief_age_max
+    high = deps.tuning.input.brief_age_max
     if any(age is not None and not 0 <= age <= high for age in (brief.age_min, brief.age_max)):
         raise HTTPException(422, MSG_BAD_AGES.format(high=high))
 
@@ -117,46 +117,46 @@ def samples() -> list[dict]:
 
 
 @router.post("/campaign")
-def campaign(body: CampaignIn, request: Request, svc: Services = Depends(services)) -> CampaignResult:
+def campaign(body: CampaignIn, request: Request, deps: Deps = Depends(get_deps)) -> CampaignResult:
     """Step 1. Clarify answers are appended to the text; a note comes with the brief to reuse."""
     text = body.text.strip()
     if not text:
         raise HTTPException(422, MSG_EMPTY)
-    check_budget(body.budget_usd, svc.tuning)
-    check_stage(svc, body.brief)
+    check_budget(body.budget_usd, deps.tuning)
+    check_stage(deps, body.brief)
     if body.answers:
         text += ANSWERS_HEADER + "\n".join(f"- {question}: {answer}" for question, answer in body.answers.items())
-    charge(request, svc, svc.tuning.ratelimit.cost_campaign)
-    return stage1(text, body.budget_usd, body.note, body.brief, llm=svc.llm, catalog=svc.catalog, tuning=svc.tuning)
+    charge(request, deps, deps.tuning.ratelimit.cost_campaign)
+    return stage1(text, body.budget_usd, body.note, body.brief, llm=deps.llm, catalog=deps.catalog, tuning=deps.tuning)
 
 
 @router.post("/creatives")
-def ads(request: Request, result: CampaignResult, note: Note = Body(None),
-        svc: Services = Depends(services)) -> list[Creative]:
+def ads(body: CreativesIn, request: Request, deps: Deps = Depends(get_deps)) -> list[Creative]:
     """Step 3: one ad per persona for step 1's result; the note is guidance for the writers."""
-    check_stage(svc, result.brief, result)
-    charge(request, svc, svc.tuning.ratelimit.cost_ads)
-    creatives = write_ads(result.input_text, result.brief, result.publishers, result.personas, note, svc.llm,
-                          svc.catalog, svc.tuning)
+    result = body.result
+    check_stage(deps, result.brief, result)
+    charge(request, deps, deps.tuning.ratelimit.cost_ads)
+    creatives = write_ads(result.input_text, result.brief, result.publishers, result.personas, body.note, deps.llm,
+                          deps.catalog, deps.tuning)
     if not creatives:
         raise HTTPException(502, MSG_NO_ADS)
     return creatives
 
 
 @router.post("/config")
-def config(request: Request, result: CampaignResult, creatives: list[Creative], budget_usd: float | None = Body(None),
-           note: Note = Body(None), svc: Services = Depends(services)) -> dict:
+def config(body: ConfigIn, request: Request, deps: Deps = Depends(get_deps)) -> dict:
     """Step 4, code only and free; a note is read by one LLM call first (charged). No budget means
     the recommended one."""
-    check_stage(svc, result.brief, result, creatives)
-    check_budget(budget_usd, svc.tuning)
+    result, creatives, budget_usd, note = body.result, body.creatives, body.budget_usd, body.note
+    check_stage(deps, result.brief, result, creatives)
+    check_budget(budget_usd, deps.tuning)
     budget, dropped, pacing, notes = budget_usd, set(), None, []
     if note:
-        charge(request, svc, svc.tuning.ratelimit.cost_config_note)
-        from_note, dropped, pacing, notes = plan.apply_note(note, result.publishers, svc.llm, svc.tuning)
+        charge(request, deps, deps.tuning.ratelimit.cost_config_note)
+        from_note, dropped, pacing, notes = plan.apply_note(note, result.publishers, deps.llm, deps.tuning)
         budget = budget if from_note is None else from_note
-    built = plan.build_config(result.brief, result.publishers, result.personas, creatives, budget, svc.catalog,
-                              svc.tuning, dropped, pacing)
+    built = plan.build_config(result.brief, result.publishers, result.personas, creatives, budget, deps.catalog,
+                              deps.tuning, dropped, pacing)
     return {"config": built, "notes": notes}
 
 
@@ -167,18 +167,18 @@ def _handle_error(request: Request, error: Exception) -> JSONResponse:
     return JSONResponse({"detail": message}, status_code=status)
 
 
-def create_app(svc: Services | None = None) -> FastAPI:
-    """The app; tests pass their own services, otherwise the real ones are loaded."""
-    if svc is None:
+def create_app(deps: Deps | None = None) -> FastAPI:
+    """The app; tests pass their own deps, otherwise the real ones are loaded."""
+    if deps is None:
         tuning = Tuning()
         llm = OpenAIProvider(tuning.llm_timeout_s)
         cache = os.getenv("LLM_CACHE_DIR")  # evals and local runs reuse earlier answers
         limits = tuning.ratelimit
-        svc = Services(tuning=tuning, catalog=load_catalog(), llm=CachedProvider(llm, Path(cache)) if cache else llm,
-                       limiter=RateLimiter(limits.per_client_runs, limits.per_client_window_s,
-                                           global_limit=limits.global_runs_per_hour))
+        deps = Deps(tuning=tuning, catalog=load_catalog(), llm=CachedProvider(llm, Path(cache)) if cache else llm,
+                    limiter=RateLimiter(limits.per_client_runs, limits.per_client_window_s,
+                                        global_limit=limits.global_runs_per_hour))
     app = FastAPI(title="Placement Studio")
-    app.state.services = svc
+    app.state.deps = deps
     app.include_router(router)
     for kind in ERRORS:
         app.add_exception_handler(kind, _handle_error)
